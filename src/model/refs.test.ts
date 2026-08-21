@@ -12,7 +12,7 @@
 import { describe, expect, it } from "vitest";
 import { STUB_AUTHORING } from "../host/authoring-stub.js";
 import { STUB_RECORDS } from "../host/stub-content.js";
-import { checkIdentity, labelOf, ownerOf, refFor, refOf, splitRef } from "./refs.js";
+import { checkIdentity, draftLabel, labelOf, ownerOf, refFor, splitRef } from "./refs.js";
 
 const api = STUB_AUTHORING;
 
@@ -63,9 +63,15 @@ describe("refs", () => {
     expect(ownerOf(api, { name: "x", $from: { owner: "qol" } })).toBe("qol");
   });
 
-  it("build a full ref from a composed record", () => {
-    expect(refOf(api, "monster", { name: "grey wolf" })).toBe("core:grey-wolf");
-    expect(refOf(api, "monster", {})).toBeNull();
+});
+
+describe("draftLabel", () => {
+  it("names an unnamed record rather than diagnosing it", () => {
+    /* "(no identity)" is the right answer to "can the game address this" and the
+     * wrong answer to "what is this row in my own list of unfinished work". */
+    expect(draftLabel(api, "monster", {})).toBe("(not named yet)");
+    expect(draftLabel(api, "monster", { name: "" })).toBe("(not named yet)");
+    expect(draftLabel(api, "monster", { name: "dire wolf" })).toBe("dire wolf");
   });
 });
 

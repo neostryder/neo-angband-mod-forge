@@ -31,13 +31,6 @@ export function ownerOf(api: AuthoringApi, record: JsonRecord): string {
   return api.provenanceOf(record)?.owner ?? "core";
 }
 
-/** The ref a composed record is addressed by, or null when it has no identity. */
-export function refOf(api: AuthoringApi, file: string, record: JsonRecord): string | null {
-  const key = api.recordKey(file, record);
-  if (key === null) return null;
-  return refFor(ownerOf(api, record), key);
-}
-
 /** What a proposed record's identity would be, and whether it can have one. */
 export interface IdentityCheck {
   /** The key the record would be addressed by, or null when it can have none. */

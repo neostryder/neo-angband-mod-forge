@@ -1249,64 +1249,14 @@ var DraftWriter = class {
   }
 };
 
-// src/model/draft.ts
-var ID_RE2 = /^[a-z][a-z0-9-]*$/;
-var VERSION_RE2 = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
-function newDraft(id, engine, now) {
-  return {
-    id,
-    name: titleFrom(id),
-    version: "0.1.0",
-    author: "",
-    description: "",
-    repository: `local://${id}`,
-    license: "GPL-2.0-only",
-    engine: engineRangeFor(engine),
-    group: "content",
-    fields: [],
-    changes: [],
-    touched: now
-  };
-}
-function titleFrom(id) {
-  return id.split("-").filter((part) => part !== "").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
-}
-function engineRangeFor(engine) {
-  const m = /^(\d+)\.(\d+)\.(\d+)/.exec(engine.trim());
-  if (!m) return "*";
-  return `>=${m[1]}.${m[2]}.${m[3]}`;
-}
-function groupFor(changes) {
-  return changes.some((c) => c.kind === "add" || c.kind === "replace") ? "content" : "tweaks";
-}
-function dependenciesFor(changes) {
-  const out = {};
-  for (const change of changes) {
-    if (change.kind === "add") continue;
-    const owner = change.ref.includes(":") ? change.ref.split(":")[0] ?? "core" : "core";
-    out[owner] = "*";
-  }
-  return out;
-}
-function draftSize(draft) {
-  let added = 0;
-  let patched = 0;
-  let removed = 0;
-  for (const change of draft.changes) {
-    if (change.kind === "add") added++;
-    else if (change.kind === "patch") patched++;
-    else if (change.kind === "replace") patched++;
-    else removed++;
-  }
-  return { added, patched, removed };
-}
-function draftFiles(draft) {
-  return [...new Set(draft.changes.map((c) => c.file))].sort();
-}
-
 // src/model/refs.ts
 function refFor(owner, key) {
   return `${owner}:${key}`;
+}
+function splitRef(ref) {
+  const at = ref.indexOf(":");
+  if (at < 0) return { owner: "core", key: ref };
+  return { owner: ref.slice(0, at), key: ref.slice(at + 1) };
 }
 function ownerOf(api, record) {
   return api.provenanceOf(record)?.owner ?? "core";
@@ -1362,6 +1312,60 @@ function valueAt(record, path) {
     at = at[segment];
   }
   return at;
+}
+
+// src/model/draft.ts
+var ID_RE2 = /^[a-z][a-z0-9-]*$/;
+var VERSION_RE2 = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+function newDraft(id, engine, now) {
+  return {
+    id,
+    name: titleFrom(id),
+    version: "0.1.0",
+    author: "",
+    description: "",
+    repository: `local://${id}`,
+    license: "GPL-2.0-only",
+    engine: engineRangeFor(engine),
+    group: "content",
+    fields: [],
+    changes: [],
+    touched: now
+  };
+}
+function titleFrom(id) {
+  return id.split("-").filter((part) => part !== "").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
+}
+function engineRangeFor(engine) {
+  const m = /^(\d+)\.(\d+)\.(\d+)/.exec(engine.trim());
+  if (!m) return "*";
+  return `>=${m[1]}.${m[2]}.${m[3]}`;
+}
+function groupFor(changes) {
+  return changes.some((c) => c.kind === "add" || c.kind === "replace") ? "content" : "tweaks";
+}
+function dependenciesFor(changes) {
+  const out = {};
+  for (const change of changes) {
+    if (change.kind === "add") continue;
+    out[splitRef(change.ref).owner] = "*";
+  }
+  return out;
+}
+function draftSize(draft) {
+  let added = 0;
+  let patched = 0;
+  let removed = 0;
+  for (const change of draft.changes) {
+    if (change.kind === "add") added++;
+    else if (change.kind === "patch") patched++;
+    else if (change.kind === "replace") patched++;
+    else removed++;
+  }
+  return { added, patched, removed };
+}
+function draftFiles(draft) {
+  return [...new Set(draft.changes.map((c) => c.file))].sort();
 }
 
 // src/model/zip.ts
@@ -1607,6 +1611,9 @@ function opSet(path, value) {
 }
 function opNudge(path, delta) {
   return { op: "add", path, value: delta };
+}
+function opScale(path, factor) {
+  return { op: "mul", path, value: factor };
 }
 function opFlag(path, flag, on) {
   return on ? { op: "addFlag", path, flag } : { op: "removeFlag", path, flag };
@@ -2102,7 +2109,7 @@ var Actions = class {
       const changes = [...draft.changes];
       for (const ref of refs) {
         const at = changes.findIndex((c) => c.kind === "patch" && c.file === file && c.ref === ref);
-        const made = op === "add" ? { op: "add", path, value } : { op: "mul", path, value };
+        const made = op === "add" ? opNudge(path, value) : opScale(path, value);
         const found = at >= 0 ? changes[at] : void 0;
         if (found && found.kind === "patch") changes[at] = recordOp(found, made);
         else changes.push({ kind: "patch", file, ref, ops: [made] });

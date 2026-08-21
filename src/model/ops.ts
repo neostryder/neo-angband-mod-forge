@@ -61,10 +61,17 @@ export function opDeleteRow(path: string, value: JsonValue): FieldOp {
   return { op: "removeValue", path, value };
 }
 
-/** Change some keys of an object and leave the rest alone. */
-export function opMerge(path: string, value: JsonRecord): FieldOp {
-  return { op: "merge", path, value };
-}
+/*
+ * `merge` is the eighth op and it has NO GESTURE HERE, deliberately.
+ *
+ * It changes some keys of an object and leaves the rest alone, which sounds like
+ * exactly what editing one field of a nested group is. It is not: editing one
+ * field of a nested group is a `set` on that field's own path, which says the same
+ * thing more narrowly, collides with another mod only if they touched the SAME
+ * leaf, and reads back as what the author did. A `merge` on the parent would claim
+ * the whole group. So the op stays available to a hand-written mod and the
+ * workshop has no button for it.
+ */
 
 /** One sentence describing an op, in the words the player used to make it. */
 export function describeOp(op: FieldOp): string {

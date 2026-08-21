@@ -40,8 +40,3 @@ export interface Workshop {
   /** The bound registries, for resolving a name to something the game can place. */
   readonly registries?: RegistriesLike;
 }
-
-/** A view that needs no updates: static prose, an error, an empty state. */
-export function staticView(el: HTMLElement): View {
-  return { el, update: () => undefined, dispose: () => undefined };
-}

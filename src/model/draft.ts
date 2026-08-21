@@ -17,6 +17,7 @@
  */
 
 import type { FieldDecl, FieldOp, JsonRecord } from "../host/authoring.js";
+import { splitRef } from "./refs.js";
 
 /** One thing the player has done, in the order they did it. */
 export type Change =
@@ -146,8 +147,7 @@ export function dependenciesFor(changes: readonly Change[]): Record<string, stri
   const out: Record<string, string> = {};
   for (const change of changes) {
     if (change.kind === "add") continue;
-    const owner = change.ref.includes(":") ? (change.ref.split(":")[0] ?? "core") : "core";
-    out[owner] = "*";
+    out[splitRef(change.ref).owner] = "*";
   }
   return out;
 }

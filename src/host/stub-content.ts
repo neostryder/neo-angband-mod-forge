@@ -373,5 +373,3 @@ export const STUB_RECORDS: Readonly<Record<string, readonly JsonRecord[]>> = Obj
   store: STORES,
 });
 
-/** The four kinds the fixture can speak for. Everything else has no data here. */
-export const STUB_FILES: readonly string[] = ["monster", "monster_base", "object", "store"];

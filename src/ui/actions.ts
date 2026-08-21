@@ -18,6 +18,7 @@ import type { Change, Draft } from "../model/draft.js";
 import { ID_RE, newDraft } from "../model/draft.js";
 import { buildDraft, emitDraft, manifestFor, zipDraft } from "../model/build.js";
 import type { DraftWriter } from "../model/persist.js";
+import { opNudge, opScale } from "../model/ops.js";
 import { editValue, recordOp, removeValue, targetFor } from "../model/target.js";
 import type { AppState, Route } from "./store.js";
 import { openDraft, Store } from "./store.js";
@@ -235,7 +236,7 @@ export class Actions {
       const changes = [...draft.changes];
       for (const ref of refs) {
         const at = changes.findIndex((c) => c.kind === "patch" && c.file === file && c.ref === ref);
-        const made: FieldOp = op === "add" ? { op: "add", path, value } : { op: "mul", path, value };
+        const made: FieldOp = op === "add" ? opNudge(path, value) : opScale(path, value);
         const found = at >= 0 ? changes[at] : undefined;
         if (found && found.kind === "patch") changes[at] = recordOp(found, made);
         else changes.push({ kind: "patch", file, ref, ops: [made] });
