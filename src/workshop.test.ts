@@ -188,8 +188,26 @@ describe("the player's journey", () => {
     expect(values["base"]).toBe("canine");
     expect(Number(values["hit-points"])).toBeGreaterThan(0);
 
-    /* And none of its attacks: shape and scale carry over, powers do not. */
+    /* And none of its attacks. The FIELD is there, because almost every creature
+     * in the game has one and a record without it is missing something; what is
+     * not there is the wolf's own bites. Shape and scale carry over, powers do
+     * not, and the difference between "no blow field" and "an empty blow field"
+     * is the difference between a broken record and a record waiting for you. */
     expect(values["blow"]).toBeUndefined();
+    const blowRow = [...shadow().querySelectorAll<HTMLElement>(".mb-field")].find(
+      (row) => (row.querySelector(".mb-label-name")?.textContent ?? "") === "blow",
+    );
+    expect(blowRow).toBeDefined();
+    expect(blowRow?.querySelectorAll(".mb-row")).toHaveLength(0);
+  });
+
+  it("names a record that has not been named yet, rather than diagnosing it", () => {
+    /* "(no identity)" is the right answer to "can the game address this" and the
+     * wrong answer to "what is this row in my own list of work". */
+    walkToTheEditor();
+    const rail = shadow().querySelector(".mb-listrow-name")?.textContent ?? "";
+    expect(rail).toBe("(not named yet)");
+    expect(rail).not.toContain("no identity");
   });
 
   it("says what a name would collide with, as it is typed", () => {

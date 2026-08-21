@@ -142,7 +142,9 @@ export class Actions {
     const index = (openDraft(this.deps.store.get())?.changes.length ?? 1) - 1;
     this.go({ at: "record", change: index, path: "" });
     if (drafted.modelledOn !== undefined) {
-      this.notice(`Modelled on ${drafted.modelledOn}, minus anything that would have given it powers.`);
+      /* Short enough for the status line, which does not wrap: a sentence that
+       * ends in an ellipsis has told the reader nothing. */
+      this.notice(`Modelled on ${drafted.modelledOn}. No attacks or flags were copied.`);
     }
   }
 

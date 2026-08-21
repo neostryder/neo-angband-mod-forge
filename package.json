@@ -26,6 +26,7 @@
   ],
   "scripts": {
     "build": "node tools/build.mjs",
+    "preview": "node tools/preview.mjs",
     "check": "node tools/build.mjs --check",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

@@ -96,6 +96,17 @@ export function checkIdentity(
 }
 
 /**
+ * What to call a record the author has started and not yet named.
+ *
+ * A brand new record has no identity, and `labelOf` correctly says so - but "(no
+ * identity)" is a diagnosis, and a row in a list of your own work wants a name.
+ * These are two different questions and they get two different answers.
+ */
+export function draftLabel(api: AuthoringApi, file: string, record: JsonRecord): string {
+  return api.recordKey(file, record) === null ? "(not named yet)" : labelOf(api, file, record);
+}
+
+/**
  * A short label for a composed record, for a list row.
  *
  * Falls through the identity fields the record-key table actually uses rather

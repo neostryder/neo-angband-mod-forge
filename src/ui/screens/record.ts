@@ -40,7 +40,7 @@ import type { AppState } from "../store.js";
 import { openDraft } from "../store.js";
 import { asideSection, button, card, empty, listRow, searchBox } from "../widgets.js";
 import type { View, Workshop } from "../view.js";
-import { labelOf } from "../../model/refs.js";
+import { draftLabel, labelOf } from "../../model/refs.js";
 
 export function recordScreen(shop: Workshop, index: number, path: string): View {
   const rail = h("div", null);
@@ -221,7 +221,10 @@ export function recordScreen(shop: Workshop, index: number, path: string): View 
       ...draft.changes.map((change, at) =>
         listRow({
           badge: change.file.charAt(0).toUpperCase(),
-          name: change.kind === "add" || change.kind === "replace" ? labelOf(shop.api, change.file, change.record) || "(unnamed)" : change.ref,
+          name:
+            change.kind === "add" || change.kind === "replace"
+              ? draftLabel(shop.api, change.file, change.record)
+              : change.ref,
           meta: change.file,
           selected: at === index,
           onClick: () => shop.acts.go({ at: "record", change: at, path: "" }),
@@ -237,7 +240,7 @@ export function recordScreen(shop: Workshop, index: number, path: string): View 
       h("button", {
         class: "mb-crumb",
         type: "button",
-        text: labelOf(shop.api, target.file, record) || kind.title,
+        text: draftLabel(shop.api, target.file, record),
         aria: parts.length === 0 ? { current: "page" } : {},
         on: { click: () => shop.acts.go({ at: "record", change: index, path: "" }) },
       }),

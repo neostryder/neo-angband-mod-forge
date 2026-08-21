@@ -22,7 +22,7 @@ import { button, card, empty, fillList, listRow, textField } from "../widgets.js
 import { dependenciesFor, groupFor, ID_RE, VERSION_RE } from "../../model/draft.js";
 import type { AppState } from "../store.js";
 import { openDraft } from "../store.js";
-import { labelOf } from "../../model/refs.js";
+import { draftLabel } from "../../model/refs.js";
 
 export function detailsScreen(shop: Workshop): View {
   const el = h("div", { class: "mb-main" });
@@ -187,10 +187,7 @@ export function detailsScreen(shop: Workshop): View {
             : change.kind === "replace"
               ? "replaced whole"
               : "removed";
-      const label =
-        change.kind === "add"
-          ? labelOf(shop.api, change.file, change.record) || "(unnamed)"
-          : change.ref;
+      const label = change.kind === "add" ? draftLabel(shop.api, change.file, change.record) : change.ref;
       const row = listRow({
         badge: change.file.charAt(0).toUpperCase(),
         name: label,

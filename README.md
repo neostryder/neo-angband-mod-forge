@@ -191,6 +191,17 @@ To develop against an engine change that has not been released yet:
 NEO_ANGBAND_LOCAL_CORE=1 npm test
 ```
 
+To look at the workshop in a browser with no game at all:
+
+```
+npm run preview
+```
+
+That serves the repository and opens a harness page which builds the narrowest
+context the mod actually reads, hands it to the plugin, and taps the tab. Every
+seam is absent there, which is exactly the state a player is in today, so what
+appears is what appears in the game.
+
 ## Licence
 
 GPL-2.0-only, or the Angband licence. See `LICENSE.md`.

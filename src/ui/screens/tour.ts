@@ -110,7 +110,7 @@ export function tourScreen(shop: Workshop): View {
       { class: "mb-card", data: { open: "1" } },
       h(
         "div",
-        { class: "mb-card-head" },
+        { class: "mb-card-head mb-head-stacked" },
         h("span", { class: "mb-kind-badge", text: lesson.badge }),
         h(
           "span",
@@ -144,7 +144,7 @@ export function tourScreen(shop: Workshop): View {
     { class: "mb-card", data: { open: "1" } },
     h(
       "div",
-      { class: "mb-card-head" },
+      { class: "mb-card-head mb-head-stacked" },
       h("span", { class: "mb-kind-badge", text: "+" }),
       h(
         "span",

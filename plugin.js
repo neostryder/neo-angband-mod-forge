@@ -1337,6 +1337,9 @@ function checkIdentity(api, file, draft, owner, records) {
   }
   return { key, ref, collides: false, says: `This will be addressed as ${ref}.` };
 }
+function draftLabel(api, file, record) {
+  return api.recordKey(file, record) === null ? "(not named yet)" : labelOf(api, file, record);
+}
 function labelOf(api, file, record) {
   const spec = api.keySpecFor(file);
   if (spec.kind === "fields") {
@@ -2015,7 +2018,7 @@ var Actions = class {
     const index = (openDraft(this.deps.store.get())?.changes.length ?? 1) - 1;
     this.go({ at: "record", change: index, path: "" });
     if (drafted.modelledOn !== void 0) {
-      this.notice(`Modelled on ${drafted.modelledOn}, minus anything that would have given it powers.`);
+      this.notice(`Modelled on ${drafted.modelledOn}. No attacks or flags were copied.`);
     }
   }
   /** Start adjusting a record somebody else owns. */
@@ -3084,7 +3087,7 @@ function detailsScreen(shop) {
     );
     const rows = current.changes.map((change, index) => {
       const kindLabel = change.kind === "add" ? "new" : change.kind === "patch" ? `${change.ops.length} adjustment${change.ops.length === 1 ? "" : "s"}` : change.kind === "replace" ? "replaced whole" : "removed";
-      const label = change.kind === "add" ? labelOf(shop.api, change.file, change.record) || "(unnamed)" : change.ref;
+      const label = change.kind === "add" ? draftLabel(shop.api, change.file, change.record) : change.ref;
       const row = listRow({
         badge: change.file.charAt(0).toUpperCase(),
         name: label,
@@ -3946,7 +3949,7 @@ function recordScreen(shop, index, path) {
       ...draft.changes.map(
         (change, at) => listRow({
           badge: change.file.charAt(0).toUpperCase(),
-          name: change.kind === "add" || change.kind === "replace" ? labelOf(shop.api, change.file, change.record) || "(unnamed)" : change.ref,
+          name: change.kind === "add" || change.kind === "replace" ? draftLabel(shop.api, change.file, change.record) : change.ref,
           meta: change.file,
           selected: at === index,
           onClick: () => shop.acts.go({ at: "record", change: at, path: "" })
@@ -3961,7 +3964,7 @@ function recordScreen(shop, index, path) {
       h("button", {
         class: "mb-crumb",
         type: "button",
-        text: labelOf(shop.api, target.file, record) || kind.title,
+        text: draftLabel(shop.api, target.file, record),
         aria: parts.length === 0 ? { current: "page" } : {},
         on: { click: () => shop.acts.go({ at: "record", change: index, path: "" }) }
       })
@@ -4549,7 +4552,7 @@ function tourScreen(shop) {
       { class: "mb-card", data: { open: "1" } },
       h(
         "div",
-        { class: "mb-card-head" },
+        { class: "mb-card-head mb-head-stacked" },
         h("span", { class: "mb-kind-badge", text: lesson.badge }),
         h(
           "span",
@@ -4580,7 +4583,7 @@ function tourScreen(shop) {
     { class: "mb-card", data: { open: "1" } },
     h(
       "div",
-      { class: "mb-card-head" },
+      { class: "mb-card-head mb-head-stacked" },
       h("span", { class: "mb-kind-badge", text: "+" }),
       h(
         "span",
@@ -4946,7 +4949,7 @@ function mountApp(deps) {
   };
 }
 function subtitleFor(state, name) {
-  if (state.route.at === "tour") return "Four things people usually make, and where each one is written down";
+  if (state.route.at === "tour") return "What people usually make, and where each one is written down";
   if (name === void 0) return "Make your own mod, without leaving the game";
   const size = Object.keys(state.drafts).length;
   return `${name} - ${size} unfinished mod${size === 1 ? "" : "s"} in this install`;
@@ -5245,7 +5248,23 @@ var THEME_CSS = `
   background: color-mix(in srgb, var(--surface-2) 65%, transparent);
   box-shadow: var(--inset);
   overflow: hidden;
+  /* MEASURED, not defensive. An overflow of hidden makes a flex item's automatic
+   * minimum height resolve to zero, so in the column flex layout of a screen a
+   * card shrinks until its own content is clipped away - which is exactly what it
+   * did. This line is what stops that; removing it clips every card on any screen
+   * with more content than height. */
+  flex: none;
 }
+
+/* A head with two lines in it wants its parts aligned at the top rather than on
+ * a shared baseline: the second line is a block, and a baseline through it puts
+ * the badge halfway down the card. */
+.mb-card-head.mb-head-stacked {
+  align-items: flex-start;
+  gap: 12px;
+  cursor: default;
+}
+.mb-card-head.mb-head-stacked:hover { background: none; }
 
 .mb-card-head {
   display: flex;
@@ -5533,9 +5552,25 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   border-color: color-mix(in srgb, var(--gold) 50%, transparent);
   background: color-mix(in srgb, var(--gold) 15%, transparent);
 }
-.mb-listrow-main { min-width: 0; }
-.mb-listrow-name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mb-listrow-meta { font-size: 11px; color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A row's two lines have to BE two lines. Both are inline elements, and
+ * ellipsis-on-nowrap does nothing to an inline box, so without this the name and
+ * the note run together into one unreadable string - which is what they did. */
+.mb-listrow-main { min-width: 0; display: grid; }
+.mb-listrow-name {
+  display: block;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mb-listrow-meta {
+  display: block;
+  font-size: 11px;
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .mb-badge {
   display: inline-grid;

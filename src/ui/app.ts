@@ -312,7 +312,7 @@ export function mountApp(deps: AppDeps): App {
 }
 
 function subtitleFor(state: AppState, name: string | undefined): string {
-  if (state.route.at === "tour") return "Four things people usually make, and where each one is written down";
+  if (state.route.at === "tour") return "What people usually make, and where each one is written down";
   if (name === undefined) return "Make your own mod, without leaving the game";
   const size = Object.keys(state.drafts).length;
   return `${name} - ${size} unfinished mod${size === 1 ? "" : "s"} in this install`;

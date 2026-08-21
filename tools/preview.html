@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mod Builder preview</title>
+    <style>
+      /* A stand-in for the game: a black canvas with something on it, so the
+         overlay can be judged over the ground it actually sits over rather than
+         over white. Nothing here is the game's own styling, and nothing here is
+         reachable from inside the workshop's shadow root. */
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #000;
+        color: #6f6f5a;
+        font: 14px/1.3 "Cascadia Mono", Consolas, monospace;
+        overflow: hidden;
+      }
+      pre {
+        margin: 0;
+        padding: 12px;
+        white-space: pre;
+      }
+      .note {
+        position: fixed;
+        left: 12px;
+        bottom: 12px;
+        color: #8a8a70;
+      }
+    </style>
+  </head>
+  <body>
+    <pre id="floor"></pre>
+    <div class="note">Stand-in for the game. The workshop opens over it.</div>
+
+    <script type="module">
+      /*
+       * A harness for looking at the workshop in a real browser, with no game.
+       *
+       * It builds the narrowest context the mod actually reads, hands it to the
+       * plugin's own `regions` factory, and taps the tab. Every seam is absent,
+       * which is exactly the state a player is in on the engine this was built
+       * against, so what appears here is what appears there.
+       *
+       * `npm run preview` serves the repository root and opens this page. The
+       * server exists because a module script cannot import a relative file over
+       * file://, which is the browser's rule and not this mod's.
+       */
+      import plugin from "../plugin.js";
+
+      /* Something to look at behind the overlay. */
+      const rows = [];
+      for (let y = 0; y < 24; y++) {
+        let row = "";
+        for (let x = 0; x < 80; x++) {
+          row += y === 0 || y === 23 || x === 0 || x === 79 ? "#" : ((x * 7 + y * 13) % 29 === 0 ? "." : " ");
+        }
+        rows.push(row);
+      }
+      document.getElementById("floor").textContent = rows.join("\n");
+
+      /* One JSON value, in memory, standing in for the host's own preference
+       * store. Reload the page and the drafts are gone, which is the point of a
+       * preview and not what a player gets. */
+      let held;
+      const prefs = {
+        get: () => held,
+        set: (value) => {
+          held = value;
+        },
+      };
+
+      const ctx = {
+        id: "builder",
+        engine: "0.25.0",
+        flags: { "builder.showTab": true, "builder.keepDrafts": true, "builder.cheatSpawn": false },
+        core: {},
+        prefs,
+        log: (msg) => console.log(`[builder] ${msg}`),
+      };
+
+      const regions = plugin.regions(ctx);
+      const workshop = regions[0];
+      if (!workshop) throw new Error("the plugin declared no region, so there is no tab to tap");
+
+      /* Tap it, so the page opens on the workshop rather than on the stand-in. */
+      workshop.input({ col: 0, row: 0, kind: "tap" });
+    </script>
+  </body>
+</html>
