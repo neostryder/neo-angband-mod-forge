@@ -1,0 +1,57 @@
+{
+  "name": "neo-angband-mod-builder",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mod Builder: author a Neo Angband mod from inside the game, without a text editor",
+  "license": "GPL-2.0-only",
+  "author": "neostryder (RPGM Tools)",
+  "homepage": "https://github.com/neostryder/neo-angband-mod-builder",
+  "type": "module",
+  "//private": [
+    "Not published to npm, and not intended to be. A mod is distributed as a FOLDER the",
+    "game fetches - manifest.json plus plugin.js, at a tag, verified against a digest",
+    "that ships inside the game. npm is not in that path, and publishing would create a",
+    "second way to get this mod that nothing checks."
+  ],
+  "//dependencies": [
+    "The engine is a devDependency, never a dependency. plugin.js receives it as",
+    "ctx.core at load time; a runtime dependency would mean a second copy of the",
+    "engine's module state living inside the mod, which the builder refuses outright.",
+    "So it is here for TYPES and for the tests.",
+    "The mod SDK is different here than in every other mod in this family: this mod",
+    "CALLS it at runtime rather than only building against it. It still is not a runtime",
+    "dependency, for the same reason core is not - plugin.js resolves no specifier. The",
+    "authoring functions arrive on ctx.core, which re-exports them, and the SDK is here",
+    "for types, for the tests, and for tools/build.mjs."
+  ],
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "check": "node tools/build.mjs --check",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "verify": "npm run typecheck && npm run test && npm run check"
+  },
+  "devDependencies": {
+    "@rpgm-tools/neo-angband-core": "^0.25.0",
+    "@rpgm-tools/neo-angband-mod-sdk": "^0.25.0",
+    "@types/node": "^22.20.1",
+    "esbuild": "^0.28.1",
+    "fflate": "^0.8.3",
+    "jsdom": "^28.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "//allowScripts": [
+    "npm 12 blocks a dependency postinstall unless it is named here; npm 10, which this",
+    "repo CI still runs on Node 22, just runs it. Denied rather than approved because it",
+    "was MEASURED to be unnecessary in the sibling mod repositories: esbuild resolves its",
+    "binary through the platform optionalDependency (@esbuild/<plat>), and",
+    "`require(\"esbuild\").version` answers with the postinstall skipped."
+  ],
+  "allowScripts": {
+    "esbuild": false
+  }
+}

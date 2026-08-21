@@ -1,0 +1,43 @@
+{
+  "id": "builder",
+  "name": "Mod Builder",
+  "version": "0.1.0",
+  "shape": "plugin",
+  "facets": [
+    "plugin"
+  ],
+  "modApi": 1,
+  "group": "interface",
+  "affectsGameplay": true,
+  "engine": ">=0.25.0",
+  "dependencies": {
+    "core": "*"
+  },
+  "capabilities": [
+    "ui:region.create"
+  ],
+  "author": "neostryder",
+  "license": "GPL-2.0-only",
+  "description": "Make your own mod from inside the game. Pick something that already exists - a monster, a sword, a shop, a spell - and the workshop shows you what it is made of, what its neighbours in the game carry for every number, and what would have to change to make the thing you had in mind. When you are happy it packs the result up and hands it to you as a mod you can install and play.\n\nIt never asks you what JSON is. It also never hides it: every screen can show you the exact file it is about to write, and a mod it built can be taken away, hand-edited and brought back.\n\nThe workshop tab appears in the corner of the screen. Tap it to open.",
+  "rules": [
+    {
+      "flag": "builder.showTab",
+      "title": "Show the workshop tab",
+      "description": "Puts a small tab in the corner of the main screen. Tapping it opens the workshop. On by default, because the tab is the only way in and a mod builder you cannot open is not one.",
+      "default": true
+    },
+    {
+      "flag": "builder.keepDrafts",
+      "title": "Remember work in progress",
+      "description": "Keeps unfinished mods between sessions, in this install's own settings rather than in any character's save. Off means the workshop starts empty every time and the only way to keep something is to finish it. On by default, and worth knowing that the store it uses can quietly run out of room, so a finished mod is the only save point the workshop can promise.",
+      "default": true
+    },
+    {
+      "flag": "builder.cheatSpawn",
+      "title": "Let me spawn what I built, to test it",
+      "description": "Adds a Test panel that puts a creature or an item straight in front of you, so you can look at the thing you just made without going and finding it. Off by default, and it stays off until you say otherwise for one reason: Angband marks a character that has been handed anything this way, permanently, and a marked character is barred from the high score list for the rest of its life. The workshop says so again before it spawns the first thing.",
+      "default": false
+    }
+  ],
+  "repository": "https://github.com/neostryder/neo-angband-mod-builder"
+}

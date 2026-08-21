@@ -1,0 +1,33 @@
+# Typecheck, test, and prove the committed plugin.js is current.
+#
+# EVERYTHING COMES FROM npm. This mod needs no checkout of the game: its tests boot
+# the workshop into a synthetic document and drive it by clicking things, against the
+# demonstration content that ships in the mod itself. That is the same content a
+# player sees until the engine seams in docs/ENGINE_SEAMS.md land, so the tests
+# exercise exactly what is shipped rather than a fixture invented for them.
+
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # typecheck, then test, then confirm the committed plugin.js is a current build of
+      # the source. That last one is the check nothing else in the chain can make: the
+      # catalogue's SHA-256 is taken FROM plugin.js, so a stale artefact verifies
+      # perfectly and is the file players run.
+      - run: npm run verify
