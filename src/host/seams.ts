@@ -20,7 +20,12 @@
 import type { AuthoringApi, ComposedRecords } from "./authoring.js";
 import { STUB_AUTHORING } from "./authoring-stub.js";
 import { STUB_RECORDS } from "./stub-content.js";
-import type { BuilderCtx, InstallModResult, WizardDepsLike } from "./context.js";
+import type {
+  BuilderCtx,
+  InstallModResult,
+  SessionModResult,
+  WizardDepsLike,
+} from "./context.js";
 import { FLAG } from "./context.js";
 
 /** Whether a capability is real, and the sentence to show when it is not. */
@@ -52,9 +57,17 @@ export interface SpawnSeam extends SeamState {
   readonly state?: object;
 }
 
+export interface SessionSeam extends SeamState {
+  load(bytes: Uint8Array): Promise<SessionModResult>;
+  reload(): Promise<void>;
+  /** True when reloading has to be done by hand because there is no seam for it. */
+  readonly reloadByHand: boolean;
+}
+
 export interface Seams {
   readonly authoring: AuthoringSeam;
   readonly install: InstallSeam;
+  readonly session: SessionSeam;
   readonly spawn: SpawnSeam;
   /** The engine version string, for the range an emitted mod declares. */
   readonly engine: string;
@@ -72,6 +85,11 @@ const NO_INSTALL =
   "This game has no way for a mod to install another mod, so the workshop saves the finished mod as a file " +
   "and you add it with Import a zip on the Mods screen. That path is two extra steps and leaves you holding " +
   "a file you can read, keep and share.";
+
+const NO_SESSION =
+  "This game has no way to load a mod for one session, so trying one means installing it: the workshop saves " +
+  "the finished mod as a file, you add it with Import a zip on the Mods screen, turn it on and reload. That " +
+  "leaves the mod in your library, which is where you want it once it is finished anyway.";
 
 const NO_SPAWN_SEAM =
   "This game cannot lend the workshop its spawning machinery yet, so nothing can be put in front of you for " +
@@ -118,9 +136,25 @@ export function resolveSeams(ctx: BuilderCtx): Seams {
         reloadByHand: true,
       };
 
+  const stager = ctx.loadModForSession;
+  const session: SessionSeam = stager
+    ? {
+        available: true,
+        load: stager,
+        reload: reloader ?? (async () => undefined),
+        reloadByHand: reloader === undefined,
+      }
+    : {
+        available: false,
+        why: NO_SESSION,
+        load: async () => ({ ok: false as const, problem: NO_SESSION }),
+        reload: async () => undefined,
+        reloadByHand: true,
+      };
+
   const spawn = resolveSpawn(ctx);
 
-  return { authoring, install, spawn, engine: ctx.engine };
+  return { authoring, install, session, spawn, engine: ctx.engine };
 }
 
 function resolveSpawn(ctx: BuilderCtx): SpawnSeam {

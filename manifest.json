@@ -9,16 +9,17 @@
   "modApi": 1,
   "group": "interface",
   "affectsGameplay": true,
-  "engine": ">=0.25.0",
+  "engine": ">=0.26.0",
   "dependencies": {
     "core": "*"
   },
   "capabilities": [
-    "ui:region.create"
+    "ui:region.create",
+    "mod:session"
   ],
   "author": "neostryder",
   "license": "GPL-2.0-only",
-  "description": "Make your own mod from inside the game. Pick something that already exists - a monster, a sword, a shop, a spell - and the workshop shows you what it is made of, what its neighbours in the game carry for every number, and what would have to change to make the thing you had in mind. When you are happy it packs the result up and hands it to you as a mod you can install and play.\n\nIt never asks you what JSON is. It also never hides it: every screen can show you the exact file it is about to write, and a mod it built can be taken away, hand-edited and brought back.\n\nThe workshop tab appears in the corner of the screen. Tap it to open.",
+  "description": "Make your own mod from inside the game. Pick something that already exists - a monster, a sword, a shop, a spell - and the workshop shows you what it is made of, what its neighbours in the game carry for every number, and what would have to change to make the thing you had in mind. When you are happy it packs the result up: try it in this session to play it straight away, install it to keep it, or save it as a file to hand to somebody.\n\nIt never asks you what JSON is. It also never hides it: every screen can show you the exact file it is about to write, and a mod it built can be taken away, hand-edited and brought back.\n\nThe workshop tab appears in the corner of the screen. Tap it to open.",
   "rules": [
     {
       "flag": "builder.showTab",

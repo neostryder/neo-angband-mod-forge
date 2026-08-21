@@ -60,6 +60,14 @@ it against; what follows is what it does.
 - **The finished mod as a file**, always, whether or not the game offers a way to
   install one in place. The file is a zip the mod manager's own `Import a zip`
   accepts, and it is the only copy of the work that exists outside the browser.
+- **Forge and try it now**, which loads the finished mod for the rest of the
+  session without adding it to the player's mods. It composes into the game on the
+  next reload exactly as an installed pack does, and it is forgotten when the game
+  is closed - so the build, look, change loop leaves nothing behind in the library.
+  The note under the button says the half that "just for this session" hides: this
+  is the real mod and not a preview, so the character who plays it keeps whatever
+  it does to them, and next launch, with the pack gone, the game treats anything it
+  added as belonging to something that is not installed.
 - **A Test panel that puts a creature or an item in front of the player**, using
   the game's own debug commands, for looking at something rather than going to find
   it. Off by default and it stays off until the player says otherwise: Angband
@@ -73,16 +81,23 @@ it against; what follows is what it does.
 
 ### Known limitations, stated here because they change what the mod is
 
-- **The numbers are a demonstration.** Four engine seams this needs do not exist,
-  so the records the workshop draws its evidence from are its own fixture of a few
-  dozen invented entries rather than the game's own content. Every suggestion,
-  every evidence table and every usage share is therefore about the fixture. A
-  banner says so and cannot be dismissed, and the validator returns a note on every
-  call saying that its checks are the workshop's own small set and not the game's.
-  `docs/ENGINE_SEAMS.md` specifies all four seams; `PLANNED.md` records what each
-  one blocks.
-- **A finished mod is saved as a file and added through the mod manager.** There is
-  no way yet for a mod to install another mod.
+- **The numbers are a demonstration.** Four of the five engine seams this needs do
+  not exist, so the records the workshop draws its evidence from are its own fixture
+  of a few dozen invented entries rather than the game's own content. Every
+  suggestion, every evidence table and every usage share is therefore about the
+  fixture. A banner says so and cannot be dismissed, and the validator returns a
+  note on every call saying that its checks are the workshop's own small set and not
+  the game's. `docs/ENGINE_SEAMS.md` specifies all five seams; `PLANNED.md` records
+  what each one blocks.
+- **A finished mod is either tried for the session or saved as a file and added
+  through the mod manager.** There is no way yet for a mod to put another mod into
+  the library for keeps.
+- **What is temporary about trying a mod is the mod, not what it does.** The
+  archive is forgotten; a character it changed stays changed, and the values seen at
+  save time can differ next launch because a pack's adjustments live in the
+  composition rather than in the save. The lifetime is also a convention rather than
+  a boundary: a browser that restores a closed window restores the staged mod with
+  it, which is why the game lists it, marks it, and offers a way to drop it.
 - **Unfinished work can be lost.** Drafts live in this install's own settings,
   whose write path catches a quota error and logs it rather than failing. Every
   write is read back and a failure is reported at the moment it happens, and the

@@ -1,16 +1,22 @@
 # The engine seams this mod needs
 
-Four seams, each stated as a shape rather than a wish: what it is called, what
+Five seams, each stated as a shape rather than a wish: what it is called, what
 capability gates it, what it takes, what it returns, and what the mod does when
-it is absent. Nothing here is in the engine yet. Every one of them has a
-fallback, and the fallback is what runs today, so the workshop is openable and
-every screen renders on engine 0.25.0. What the fallbacks cannot do is written
-down beside each seam and again in `PLANNED.md`.
+it is absent. Every one of them has a fallback, and the fallback is what runs on
+an engine that lacks the seam, so the workshop is openable and every screen
+renders. What the fallbacks cannot do is written down beside each seam and again
+in `PLANNED.md`.
 
-The seams are ordered by how much they cost to leave out. Seam 1 is the only one
-whose absence makes the workshop a demonstration rather than a tool.
+Seam 5 is in the engine and is declared in `manifest.json`; that is why the
+declared range starts at 0.26.0, since a capability string the running engine
+does not recognise refuses the whole mod. Seams 1 to 4 are read through the same
+accessors and are still absent, which is what the fallbacks are for.
 
-Two rules apply to all four:
+The seams are ordered by how much they cost to leave out, with seam 5 last
+because it landed last. Seam 1 is the only one whose absence makes the workshop a
+demonstration rather than a tool.
+
+Two rules apply to all five:
 
 - **Absent means absent, never broken.** Each is read through one accessor in
   `src/host/seams.ts`, which returns either the real thing or a named fallback.
@@ -18,9 +24,10 @@ Two rules apply to all four:
 - **A capability string the running engine does not recognise refuses the whole
   mod.** `parseCapability` throws on an unknown string and `CapabilitySet.fromManifest`
   propagates it, so `manifest.json` can only ever declare capabilities that
-  already exist. Every new capability below therefore arrives in a release of
-  this mod that follows the engine release, not alongside it. The manifest today
-  declares `ui:region.create` and nothing else.
+  already exist. A new capability therefore arrives here paired with an `engine`
+  range starting at the release that carries it, which a player meets as "this
+  needs a newer game" rather than as a mod that fails to load. The manifest
+  declares `ui:region.create` and `mod:session`.
 
 ---
 
@@ -270,6 +277,60 @@ reasons applies: the seam is absent, the capability was not granted, or there is
 no live game.
 
 ---
+
+---
+
+## Seam 5. `ctx.loadModForSession` - try it now, without keeping it
+
+**Capability: `mod:session`. LANDED in the engine.** A separate string from
+`mod:install` rather than a flag on it, because the two say different things to a
+player: an install arrives switched off and waits to be turned on, and a session
+load is on as soon as the game reloads. The engine's `grantCovers` compares the
+action so neither consent sentence can be spent on the other.
+
+```ts
+/**
+ * Load a mod for THIS SESSION only, from the bytes of a zip.
+ *
+ * Present only when the manifest declared `mod:session` and the player consented.
+ */
+readonly loadModForSession?: (bytes: Uint8Array) => Promise<SessionModResult>;
+
+export type SessionModResult =
+  | { readonly ok: true; readonly id: string; readonly version: string; readonly survivesReload: boolean }
+  | { readonly ok: false; readonly problem: string };
+```
+
+**Why this is the seam the workshop actually wanted.** Seam 3 removes a round
+trip; this removes the reason to hesitate. The loop an author is in is build,
+look, change, look again, and every iteration of it through the install door
+leaves another version of an unfinished mod in the library. A session load is the
+same loop with nothing accumulating, which is what makes it usable more than once
+an evening.
+
+**Notes on the shape.**
+
+- `survivesReload` is the one field a caller cannot work out for itself. A window
+  with storage switched off takes the mod for this page and loses it on the way
+  back up, so "reload to try it" would send the player round a loop that cannot
+  finish. The workshop reads it and says to install instead.
+- No `lines`. Unlike an install, there is no second vocabulary to match: a
+  refusal here is `problem`, one whole sentence, and the archive is refused by the
+  same functions the install door uses so the wording is already the game's.
+- Content only, refused by name, on exactly the terms seam 3 is. The workshop
+  emits content and nothing else, so this costs it nothing - and it means the
+  seam is not a route by which any mod could get code to run.
+
+**What the workshop says before it stages anything.** That trying it is not a
+preview: the pack composes into the game exactly as an installed one does, so the
+character who plays it keeps whatever it does to them, and next launch, with the
+pack gone, that character's mod-owned monsters and items belong to something that
+is not installed. "Only for this session" reads as a safety feature and is not
+one, so the note under the button says the other half in the same breath.
+
+**Without it.** The Try button is present, disabled, and says that this game has
+no way to load a mod for one session, so trying one means installing it - which
+is the loop that already worked, spelled out rather than implied.
 
 ## What is deliberately not asked for
 

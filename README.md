@@ -5,8 +5,8 @@ Make your own Neo Angband mod from inside the game.
 Pick something that already exists - a monster, a sword, a shop, a spell - and the
 workshop shows you what it is made of, what its neighbours in the game carry for
 every number, and what would have to change to make the thing you had in mind.
-When you are happy it packs the result up and hands it to you as a mod you can
-install and play.
+When you are happy it packs the result up: try it in this session to play it
+straight away, install it to keep it, or save it as a file to hand to somebody.
 
 It never asks you what JSON is. It also never hides it: every screen can show you
 the exact file it is about to write, and a mod it built can be taken away,
@@ -14,13 +14,18 @@ hand-edited and brought back.
 
 ## Status
 
-**Early. The workshop opens, every screen works, and the mod it emits is a real
-mod.** What it is not yet is connected to the game's own content: four engine
-seams it wants do not exist, so on Neo Angband 0.25.0 the numbers on screen come
-from the workshop's own demonstration content rather than from the 3279 records
-the game actually runs on. The workshop says so in a banner it will not let you
-dismiss, and `docs/ENGINE_SEAMS.md` specifies all four precisely. `PLANNED.md`
-records which of them blocks what.
+**Early. The workshop opens, every screen works, the mod it emits is a real mod,
+and you can load that mod into the running game for the rest of the session.**
+What it is not yet is connected to the game's own content: four of the five engine
+seams it wants do not exist, so the numbers on screen come from the workshop's own
+demonstration content rather than from the 3279 records the game actually runs on.
+The workshop says so in a banner it will not let you dismiss, and
+`docs/ENGINE_SEAMS.md` specifies all five precisely. `PLANNED.md` records which of
+them blocks what.
+
+It needs Neo Angband 0.26.0 or newer, because the capability behind the session
+load arrived there and a mod declaring one the running game does not know is
+refused outright.
 
 That state is deliberate rather than premature. A tool that refuses to open until
 an engine change lands is a tool nobody can look at, and looking at it is how the
@@ -113,11 +118,21 @@ anything.
 push to a repository. This is the only copy of your work that exists outside the
 browser's storage, which is why the button is on every screen.
 
+**Try it for this session.** The shortest loop there is: the mod is loaded for the
+rest of the session without being added to your mods, and it is forgotten when you
+close the game. So iterating costs you nothing in your library.
+
+It is the real mod and not a preview, which cuts both ways. The pack composes into
+the game exactly as an installed one does, so play a character you do not mind
+changing: next time, with the mod gone, the game treats anything it added as
+belonging to something that is not installed, and a value it adjusted goes back to
+what it was. What is temporary is the mod, not what it did.
+
 **Install it in place.** Available when the engine offers a door for it, which
 today it does not. It saves two steps and nothing else; the file button stays
 either way.
 
-Either way the mod takes effect after a reload, because enabling any mod does.
+All three take effect after a reload, because composing content always does.
 
 ## Unfinished work, and the one honest warning
 

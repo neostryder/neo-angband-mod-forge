@@ -81,6 +81,22 @@ function type(input: HTMLInputElement | HTMLTextAreaElement, value: string): voi
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
+/**
+ * Let the debounced check run and the screen repaint.
+ *
+ * A REAL WAIT rather than a couple of microtasks: `scheduleCheck` uses a timer,
+ * and the verdict screen's buttons are disabled until its result lands. A test
+ * that only flushed microtasks would find them disabled and could only ever assert
+ * that - which is why the disabled path was the only one covered before this.
+ *
+ * Comfortably longer than `CHECK_DELAY` (250ms, actions.ts), because the check
+ * itself composes and validates the draft after the timer fires. Sixty
+ * milliseconds was tried and failed on the timer alone.
+ */
+async function settle(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 400));
+}
+
 describe("opening the workshop", () => {
   it("declines quietly when there is no document, which is a legitimate host", () => {
     expect(openWorkshop(ctx(), undefined)).toBeUndefined();
@@ -140,8 +156,16 @@ describe("opening the workshop", () => {
 });
 
 describe("the player's journey", () => {
-  function walkToTheEditor(): void {
-    open = openWorkshop(ctx(), document);
+  /**
+   * Open the workshop and click all the way to a drafted record.
+   *
+   * `extra` goes to the context, so a test that needs a seam gets one for the ONE
+   * workshop this opens. Reopening afterwards was tried and is wrong: closing
+   * leaves the previous host in the document, `getElementById` finds it, and every
+   * later assertion reads an empty shadow root full of stylesheet.
+   */
+  function walkToTheEditor(extra: Partial<BuilderCtx> = {}): void {
+    open = openWorkshop(ctx(extra), document);
 
     /* The guide leads to the mod list. */
     control("Take me to my mods").click();
@@ -249,6 +273,83 @@ describe("the player's journey", () => {
     const forge = control("Forge and install") as HTMLButtonElement;
     expect(forge.disabled).toBe(true);
     expect((control("Save it as a file") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("says why trying it is unavailable, rather than greying the button in silence", () => {
+    walkToTheEditor();
+    type(fieldInput("name"), "dire wolf");
+    control("Review and install").click();
+    expect((control("Forge and try it now") as HTMLButtonElement).disabled).toBe(true);
+    /* The reason, in the same place the install reason goes: a control that is off
+     * because this game has no door for it is a different situation from one that
+     * is off because the mod is unfinished, and only one of them has a next step. */
+    expect(screenText()).toContain("no way to load a mod for one session");
+  });
+
+  it("stages the mod for the session, and says what that does and does not mean", async () => {
+    const staged: Uint8Array[] = [];
+    walkToTheEditor({
+      loadModForSession: (bytes) => {
+        staged.push(bytes);
+        return Promise.resolve({
+          ok: true as const,
+          id: "my-first-mod",
+          version: "0.1.0",
+          survivesReload: true,
+        });
+      },
+    });
+    type(fieldInput("name"), "dire wolf");
+    control("Review and install").click();
+
+    /* THE CHECK IS DEBOUNCED, so the button is disabled on the first paint and the
+     * useful assertion is on the paint after it. Waiting for it rather than
+     * asserting the disabled state is the point: every existing test of these
+     * buttons asserts DISABLED, which means the enabled path had never run. */
+    await settle();
+    const tryIt = control("Forge and try it now") as HTMLButtonElement;
+    expect(tryIt.disabled).toBe(false);
+    tryIt.click();
+    /* The action is async: the click returns before the seam has answered. */
+    await settle();
+
+    /* REAL BYTES, and a real archive - a stub that took no arguments would let the
+     * emitter break without this noticing. */
+    expect(staged).toHaveLength(1);
+    expect((staged[0]?.length ?? 0)).toBeGreaterThan(0);
+
+    const said = screenText();
+    expect(said).toContain("loaded for this session");
+    /* AND THE HALF THAT IS EASY TO DROP. "It is gone when you close the game" on
+     * its own reads as a safety feature; the sentence has to carry the other half
+     * or the workshop is telling the player something untrue by omission. */
+    expect(said).toContain("gone when you close the game");
+    expect(said).toContain("is not");
+  });
+
+  it("refuses to promise a reload the browser cannot survive", async () => {
+    walkToTheEditor({
+      loadModForSession: () =>
+        Promise.resolve({
+          ok: true as const,
+          id: "my-first-mod",
+          version: "0.1.0",
+          /* A window with storage switched off: the mod is staged for THIS page and
+           * lost on the way back up, so the loop the workshop would otherwise send
+           * the player round cannot finish. */
+          survivesReload: false,
+        }),
+    });
+    type(fieldInput("name"), "dire wolf");
+    control("Review and install").click();
+    await settle();
+    (control("Forge and try it now") as HTMLButtonElement).click();
+    await settle();
+
+    const said = screenText();
+    expect(said).toContain("cannot be tried this way here");
+    /* Pointed at the door that does work rather than left as a refusal. */
+    expect(said).toContain("install it instead");
   });
 
   it("undoes an edit from the title bar", () => {

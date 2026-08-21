@@ -7,12 +7,12 @@
  * subset also states exactly what the mod touches, which is the honest form of
  * "the mod uses no private path".
  *
- * FOUR MEMBERS HERE DO NOT EXIST YET. `authoring`, `composedRecords`,
- * `installMod` and `wizard` are the seams in `docs/ENGINE_SEAMS.md`, and every
- * one of them is optional in this interface because every one of them is
- * genuinely absent on the engine this was built against. Nothing reads them
- * directly: `seams.ts` resolves each to either the real thing or a named
- * fallback, so a seam landing changes one file.
+ * FIVE MEMBERS HERE MAY NOT EXIST. `authoring`, `composedRecords`, `installMod`,
+ * `loadModForSession` and `wizard` are the seams in `docs/ENGINE_SEAMS.md`, and
+ * every one of them is optional in this interface because every one of them is
+ * genuinely absent on some engine this mod runs on. Nothing reads them directly:
+ * `seams.ts` resolves each to either the real thing or a named fallback, so a
+ * seam landing changes one file.
  */
 
 import type { AuthoringApi, JsonRecord } from "./authoring.js";
@@ -58,6 +58,24 @@ export type InstallModResult =
   | { readonly ok: false; readonly problem: string; readonly lines: readonly string[] };
 
 /**
+ * The result of loading a mod for this session only.
+ *
+ * `InstallModResult` plus the one field a caller cannot find out for itself and
+ * must not assume: whether the archive will still be there after the reload that
+ * applies it. A browser with storage switched off takes the mod for this page and
+ * loses it on the way back up, and a workshop that said "reload to try it" in that
+ * case would be sending the player round a loop that cannot finish.
+ */
+export type SessionModResult =
+  | {
+      readonly ok: true;
+      readonly id: string;
+      readonly version: string;
+      readonly survivesReload: boolean;
+    }
+  | { readonly ok: false; readonly problem: string };
+
+/**
  * The game's own wired debug dependencies, all but opaque here.
  *
  * Opaque on purpose, with exactly one field read. The workshop passes this
@@ -101,6 +119,20 @@ export interface BuilderCtx {
   readonly installMod?: (bytes: Uint8Array) => Promise<InstallModResult>;
   /** Seam 3. Save and reload, so an install takes effect. Gated by `mod:install`. */
   readonly reloadGame?: () => Promise<void>;
+  /**
+   * Seam 5. Load a mod for THIS SESSION only. Gated by `mod:session`.
+   *
+   * Content only, on the same terms `installMod` is - this is the same door with
+   * the library step removed, not a looser one. What it changes is that the pack
+   * composes on the next reload without waiting to be switched on, and that the
+   * archive is forgotten when the game is closed.
+   *
+   * What is short-lived is the ARCHIVE. A character the pack changed keeps the
+   * change, and next launch, with the pack gone, that character's mod-owned
+   * monsters and items belong to something that is not installed. The workshop
+   * says so before it stages anything.
+   */
+  readonly loadModForSession?: (bytes: Uint8Array) => Promise<SessionModResult>;
   /** Seam 4. The game's wired debug dependencies. Gated by `debug:spawn`. */
   readonly wizard?: WizardDepsLike;
 }

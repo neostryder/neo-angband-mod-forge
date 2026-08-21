@@ -1116,6 +1116,7 @@ var STUB_AUTHORING = {
 var NO_AUTHORING = "This game cannot hand the workshop its authoring library yet, so every number below is measured from the workshop's own demonstration content instead of from the game.";
 var NO_RECORDS = "This game cannot hand the workshop its own content yet, so the records you can base something on are the workshop's demonstration set rather than the real game's.";
 var NO_INSTALL = "This game has no way for a mod to install another mod, so the workshop saves the finished mod as a file and you add it with Import a zip on the Mods screen. That path is two extra steps and leaves you holding a file you can read, keep and share.";
+var NO_SESSION = "This game has no way to load a mod for one session, so trying one means installing it: the workshop saves the finished mod as a file, you add it with Import a zip on the Mods screen, turn it on and reload. That leaves the mod in your library, which is where you want it once it is finished anyway.";
 var NO_SPAWN_SEAM = "This game cannot lend the workshop its spawning machinery yet, so nothing can be put in front of you for testing. Build the mod, install it, reload, and go and find the thing.";
 var SPAWN_OFF = 'The "Let me spawn what I built" setting is off for this mod. Turn it on in the mod manager.';
 var NO_GAME = "There is no character in play, so there is nowhere to put anything.";
@@ -1142,8 +1143,21 @@ function resolveSeams(ctx) {
     reload: async () => void 0,
     reloadByHand: true
   };
+  const stager = ctx.loadModForSession;
+  const session = stager ? {
+    available: true,
+    load: stager,
+    reload: reloader ?? (async () => void 0),
+    reloadByHand: reloader === void 0
+  } : {
+    available: false,
+    why: NO_SESSION,
+    load: async () => ({ ok: false, problem: NO_SESSION }),
+    reload: async () => void 0,
+    reloadByHand: true
+  };
   const spawn = resolveSpawn(ctx);
-  return { authoring, install, spawn, engine: ctx.engine };
+  return { authoring, install, session, spawn, engine: ctx.engine };
 }
 function resolveSpawn(ctx) {
   if (ctx.flags[FLAG.cheatSpawn] !== true) return { available: false, why: SPAWN_OFF };
@@ -2204,6 +2218,40 @@ var Actions = class {
       this.notice(outcome.problem, "bad");
       for (const line of outcome.lines) this.deps.log(line);
     }
+  }
+  /**
+   * Load it for this session, so it can be played now without joining the library.
+   *
+   * THE SHORTEST HONEST LOOP the workshop has: build, try, reload, play. What it
+   * is not is a preview - the pack composes into the game exactly as an installed
+   * one does, so this is the real mod, and the only thing that is temporary is the
+   * archive. What it did to the character who plays it is not.
+   *
+   * The drafts are written down FIRST, for the same reason `install` writes them
+   * first: what follows is a reload, and an unflushed draft would not survive it.
+   */
+  async loadForSession() {
+    const draft = openDraft(this.deps.store.get());
+    if (!draft) return;
+    this.deps.writer.flush();
+    const files = this.files();
+    if (files.length === 0) return;
+    const outcome = await this.deps.seams.session.load(zipDraft(files));
+    if (!outcome.ok) {
+      this.notice(outcome.problem, "bad");
+      return;
+    }
+    if (!outcome.survivesReload) {
+      this.notice(
+        `${outcome.id} cannot be tried this way here: this window will not keep it across the reload the game needs to pick it up. Save it as a file and install it instead.`,
+        "bad"
+      );
+      return;
+    }
+    this.notice(
+      `${outcome.id} ${outcome.version} is loaded for this session. Reload to play it. It is not in your mods and it is gone when you close the game - but whatever it does to the character who plays it is not.`,
+      "good"
+    );
   }
   /** The manifest as it will ship, for the review screen. */
   manifestText() {
@@ -4646,11 +4694,18 @@ function verdictScreen(shop) {
   const filesHost = h("div", { style: { display: "flex", "flex-direction": "column", gap: "10px" } });
   const filesCard = card({ title: "What it writes", note: "", open: true });
   filesCard.body.appendChild(filesHost);
-  const install = button({
-    label: "Forge and install",
+  const tryIt = button({
+    label: "Forge and try it now",
     kind: "primary",
     seal: true,
-    onClick: () => void shop.acts.install()
+    onClick: () => void shop.acts.loadForSession(),
+    tip: "Loads it for this session without adding it to your mods. Reload to play it, and it is gone when you close the game. What it does to the character who plays it is not."
+  });
+  const install = button({
+    label: "Forge and install",
+    seal: true,
+    onClick: () => void shop.acts.install(),
+    tip: "Adds it to your mods for good. Takes effect after a reload, because enabling any mod does."
   });
   const save = button({
     label: "Save it as a file",
@@ -4658,7 +4713,7 @@ function verdictScreen(shop) {
     tip: "Writes the mod as a zip. Add it with Import a zip on the Mods screen. This is also the only copy that lives outside this browser, so it is the one to keep."
   });
   const back = button({ label: "Keep working on it", kind: "ghost", onClick: () => shop.acts.go({ at: "details" }) });
-  const actions = h("div", { class: "mb-row-actions" }, install, save, back);
+  const actions = h("div", { class: "mb-row-actions" }, tryIt, install, save, back);
   const installNote = h("div", { class: "mb-why" });
   main.append(headline, filesCard.el, actions, installNote);
   const findingsSection = asideSection("Every check");
@@ -4679,7 +4734,9 @@ function verdictScreen(shop) {
     const findings = build ? sortFindings(build.findings) : [];
     const counts = countFindings(findings);
     const ok = build?.ok === true;
-    install.disabled = !shop.seams.install.available || !ok || current.changes.length === 0;
+    const buildable = ok && current.changes.length > 0;
+    tryIt.disabled = !shop.seams.session.available || !buildable;
+    install.disabled = !shop.seams.install.available || !buildable;
     save.disabled = current.changes.length === 0;
     headline.replaceChildren(
       h("h2", { text: `${current.name} ${current.version}` }),
@@ -4736,7 +4793,16 @@ function verdictScreen(shop) {
         ...problems.map((problem) => h("li", { text: problem }))
       )
     );
-    installNote.textContent = shop.seams.install.available ? ok ? "Installing takes effect after a reload, because enabling any mod does." : "Fix the errors on the right and this becomes available." : shop.seams.install.why ?? "";
+    const notes = [
+      shop.seams.session.available ? h("p", {
+        text: "Trying it loads the mod for this session only: it is not added to your mods and it is gone when you close the game. It still takes a reload to pick up, because composing content always does. It is the real mod and not a preview, so play a character you do not mind changing - next time, with the mod gone, the game treats anything it added as belonging to something not installed."
+      }) : h("p", { text: shop.seams.session.why ?? "" }),
+      shop.seams.install.available ? h("p", { text: "Installing keeps it, and takes effect after a reload, because enabling any mod does." }) : h("p", { text: shop.seams.install.why ?? "" })
+    ];
+    if (!ok) {
+      notes.push(h("p", { text: "Fix the errors on the right and these become available." }));
+    }
+    installNote.replaceChildren(...notes);
   };
   render(shop.store.get());
   shop.acts.scheduleCheck();

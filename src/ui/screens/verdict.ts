@@ -14,10 +14,18 @@
  * matters, and the line saying "checked against the game as it is loaded right
  * now" is a real claim rather than reassurance.
  *
- * TWO WAYS OUT, AND BOTH STAY. Install it here, when the engine offers a door for
- * that; and save it as a file, always. The file is not a fallback. It is the only
- * version of the mod that exists outside this browser's storage, so it is the only
- * thing that can be read, kept, hand-edited and given away.
+ * THREE WAYS OUT, AND ALL THREE STAY. Try it for this session, when the engine
+ * offers that door; install it, when it offers that one; and save it as a file,
+ * always. The file is not a fallback. It is the only version of the mod that exists
+ * outside this browser's storage, so it is the only thing that can be read, kept,
+ * hand-edited and given away.
+ *
+ * TRYING IT IS OFFERED FIRST AND IS NOT THE SAFE OPTION. It is the shortest loop -
+ * build, try, reload, play - and it is the one somebody iterating actually wants,
+ * which is why it leads. What it is not is a preview: the pack composes into the
+ * game exactly as an installed one does, so the character who plays it keeps
+ * whatever it does to them. The note under the buttons says that in those terms,
+ * because "just for this session" reads as a safety feature and is not one.
  */
 
 import { h } from "../dom.js";
@@ -45,11 +53,20 @@ export function verdictScreen(shop: Workshop): View {
   const filesCard = card({ title: "What it writes", note: "", open: true });
   filesCard.body.appendChild(filesHost);
 
-  const install = button({
-    label: "Forge and install",
+  const tryIt = button({
+    label: "Forge and try it now",
     kind: "primary",
     seal: true,
+    onClick: () => void shop.acts.loadForSession(),
+    tip:
+      "Loads it for this session without adding it to your mods. Reload to play it, and it is gone when you " +
+      "close the game. What it does to the character who plays it is not.",
+  });
+  const install = button({
+    label: "Forge and install",
+    seal: true,
     onClick: () => void shop.acts.install(),
+    tip: "Adds it to your mods for good. Takes effect after a reload, because enabling any mod does.",
   });
   const save = button({
     label: "Save it as a file",
@@ -60,7 +77,7 @@ export function verdictScreen(shop: Workshop): View {
   });
   const back = button({ label: "Keep working on it", kind: "ghost", onClick: () => shop.acts.go({ at: "details" }) });
 
-  const actions = h("div", { class: "mb-row-actions" }, install, save, back);
+  const actions = h("div", { class: "mb-row-actions" }, tryIt, install, save, back);
   const installNote = h("div", { class: "mb-why" });
 
   main.append(headline, filesCard.el, actions, installNote);
@@ -87,7 +104,9 @@ export function verdictScreen(shop: Workshop): View {
     const counts = countFindings(findings);
 
     const ok = build?.ok === true;
-    install.disabled = !shop.seams.install.available || !ok || current.changes.length === 0;
+    const buildable = ok && current.changes.length > 0;
+    tryIt.disabled = !shop.seams.session.available || !buildable;
+    install.disabled = !shop.seams.install.available || !buildable;
     save.disabled = current.changes.length === 0;
 
     headline.replaceChildren(
@@ -171,11 +190,33 @@ export function verdictScreen(shop: Workshop): View {
           ),
     );
 
-    installNote.textContent = shop.seams.install.available
-      ? ok
-        ? "Installing takes effect after a reload, because enabling any mod does."
-        : "Fix the errors on the right and this becomes available."
-      : (shop.seams.install.why ?? "");
+    /* ONE NOTE FOR THREE BUTTONS.
+     *
+     * A MISSING DOOR IS SAID EVERY TIME, ahead of the errors, and that ordering is
+     * the same call `seams.ts` makes: a control that is off because this game has
+     * no door for it is a permanent fact with a different next action from a
+     * control that is off because the mod is not finished yet. The errors are also
+     * already listed on the right, one per line, so repeating them here first
+     * would push the only sentence that is not already on screen off the bottom.
+     */
+    const notes: HTMLElement[] = [
+      shop.seams.session.available
+        ? h("p", {
+            text:
+              "Trying it loads the mod for this session only: it is not added to your mods and it is gone when " +
+              "you close the game. It still takes a reload to pick up, because composing content always does. " +
+              "It is the real mod and not a preview, so play a character you do not mind changing - next time, " +
+              "with the mod gone, the game treats anything it added as belonging to something not installed.",
+          })
+        : h("p", { text: shop.seams.session.why ?? "" }),
+      shop.seams.install.available
+        ? h("p", { text: "Installing keeps it, and takes effect after a reload, because enabling any mod does." })
+        : h("p", { text: shop.seams.install.why ?? "" }),
+    ];
+    if (!ok) {
+      notes.push(h("p", { text: "Fix the errors on the right and these become available." }));
+    }
+    installNote.replaceChildren(...notes);
   };
 
   render(shop.store.get());

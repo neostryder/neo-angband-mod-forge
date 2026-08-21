@@ -65,6 +65,21 @@ validator or the project builder without reimplementing both - and a
 reimplementation of the validator that disagreed with the game's own and was
 believed would be worse than no validator.
 
+### Trying a mod without keeping it - LANDED
+
+`ctx.loadModForSession` behind `mod:session` (seam 5), and the "Forge and try it
+now" button on the review screen. The mod is held for the session, composes on the
+next reload exactly as an installed pack does, and is gone when the game is closed
+- so the build-look-change loop leaves nothing in the library.
+
+Two things about it that are properties of the feature rather than of this mod,
+and are written down because a player will read the button as a safety feature:
+trying it is not a preview, so a character who plays it keeps whatever the pack
+did to them; and the archive's lifetime is a strong convention rather than a
+boundary, since a browser that restores a closed window restores session storage
+with it. The game's own `docs/PLANNED.md` carries the save-reproducibility gap
+behind the first of those.
+
 ### Installing without leaving the workshop - NEEDS A SEAM
 
 `ctx.installMod` and `ctx.reloadGame` behind a new `mod:install` capability

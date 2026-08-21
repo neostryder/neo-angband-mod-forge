@@ -341,6 +341,47 @@ export class Actions {
     }
   }
 
+  /**
+   * Load it for this session, so it can be played now without joining the library.
+   *
+   * THE SHORTEST HONEST LOOP the workshop has: build, try, reload, play. What it
+   * is not is a preview - the pack composes into the game exactly as an installed
+   * one does, so this is the real mod, and the only thing that is temporary is the
+   * archive. What it did to the character who plays it is not.
+   *
+   * The drafts are written down FIRST, for the same reason `install` writes them
+   * first: what follows is a reload, and an unflushed draft would not survive it.
+   */
+  async loadForSession(): Promise<void> {
+    const draft = openDraft(this.deps.store.get());
+    if (!draft) return;
+    this.deps.writer.flush();
+    const files = this.files();
+    if (files.length === 0) return;
+    const outcome = await this.deps.seams.session.load(zipDraft(files));
+    if (!outcome.ok) {
+      this.notice(outcome.problem, "bad");
+      return;
+    }
+    if (!outcome.survivesReload) {
+      /* The mod is staged for THIS page and will be gone after the reload that
+       * would apply it, so the loop cannot finish. Said as the fault of the
+       * window's storage rather than of the mod, and pointed at the door that
+       * does work. */
+      this.notice(
+        `${outcome.id} cannot be tried this way here: this window will not keep it across the reload the game ` +
+          `needs to pick it up. Save it as a file and install it instead.`,
+        "bad",
+      );
+      return;
+    }
+    this.notice(
+      `${outcome.id} ${outcome.version} is loaded for this session. Reload to play it. It is not in your mods ` +
+        `and it is gone when you close the game - but whatever it does to the character who plays it is not.`,
+      "good",
+    );
+  }
+
   /** The manifest as it will ship, for the review screen. */
   manifestText(): string {
     const draft = openDraft(this.deps.store.get());
