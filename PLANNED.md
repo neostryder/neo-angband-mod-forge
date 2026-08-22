@@ -45,7 +45,7 @@ Last reviewed: 2026-08-21.
 tag for it and no screenshots pass anywhere in the documentation. Held for after
 the authoring seams land, since a release cut against the fixture stub would
 ship a mod whose authoring surface is a demonstration rather than a tool.
-Tracked as issue #2, dependent on issue #1.
+Tracked as neo-angband#44, dependent on neo-angband#41.
 
 ---
 
@@ -59,8 +59,8 @@ hand-written `plugin.js` outside this monorepo, since the one worked example
 engine's own internal sample-mod suite. Held for after the authoring seams
 (`ctx.authoring`, `ctx.composedRecords`) land, since what a test needs to assert
 against is exactly what those two seams also unlock, making this a third
-consumer of the same door rather than a separate one. Tracked as issue #3,
-dependent on issue #1.
+consumer of the same door rather than a separate one. Tracked as
+neo-angband#45, dependent on neo-angband#41.
 
 ---
 
@@ -74,7 +74,7 @@ of the hand-written fixture in `src/host/authoring-stub.ts`, which renders every
 screen but returns a `hint` on every call saying it is a demonstration and not
 evidence. Full detail, including the rejected alternative of shipping a
 regenerated copy of the game's statistics inside the mod, is in
-`docs/ENGINE_SEAMS.md`. Tracked as issue #1.
+`docs/ENGINE_SEAMS.md`. Tracked as neo-angband#41.
 
 ### Trying a mod without keeping it - LANDED
 
@@ -154,7 +154,7 @@ and move the character one square, since a mod cannot reach the host's
 key-repeat and pointer-button state. A whole `ui:dom.overlay` capability is
 deliberately not asked for over this, per `docs/ENGINE_SEAMS.md`; the honest
 shape of the ask is narrower: clear held input state on overlay acquire and
-release. Tracked as issue #7.
+release. Tracked as neo-angband#49.
 
 ---
 
@@ -165,7 +165,7 @@ release. Tracked as issue #7.
 One of the game's remaining full-screen erases is not known to the region
 system, so the tab that opens the workshop is simply absent on those screens
 until the next frame that declares its regions. This is the game's own row 21
-work and not a mod's. Tracked as issue #8.
+work and not a mod's. Tracked as neo-angband#50.
 
 ### A keyboard way in - DECLINED
 
@@ -213,7 +213,7 @@ The written path is still real and still the place to learn:
 a font or a sound however the workshop asks it to. Meanwhile a new monster or
 object with no tile falls back to its letter, and `neo-linoleum` derives a tile
 for mod-added content from its kin, named in prose rather than as a dependency.
-Tracked as issue #4, which also covers the same gap in the file editor below.
+Tracked as neo-angband#46, which also covers the same gap in the file editor below.
 
 ### A tile filler of the workshop's own - DECLINED
 
@@ -230,7 +230,7 @@ A section needs a manifest entry and the content grouped under it, and the
 project builder writes neither. A record file's `sections` block can already be
 typed into the file editor and reaches the emitted folder exactly as written,
 but the draft cannot model a section, so the composer never sees it and the
-review screen's verdict is not a verdict on it. Tracked as issue #5.
+review screen's verdict is not a verdict on it. Tracked as neo-angband#47.
 
 ### The coarse whole-record patch kind - DECLINED
 
@@ -283,7 +283,7 @@ to say so yet.
 
 The same seam the emitter needs: a path ending in `.png` can be created here and
 will hold whatever text is typed into it, which is not a picture. Tracked as
-issue #4.
+neo-angband#46.
 
 ### The closed-vocabulary check belongs in the SDK - NEEDS A SEAM
 
@@ -291,14 +291,14 @@ issue #4.
 checks, so the record screen's dropdown and the file editor's hint are two
 consumers of one measurement that can already disagree about the same field.
 An advisory rule inside `checkRecords` itself would give both one shared
-answer. Tracked as issue #6.
+answer. Tracked as neo-angband#48.
 
 ### Searching across files, and a diff - NOT BUILT
 
 Find works inside the file that is open. There is no search across the folder
 and no view of what a save changed, which matters most because a save on a
 record file rewrites the text into the emitter's own spelling without showing
-what moved. Tracked as issue #9.
+what moved. Tracked as neo-angband#51.
 
 ---
 
