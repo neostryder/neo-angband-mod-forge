@@ -37,25 +37,30 @@ Last reviewed: 2026-08-21.
 
 ---
 
+## Release
+
+### A first tagged release, and a documentation and screenshots pass - NOT BUILT
+
+`manifest.json` and `CHANGELOG.md` both carry version 0.1.0, but there is no git
+tag for it and no screenshots pass anywhere in the documentation. Held for after
+the authoring seams land, since a release cut against the fixture stub would
+ship a mod whose authoring surface is a demonstration rather than a tool.
+Tracked as issue #2, dependent on issue #1.
+
+---
+
 ## Test creation
 
 ### Scaffolding tests for the plugin an author wrote by hand
 
-Raised 2026-08-21, and it names a real gap: the seven modding tutorials and the
-mod-check CLI take an author cleanly from "I want to write a mod" to a working
-`plugin.js`, but nothing anywhere tells a third-party author how to write a
-standalone test for that file outside this monorepo - the one worked example
+Nothing tells a third-party author how to write a standalone test for a
+hand-written `plugin.js` outside this monorepo, since the one worked example
 (`docs/modding/tutorials/05-hook-behaviour.md`) runs the plugin through the
-engine's own internal sample-mod suite, which a mod living in its own repository
-has no access to.
-
-Not yet scoped against the seams above, and deliberately held for after the
-authoring seams (`ctx.authoring`, `ctx.composedRecords`) land, since a
-test-scaffolding feature built against the fixture stub would need redoing once
-the workshop is drafting against the game's real records. What a test needs to
-assert against - the compose result over real data, a plugin's hooks reacting to
-a real state transition - is exactly what those two seams also unlock, so this
-is likely a THIRD consumer of the same door rather than a separate one.
+engine's own internal sample-mod suite. Held for after the authoring seams
+(`ctx.authoring`, `ctx.composedRecords`) land, since what a test needs to assert
+against is exactly what those two seams also unlock, making this a third
+consumer of the same door rather than a separate one. Tracked as issue #3,
+dependent on issue #1.
 
 ---
 
@@ -63,29 +68,13 @@ is likely a THIRD consumer of the same door rather than a separate one.
 
 ### Drafting, validating and emitting against the game's own content - NEEDS A SEAM
 
-`ctx.authoring` (seam 1) and `ctx.composedRecords` (seam 2). The mod SDK holds the
-whole authoring stack - the measured field statistics over the game's 3279
-records, the drafting call, the peer search, the validator the running game itself
-uses, and the project builder that emits and composes - and none of it is
-reachable: the engine does not depend on or re-export the SDK, and a folder plugin
-resolves no bare specifier. The raw composed record map every one of those
-functions takes is a different shape from `ctx.registries`, and the host already
-builds it and memoises it.
-
-**Meanwhile:** `src/host/authoring-stub.ts` implements the same interface over a
-hand-written fixture of a few dozen invented records. Every screen renders, every
-gesture works, and the emitted files are structurally exactly what the folder
-reader expects. What is a demonstration and not evidence: every suggestion, every
-peer table, every field-usage share, and the validator, which is four rules rather
-than the game's full set and returns a `hint` on every call saying so. The banner
-that says all of this is not dismissible.
-
-**Rejected, so it is not proposed again:** shipping a regenerated copy of the
-measured statistics inside the mod. Roughly 300KB of duplicated payload that
-drifts the moment the game's content changes, and it would still not supply the
-validator or the project builder without reimplementing both - and a
-reimplementation of the validator that disagreed with the game's own and was
-believed would be worse than no validator.
+`ctx.authoring` (seam 1) and `ctx.composedRecords` (seam 2) would let the
+workshop draft, validate and emit against the game's real 3279 records instead
+of the hand-written fixture in `src/host/authoring-stub.ts`, which renders every
+screen but returns a `hint` on every call saying it is a demonstration and not
+evidence. Full detail, including the rejected alternative of shipping a
+regenerated copy of the game's statistics inside the mod, is in
+`docs/ENGINE_SEAMS.md`. Tracked as issue #1.
 
 ### Trying a mod without keeping it - LANDED
 
@@ -160,19 +149,12 @@ so the mark now lands on a character that has stopped being written down.
 
 ### The overlay's held-key state - NEEDS A SEAM, and a small one
 
-The workshop's own capture-phase listeners stop the game seeing any keystroke
-while the overlay is open, which is the important half and is tested. What a mod
-cannot reach is the host's key-repeat and pointer-button state, so closing the
-workshop with a key held down can still deliver that key to the game and move the
-character one square.
-
-`docs/ENGINE_SEAMS.md` records this under "what is deliberately not asked for",
-because a whole `ui:dom.overlay` capability to fix it would be a large seam for a
-small edge, and a capability would add a consent string rather than containment:
-in-process mod code reaches the document whether or not `ctx` mentions it, which
-the engine's own capability documentation states plainly. The honest shape of the
-ask, if it is ever made, is "clear held input state on overlay acquire and
-release" and nothing else.
+Closing the workshop with a key held down can still deliver that key to the game
+and move the character one square, since a mod cannot reach the host's
+key-repeat and pointer-button state. A whole `ui:dom.overlay` capability is
+deliberately not asked for over this, per `docs/ENGINE_SEAMS.md`; the honest
+shape of the ask is narrower: clear held input state on overlay acquire and
+release. Tracked as issue #7.
 
 ---
 
@@ -180,16 +162,10 @@ release" and nothing else.
 
 ### The tab is absent on a screen whose full-screen erase is undeclared - NEEDS A SEAM
 
-The host paints a declared region once per frame, so the tab maintains itself and
-does not need a tick source. What it cannot survive is one of the game's remaining
-full-screen erases that the region system does not know about: on those screens
-the tab is simply not there, and it is back on the next frame that declares its
-regions. It is never permanently invisible, and the workshop does not close when
-it happens.
-
-This is the game's own row 21 work and not a mod's. Recorded here because a
-player who taps a corner and finds nothing there deserves the reason to exist
-somewhere.
+One of the game's remaining full-screen erases is not known to the region
+system, so the tab that opens the workshop is simply absent on those screens
+until the next frame that declares its regions. This is the game's own row 21
+work and not a mod's. Tracked as issue #8.
 
 ### A keyboard way in - DECLINED
 
@@ -234,15 +210,10 @@ The written path is still real and still the place to learn:
 ### Tile packs, sounds, fonts and other binary resources - NEEDS A SEAM
 
 `EmittedFile.contents` is a `string`, so the project builder cannot produce a PNG,
-a font or a sound however the workshop asks it to. A byte-capable emit is an
-additive change to the SDK; it is not requested in
-`docs/ENGINE_SEAMS.md` because nothing about this version needs it and a seam
-requested before it has a caller is the failure mode this project keeps finding.
-
-**Meanwhile:** a new monster or object with no tile falls back to its letter, which
-is what Angband looked like for thirty years. `neo-linoleum` derives a tile for
-mod-added content from its kin, so the workshop names that mod in prose and does
-not make it a dependency.
+a font or a sound however the workshop asks it to. Meanwhile a new monster or
+object with no tile falls back to its letter, and `neo-linoleum` derives a tile
+for mod-added content from its kin, named in prose rather than as a dependency.
+Tracked as issue #4, which also covers the same gap in the file editor below.
 
 ### A tile filler of the workshop's own - DECLINED
 
@@ -255,21 +226,11 @@ workshop says so rather than implying the tile story is solved.
 
 ### Sections, so somebody else can switch half your mod off - NEEDS A SEAM
 
-A section needs a manifest entry and the content grouped under it, and the project
-builder writes neither. It is the most obviously wanted thing no screen offers: a
-player who makes five changes and wants a friend to be able to switch off two of
-them is describing sections exactly. Additive SDK work with no consequence for the
-plugin ABI.
-
-**Meanwhile:** a record file's `sections` block can be typed into the file editor,
-and it reaches the emitted folder exactly as written. That is worth having and it
-is not the same as the seam, so the difference is said on the screen rather than
-left to be discovered. The draft cannot model a section, so the workshop carries
-one through unread: the composer never sees it, the review screen's verdict is not
-a verdict on it, and both the file editor and the review screen name the file and
-the keys and say so. A blind spot that is declared is a different thing from one
-that is not, and the reason to allow it at all is that the alternative was a file
-the editor could open and never save.
+A section needs a manifest entry and the content grouped under it, and the
+project builder writes neither. A record file's `sections` block can already be
+typed into the file editor and reaches the emitted folder exactly as written,
+but the draft cannot model a section, so the composer never sees it and the
+review screen's verdict is not a verdict on it. Tracked as issue #5.
 
 ### The coarse whole-record patch kind - DECLINED
 
@@ -320,39 +281,24 @@ to say so yet.
 
 ### Anything that is not text - NEEDS A SEAM
 
-The same seam the emitter needs: `EmittedFile.contents` is a `string`, so a tile,
-a font or a sound cannot be carried whatever the editor does. The editor refuses
-nothing and offers nothing here; a path ending in `.png` can be created and will
-hold whatever text is typed into it, which is not a picture. Recorded beside the
-emit seam above rather than as a separate ask.
+The same seam the emitter needs: a path ending in `.png` can be created here and
+will hold whatever text is typed into it, which is not a picture. Tracked as
+issue #4.
 
 ### The closed-vocabulary check belongs in the SDK - NEEDS A SEAM
 
-`RECORD_BLUEPRINTS` measures a closed set of values for a field where the game's
-own records have one, and two places in the workshop read it: the record screen
-offers those values as a dropdown, and the file editor now names a value that is
-outside the set. Nothing in the ENGINE reads it. Its own checker takes `values` for
-a placeholder and never for a check, which is the right call on its own terms - a
-mod coining a new tval or a new slay code is doing something legal - but it leaves
-an author who mistyped one of twenty-six colour codes with no word from anybody.
-
-So the rule lives here, as a hint, under a `workshop/` rule id, with the pane saying
-the game will not repeat it. That is the honest arrangement and it is not the right
-one. Two consumers of one measurement, each deciding for itself what it means, is
-how they come apart: the dropdown and the hint can already disagree about the same
-field, and only one of them is on screen at a time. The seam is an advisory rule in
-`checkRecords` itself, at hint level, which both the form and the text editor would
-then get from one place and neither would have to name. Recorded in
-`docs/ENGINE_SEAMS.md` beside the authoring seam it extends.
+`RECORD_BLUEPRINTS` measures a closed set of values that `checkRecords` never
+checks, so the record screen's dropdown and the file editor's hint are two
+consumers of one measurement that can already disagree about the same field.
+An advisory rule inside `checkRecords` itself would give both one shared
+answer. Tracked as issue #6.
 
 ### Searching across files, and a diff - NOT BUILT
 
-Find works inside the file that is open. There is no search across the folder and
-no view of what a save changed. Both are real and neither is the difference
-between having a text editor and not having one, which is what this version is
-for. A diff is the more useful of the two, because a save on a record file rewrites
-the text into the emitter's own spelling and an author currently sees that happen
-without being shown what moved.
+Find works inside the file that is open. There is no search across the folder
+and no view of what a save changed, which matters most because a save on a
+record file rewrites the text into the emitter's own spelling without showing
+what moved. Tracked as issue #9.
 
 ---
 
