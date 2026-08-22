@@ -280,6 +280,41 @@ export class Actions {
     }, CHECK_DELAY);
   }
 
+  /**
+   * Recheck NOW, on the way into a screen whose controls depend on the answer.
+   *
+   * WHY THIS EXISTS BESIDE `scheduleCheck`. The debounce is right for typing: a
+   * full build per keystroke is work nobody asked for. It is wrong for arriving,
+   * because a screen built during the debounce paints its primary action DISABLED
+   * and enables it a quarter of a second later - so the button is grey exactly when
+   * the player has just moved their hand to it, and the workshop's own test had to
+   * settle twice to click it. Every route change rebuilds the screen from scratch,
+   * so that happened on every visit rather than once.
+   *
+   * Cheap enough to be worth doing on the spot: the build is over one draft's own
+   * records, the same work the debounce was going to do anyway, and it is already
+   * being done inside a try because a throw here is a workshop bug rather than the
+   * mod's.
+   */
+  checkNow(): void {
+    if (this.checkTimer !== undefined) {
+      clearTimeout(this.checkTimer);
+      this.checkTimer = undefined;
+    }
+    const state = this.deps.store.get();
+    const draft = openDraft(state);
+    if (!draft) return;
+    if (state.verdict.revision === state.revision && !state.verdict.stale) return;
+    const revision = state.revision;
+    try {
+      const build = buildDraft(this.deps.api, draft, this.deps.records);
+      this.deps.store.view(() => ({ verdict: { revision, stale: false, build } }));
+    } catch (e) {
+      this.deps.store.view(() => ({ verdict: { revision, stale: false, broke: String(e) } }));
+      this.deps.log(`build threw: ${String(e)}`);
+    }
+  }
+
   /** The files this draft would write. Recomputed rather than cached. */
   files(): readonly EmittedFile[] {
     const draft = openDraft(this.deps.store.get());
@@ -342,12 +377,21 @@ export class Actions {
   }
 
   /**
-   * Load it for this session, so it can be played now without joining the library.
+   * Load it for this session and go and play it. One action.
    *
-   * THE SHORTEST HONEST LOOP the workshop has: build, try, reload, play. What it
-   * is not is a preview - the pack composes into the game exactly as an installed
-   * one does, so this is the real mod, and the only thing that is temporary is the
-   * archive. What it did to the character who plays it is not.
+   * THE SHORTEST HONEST LOOP the workshop has, and it used to be three steps
+   * longer than it needed to be. Content composes at load, so a reload is genuinely
+   * unavoidable - but the workshop was announcing that in a status line, leaving the
+   * player to find the Close button and then press Ctrl-R themselves, while holding
+   * a `reload` it never called. Reloading is not a capability anybody grants: a
+   * plugin's code runs in the page and can reach `location` either way. So the
+   * reload was never the game's to withhold, and asking the player to do by hand
+   * something the workshop could do was friction with nothing behind it.
+   *
+   * WHAT IT IS NOT is a preview. The pack composes into the game exactly as an
+   * installed one does, so this is the real mod, and the only thing that is
+   * temporary is the archive. What it did to the character who plays it is not, and
+   * the button that calls this says so before it is pressed.
    *
    * The drafts are written down FIRST, for the same reason `install` writes them
    * first: what follows is a reload, and an unflushed draft would not survive it.
@@ -358,6 +402,7 @@ export class Actions {
     this.deps.writer.flush();
     const files = this.files();
     if (files.length === 0) return;
+    this.notice(`Forging ${draft.id}...`, "plain");
     const outcome = await this.deps.seams.session.load(zipDraft(files));
     if (!outcome.ok) {
       this.notice(outcome.problem, "bad");
@@ -366,8 +411,9 @@ export class Actions {
     if (!outcome.survivesReload) {
       /* The mod is staged for THIS page and will be gone after the reload that
        * would apply it, so the loop cannot finish. Said as the fault of the
-       * window's storage rather than of the mod, and pointed at the door that
-       * does work. */
+       * window's storage rather than of the mod, and pointed at the door that does
+       * work - and NOT reloaded, because reloading here would throw the mod away
+       * and land the player somewhere that looks like a failure with no message. */
       this.notice(
         `${outcome.id} cannot be tried this way here: this window will not keep it across the reload the game ` +
           `needs to pick it up. Save it as a file and install it instead.`,
@@ -375,11 +421,19 @@ export class Actions {
       );
       return;
     }
-    this.notice(
-      `${outcome.id} ${outcome.version} is loaded for this session. Reload to play it. It is not in your mods ` +
-        `and it is gone when you close the game - but whatever it does to the character who plays it is not.`,
-      "good",
-    );
+    if (this.deps.seams.session.reloadByHand) {
+      /* No way to reload from here, which is a front end without a `location` - a
+       * test, or a host that embeds the game. Say the one remaining step. */
+      this.notice(
+        `${outcome.id} ${outcome.version} is loaded for this session. Reload the game to play it. It is not in ` +
+          `your mods and it is gone when you close the game - but whatever it does to the character who plays ` +
+          `it is not.`,
+        "good",
+      );
+      return;
+    }
+    this.notice(`${outcome.id} ${outcome.version} is forged. Reloading to play it...`, "good");
+    this.deps.seams.session.reload();
   }
 
   /** The manifest as it will ship, for the review screen. */

@@ -136,7 +136,7 @@ export function baseScreen(shop: Workshop, file: string, mode: "new" | "change")
         else shop.acts.notice("That record has no identity the game can address, so it cannot be adjusted.", "bad");
       },
     });
-    if (shop.seams.spawn.available && mode === "new") {
+    if (shop.seams.wizard.api !== undefined && mode === "new") {
       row.querySelector(".mb-row-acts")?.appendChild(
         button({
           label: "Look at it",

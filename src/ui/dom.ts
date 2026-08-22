@@ -101,7 +101,29 @@ function apply(el: HTMLElement, attrs: Attrs): void {
   if (attrs.download !== undefined && el instanceof HTMLAnchorElement) el.download = attrs.download;
   if (attrs.spellcheck !== undefined) el.spellcheck = attrs.spellcheck;
 
-  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) {
+  /* AN OPTION'S VALUE IS NOT ITS LABEL, and leaving it unset makes it one.
+   *
+   * `HTMLOptionElement` was missing from the branch below, so `value` was silently
+   * dropped on every option ever built here - and an option with no value attribute
+   * reports its TEXT as its value. Nothing looked broken, because the two places
+   * that used a select mostly happened to pass a value equal to its label. The one
+   * that did not was the rebalance screen's operation picker: `{ value: "mul", text:
+   * "multiply by" }`, read back as `opPick.value === "mul" ? "mul" : "add"`. It read
+   * "multiply by", missed, and fell to the default - so choosing "multiply by" ADDED,
+   * on every use, silently, and a player retuning a hundred records got a hundred
+   * wrong numbers with nothing to tell them why.
+   *
+   * Kept as its own branch rather than folded in below, because an option has none
+   * of the other properties there and `el.disabled` on an option means something
+   * different from `el.disabled` on the select around it. */
+  if (el instanceof HTMLOptionElement) {
+    if (attrs.value !== undefined) el.value = String(attrs.value);
+    if (attrs.disabled !== undefined) el.disabled = attrs.disabled;
+  } else if (
+    el instanceof HTMLInputElement ||
+    el instanceof HTMLTextAreaElement ||
+    el instanceof HTMLSelectElement
+  ) {
     if (attrs.type !== undefined && el instanceof HTMLInputElement) el.type = attrs.type;
     if (attrs.value !== undefined) el.value = String(attrs.value);
     if (attrs.placeholder !== undefined && !(el instanceof HTMLSelectElement)) el.placeholder = attrs.placeholder;

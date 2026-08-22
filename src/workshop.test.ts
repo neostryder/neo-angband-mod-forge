@@ -247,7 +247,7 @@ describe("the player's journey", () => {
     walkToTheEditor();
     type(fieldInput("name"), "dire wolf");
 
-    control("Review and install").click();
+    control("Review it").click();
     expect(screenText()).toContain("manifest.json");
     expect(screenText()).toContain("monster.json");
 
@@ -268,7 +268,7 @@ describe("the player's journey", () => {
   it("offers the file when there is no install door, and says why", () => {
     walkToTheEditor();
     type(fieldInput("name"), "dire wolf");
-    control("Review and install").click();
+    control("Review it").click();
     expect(screenText()).toContain("Import a zip");
     const forge = control("Forge and install") as HTMLButtonElement;
     expect(forge.disabled).toBe(true);
@@ -278,16 +278,39 @@ describe("the player's journey", () => {
   it("says why trying it is unavailable, rather than greying the button in silence", () => {
     walkToTheEditor();
     type(fieldInput("name"), "dire wolf");
-    control("Review and install").click();
-    expect((control("Forge and try it now") as HTMLButtonElement).disabled).toBe(true);
+    control("Review it").click();
+    expect((control("Forge it and play it now") as HTMLButtonElement).disabled).toBe(true);
     /* The reason, in the same place the install reason goes: a control that is off
      * because this game has no door for it is a different situation from one that
      * is off because the mod is unfinished, and only one of them has a next step. */
     expect(screenText()).toContain("no way to load a mod for one session");
   });
 
-  it("stages the mod for the session, and says what that does and does not mean", async () => {
+  it("has its primary action live on the FIRST paint of the review screen", () => {
+    /* THE CHECK USED TO BE DEBOUNCED HERE and this test used to wait for it, with a
+     * comment explaining that the button is disabled on the first paint. That was
+     * the friction, written down and accepted: the screen is rebuilt from scratch on
+     * every visit, so the primary action was grey for a quarter of a second exactly
+     * when the player's hand arrived on it, every single visit. Arriving now checks
+     * on the spot; typing is still debounced, which is what the debounce is for. */
+    walkToTheEditor({
+      loadModForSession: () =>
+        Promise.resolve({ ok: true as const, id: "my-first-mod", version: "0.1.0", survivesReload: true }),
+    });
+    type(fieldInput("name"), "dire wolf");
+    control("Review it").click();
+    expect((control("Forge it and play it now") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("stages the mod and reloads the game itself, rather than asking for Ctrl-R", async () => {
+    /* THE WHOLE LOOP IS ONE CLICK NOW. It used to be four actions and a wait - leave
+     * what you were doing for the review screen, wait out the debounce, press the
+     * button, find Close, press Ctrl-R - of which none was a decision. The workshop
+     * was holding a `reload` it never called and telling the player to do it, when
+     * reloading was never a capability anybody grants: a plugin's code runs in the
+     * page and can reach `location` either way. */
     const staged: Uint8Array[] = [];
+    let reloaded = 0;
     walkToTheEditor({
       loadModForSession: (bytes) => {
         staged.push(bytes);
@@ -298,36 +321,46 @@ describe("the player's journey", () => {
           survivesReload: true,
         });
       },
+      reload: () => {
+        reloaded += 1;
+      },
     });
     type(fieldInput("name"), "dire wolf");
-    control("Review and install").click();
 
-    /* THE CHECK IS DEBOUNCED, so the button is disabled on the first paint and the
-     * useful assertion is on the paint after it. Waiting for it rather than
-     * asserting the disabled state is the point: every existing test of these
-     * buttons asserts DISABLED, which means the enabled path had never run. */
-    await settle();
-    const tryIt = control("Forge and try it now") as HTMLButtonElement;
-    expect(tryIt.disabled).toBe(false);
-    tryIt.click();
-    /* The action is async: the click returns before the seam has answered. */
+    /* FROM THE STATUS BAR, which is on every screen a draft is open on - so this is
+     * the whole loop from wherever the author already was, without visiting review
+     * at all. Review did not go away; looking first is no longer compulsory. */
+    control("Try it in the game").click();
     await settle();
 
     /* REAL BYTES, and a real archive - a stub that took no arguments would let the
      * emitter break without this noticing. */
     expect(staged).toHaveLength(1);
     expect((staged[0]?.length ?? 0)).toBeGreaterThan(0);
+    expect(reloaded).toBe(1);
+  });
 
-    const said = screenText();
-    expect(said).toContain("loaded for this session");
+  it("still says what a session load does and does not mean, before it is pressed", () => {
+    /* THE SENTENCE MOVED, IT DID NOT GO. The success notice used to carry it, and a
+     * notice that is immediately followed by a reload is a notice nobody reads. So
+     * it is on the control instead, where it is read BEFORE the decision rather than
+     * after it - which is the better place for it anyway. */
+    walkToTheEditor({
+      loadModForSession: () =>
+        Promise.resolve({ ok: true as const, id: "my-first-mod", version: "0.1.0", survivesReload: true }),
+    });
+    type(fieldInput("name"), "dire wolf");
+    const tip = control("Try it in the game").dataset["tip"] ?? "";
+    expect(tip).toContain("not added to your mods");
+    expect(tip).toContain("gone when you close the game");
     /* AND THE HALF THAT IS EASY TO DROP. "It is gone when you close the game" on
-     * its own reads as a safety feature; the sentence has to carry the other half
-     * or the workshop is telling the player something untrue by omission. */
-    expect(said).toContain("gone when you close the game");
-    expect(said).toContain("is not");
+     * its own reads as a safety feature; the sentence has to carry the other half or
+     * the workshop is telling the player something untrue by omission. */
+    expect(tip).toContain("What it does to the character who plays it is not");
   });
 
   it("refuses to promise a reload the browser cannot survive", async () => {
+    let reloaded = 0;
     walkToTheEditor({
       loadModForSession: () =>
         Promise.resolve({
@@ -339,17 +372,23 @@ describe("the player's journey", () => {
            * the player round cannot finish. */
           survivesReload: false,
         }),
+      reload: () => {
+        reloaded += 1;
+      },
     });
     type(fieldInput("name"), "dire wolf");
-    control("Review and install").click();
-    await settle();
-    (control("Forge and try it now") as HTMLButtonElement).click();
+    control("Review it").click();
+    (control("Forge it and play it now") as HTMLButtonElement).click();
     await settle();
 
     const said = screenText();
     expect(said).toContain("cannot be tried this way here");
     /* Pointed at the door that does work rather than left as a refusal. */
     expect(said).toContain("install it instead");
+    /* AND NOT RELOADED, which is the part that would turn a readable refusal into a
+     * mystery: the reload would throw the staged mod away and land the player
+     * somewhere that looks like a failure with nothing on screen to say so. */
+    expect(reloaded).toBe(0);
   });
 
   it("undoes an edit from the title bar", () => {
@@ -382,13 +421,270 @@ describe("the player's journey", () => {
   });
 });
 
+/**
+ * The test panel, whose whole promise is that nothing works until the player has
+ * given something up on purpose.
+ *
+ * THE PANEL IS NOW REACHABLE BEFORE IT IS USABLE, which the old one was not, and
+ * that is the change these tests are mostly about. Its route used to be gated on
+ * the seam being fully live, so on every shipped engine the screen existed and no
+ * button anywhere led to it - the placehold* that was supposed to explain the
+ * situation was, in practice, invisible. The explanation and the button that spends
+ * the session are the first thing on it, so a route that only opened afterwards
+ * would be a route to a screen nobody needed.
+ */
 describe("the test panel", () => {
-  it("is disabled with the reason on it when the seam is absent", () => {
-    open = openWorkshop(ctx({ flags: { "builder.showTab": true, "builder.cheatSpawn": true } }), document);
+  /** A wizard surface over a fixed catalogue, recording what was asked of it. */
+  function fakeWizard(): NonNullable<BuilderCtx["wizard"]> & { readonly done: string[] } {
+    const done: string[] = [];
+    let loose = false;
+    const ok = (what: string) => {
+      done.push(what);
+      return { ok: true as const, did: what };
+    };
+    const gate = (what: string) =>
+      loose ? ok(what) : { ok: false as const, problem: `${what} needs the session cut loose` };
+    return {
+      done,
+      sandboxed: () => loose,
+      attached: () => (loose ? null : { name: "Beren" }),
+      sandbox: () => {
+        loose = true;
+        return ok("cut loose");
+      },
+      catalogue: () => ({
+        creatures: [
+          { name: "grey wolf", index: 1, level: 10 },
+          { name: "aardvark", index: 2, level: 2 },
+          { name: "dire wolf", index: 3, level: 25, from: "my-first-mod" },
+        ],
+        items: [{ name: "Wooden Torch", index: 1, level: 1 }],
+        artifacts: [],
+      }),
+      where: () => ({
+        depth: 3,
+        maxDepth: 100,
+        level: 7,
+        experience: 120,
+        gold: 45,
+        stats: [
+          { name: "STR", value: 16 },
+          { name: "INT", value: 10 },
+        ],
+      }),
+      spawnItem: (which) => gate(`spawnItem ${String(which)}`),
+      spawnCreature: (which, quantity) => gate(`spawnCreature ${String(which)} x${quantity ?? 1}`),
+      spawnArtifact: (which) => gate(`spawnArtifact ${String(which)}`),
+      goToDepth: (depth) => gate(`goToDepth ${depth}`),
+      grantExperience: (amount) => gate(`grantExperience ${amount}`),
+      setExperience: (value) => gate(`setExperience ${value}`),
+      setGold: (value) => gate(`setGold ${value}`),
+      setStat: (stat, value) => gate(`setStat ${stat} ${value}`),
+      maxOut: () => gate("maxOut"),
+      heal: () => gate("heal"),
+      rerollLife: () => gate("rerollLife"),
+      acquire: (quantity, great) => gate(`acquire ${quantity} ${great === true}`),
+      summonRandom: (quantity) => gate(`summonRandom ${quantity}`),
+      banish: (range) => gate(`banish ${range ?? "all"}`),
+      killVisible: () => gate("killVisible"),
+      teleport: (range) => gate(`teleport ${range}`),
+      mapLevel: () => gate("mapLevel"),
+      lightLevel: () => gate("lightLevel"),
+      findCreatures: () => gate("findCreatures"),
+      learnItems: (upTo) => gate(`learnItems ${upTo ?? "all"}`),
+      learnCreatures: () => gate("learnCreatures"),
+    };
+  }
+
+  /** Open the workshop with the seam live and land on the test panel. */
+  function openTestPanel(over: Partial<BuilderCtx> = {}): ReturnType<typeof fakeWizard> {
+    const wizard = fakeWizard();
+    open = openWorkshop(
+      ctx({
+        flags: { "builder.showTab": true, "builder.keepDrafts": true, "builder.cheatSpawn": true },
+        wizard,
+        state: {},
+        ...over,
+      }),
+      document,
+    );
     control("Take me to my mods").click();
-    /* Reached through a route rather than a button, because the button only
-     * appears once the seam is live - which is itself the behaviour under test. */
-    expect(buttonNames()).not.toContain("Test it");
+    const idBox = shadow().querySelector<HTMLInputElement>('input[type="text"]');
+    if (!idBox) throw new Error("no id box on the mod list");
+    type(idBox, "my-first-mod");
+    control("Start a new mod").click();
+    control("Test it in the game").click();
+    return wizard;
+  }
+
+  it("is reachable, and says what it costs, before anything has been spent", () => {
+    const wizard = openTestPanel();
+    const said = screenText();
+    /* THE CHARACTER IS NAMED, because a question that could not name them would be
+     * one nobody can weigh. */
+    expect(said).toContain("Beren");
+    expect(said).toContain("off until this session stops being saved");
+    expect(said).toContain("cannot be undone");
+    expect(wizard.done).toEqual([]); // nothing has happened yet
+  });
+
+  it("leaves every command dead until the session is cut loose", () => {
+    const wizard = openTestPanel();
+    const live = [...shadow().querySelectorAll<HTMLButtonElement>(".mb-list button, .mb-listrow")].filter(
+      (b) => !b.disabled,
+    );
+    expect(live).toEqual([]);
+    /* Pressing one anyway does nothing, which is the assertion that matters: a
+     * disabled attribute is a hint to a mouse, not a gate. */
+    control("Map this level").click();
+    control("dire wolf", ".mb-listrow").click();
+    expect(wizard.done).toEqual([]);
+  });
+
+  it("brings the whole set to life once it has been, and only then", () => {
+    const wizard = openTestPanel();
+    control("Stop saving, and let me test").click();
+    expect(wizard.done).toEqual(["cut loose"]);
+
+    control("Map this level").click();
+    control("Heal and cure").click();
+    control("dire wolf", ".mb-listrow").click();
+    expect(wizard.done).toEqual(["cut loose", "mapLevel", "heal", "spawnCreature dire wolf x1"]);
+  });
+
+  it("offers a handful at once without making the author type a number", () => {
+    const wizard = openTestPanel();
+    control("Stop saving, and let me test").click();
+    control("x5", ".mb-listrow button").click();
+    expect(wizard.done).toContain("spawnCreature dire wolf x5");
+  });
+
+  it("cannot be armed twice", () => {
+    const wizard = openTestPanel();
+    const arm = control("Stop saving, and let me test") as HTMLButtonElement;
+    arm.click();
+    expect(arm.disabled).toBe(true);
+    arm.click();
+    expect(wizard.done).toEqual(["cut loose"]);
+  });
+
+  it("shows the author's own content and nothing else, when one pack added any", () => {
+    /* THE DEFAULT IS THE WHOLE POINT OF THE BROWSER. An author has just written a
+     * monster; the list they need is not six hundred entries with theirs somewhere
+     * in it. One pack in play is overwhelmingly the draft they just forged, so that
+     * is what the filter starts on. */
+    openTestPanel();
+    expect(rowNames()).toEqual(["dire wolf"]);
+    expect(screenText()).toContain("1 of 3");
+  });
+
+  it("has the whole game behind that, not instead of it", () => {
+    /* NOT LIMITED TO THE MOD'S OWN CONTENT: the filter can be turned off, and the
+     * thing an author most often wants to test against is whatever their record is
+     * supposed to resemble. */
+    openTestPanel();
+    setPack("");
+    /* Mine first, then the game's - read off each record's own provenance, so the
+     * workshop keeps no list of what the base game contains, which is a list that
+     * would be wrong the first time the game added a monster. Then by DEPTH rather
+     * than alphabetically, because "what else lives at this depth" is the comparison
+     * an author is actually making. */
+    expect(rowNames()).toEqual(["dire wolf", "aardvark", "grey wolf"]);
+  });
+
+  it("switches between creatures, items and artifacts", () => {
+    /* An option's value is not its label, and `dom.ts` used to drop it - which made
+     * every `select.value` in the workshop report its own text. This is the
+     * regression test for the fix as much as for the picker. */
+    openTestPanel();
+    setPack("");
+    setKind("item");
+    expect(rowNames()).toEqual(["Wooden Torch"]);
+    setKind("artifact");
+    expect(rowNames()).toEqual([]);
+  });
+
+  it("marks which pack a row came from, rather than leaving it to be guessed", () => {
+    openTestPanel();
+    const mine = [...shadow().querySelectorAll<HTMLElement>(".mb-listrow")].find((row) =>
+      (row.querySelector(".mb-listrow-name")?.textContent ?? "") === "dire wolf",
+    );
+    expect(mine?.querySelector(".mb-tag")?.textContent).toBe("my-first-mod");
+  });
+
+  it("says where the character is, so a depth is a decision and not a guess", () => {
+    openTestPanel();
+    const said = screenText();
+    expect(said).toContain("Dungeon level 3");
+    expect(said).toContain("character level 7");
+    expect(said).toContain("STR 16");
+  });
+
+  it("sends a typed depth through as typed", () => {
+    const wizard = openTestPanel();
+    control("Stop saving, and let me test").click();
+    const depth = [...shadow().querySelectorAll<HTMLElement>(".mb-field")].find(
+      (row) => (row.querySelector(".mb-label-name")?.textContent ?? "") === "dungeon level",
+    );
+    const box = depth?.querySelector<HTMLInputElement>("input");
+    if (!box) throw new Error("no depth field on the test panel");
+    type(box, "40");
+    control("Go there").click();
+    expect(wizard.done).toContain("goToDepth 40");
+  });
+
+  it("hands an unreadable number on as NaN rather than as zero", () => {
+    /* Zero is a real depth - it is the town - so a mistyped field that arrived as
+     * zero would quietly do something rather than be refused. The host's own
+     * refusal says "that is not a dungeon level"; the workshop's job is only to not
+     * launder the mistake into a legal value. */
+    const wizard = openTestPanel();
+    control("Stop saving, and let me test").click();
+    const depth = [...shadow().querySelectorAll<HTMLElement>(".mb-field")].find(
+      (row) => (row.querySelector(".mb-label-name")?.textContent ?? "") === "dungeon level",
+    );
+    const box = depth?.querySelector<HTMLInputElement>("input");
+    if (!box) throw new Error("no depth field on the test panel");
+    type(box, "deep");
+    control("Go there").click();
+    expect(wizard.done).toContain("goToDepth NaN");
+  });
+
+  /** Every row's name, in the order the browser is showing them. */
+  function rowNames(): string[] {
+    return [...shadow().querySelectorAll(".mb-listrow-name")].map((el) => el.textContent ?? "");
+  }
+
+  /** Pick one of the browser's two selects by the options it holds. */
+  function pick(has: string): HTMLSelectElement {
+    const found = [...shadow().querySelectorAll<HTMLSelectElement>("select")].find((select) =>
+      [...select.options].some((option) => option.value === has),
+    );
+    if (!found) throw new Error(`no select offering "${has}"`);
+    return found;
+  }
+
+  function setPack(value: string): void {
+    const select = pick("");
+    select.value = value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function setKind(value: string): void {
+    const select = pick("creature");
+    select.value = value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  it("says the engine has no such seam, on a reachable screen, when it has not", () => {
+    /* The refusal a player on a shipped engine without the capability actually sees.
+     * It used to be on a screen nothing led to. */
+    open = openWorkshop(
+      ctx({ flags: { "builder.showTab": true, "builder.cheatSpawn": true } }),
+      document,
+    );
+    control("Take me to my mods").click();
+    expect(buttonNames()).not.toContain("Test it in the game");
   });
 });
 
@@ -457,7 +753,7 @@ describe("composition, which is the property an author cannot see", () => {
     box.value = "EVIL";
     box.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
 
-    control("Review and install").click();
+    control("Review it").click();
     const emitted = [...shadow().querySelectorAll(".mb-code")].map((el) => el.textContent ?? "");
     const monster = JSON.parse(emitted[1] ?? "{}") as { fieldPatches?: Record<string, { op: string; flag?: string }[]> };
     const ops = monster.fieldPatches?.["core:grey-wolf"] ?? [];
@@ -490,7 +786,7 @@ describe("composition, which is the property an author cannot see", () => {
     );
     [...(hp?.querySelectorAll<HTMLButtonElement>("button") ?? [])].find((b) => b.textContent === "+1")?.click();
 
-    control("Review and install").click();
+    control("Review it").click();
     const emitted = [...shadow().querySelectorAll(".mb-code")].map((el) => el.textContent ?? "");
     const monster = JSON.parse(emitted[1] ?? "{}") as { fieldPatches?: Record<string, { op: string }[]> };
     expect(monster.fieldPatches?.["core:grey-wolf"]).toEqual([{ op: "add", path: "hit-points", value: 1 }]);
@@ -514,7 +810,7 @@ describe("composition, which is the property an author cannot see", () => {
       .find((row) => (row.textContent ?? "").includes("grey wolf"))
       ?.click();
 
-    control("Review and install").click();
+    control("Review it").click();
     const manifest = JSON.parse([...shadow().querySelectorAll(".mb-code")][0]?.textContent ?? "{}") as {
       dependencies?: Record<string, string>;
       group?: string;

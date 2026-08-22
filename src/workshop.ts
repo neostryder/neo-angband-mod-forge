@@ -107,7 +107,7 @@ export function openWorkshop(ctx: BuilderCtx, doc: Document | undefined): Worksh
   log(
     `workshop opened: authoring ${seams.authoring.available ? "live" : "demonstration"}, ` +
       `install ${seams.install.available ? "in place" : "by file"}, ` +
-      `spawn ${seams.spawn.available ? "on" : "off"}`,
+      `testing ${seams.wizard.available ? "on" : "off"}`,
   );
   return handle;
 }

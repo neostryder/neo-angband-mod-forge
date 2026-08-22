@@ -206,7 +206,38 @@ export function mountApp(deps: AppDeps): App {
               "workshop will promise you.",
             onClick: () => deps.acts.download(),
           }),
-      draft === undefined ? null : button({ label: "Review and install", tiny: true, onClick: () => deps.acts.go({ at: "verdict" }) }),
+      /* THE ONE-CLICK LOOP, and it is here rather than only on the review screen
+       * because the review screen was the friction. Getting a draft into the game
+       * used to be: leave what you are doing for the verdict screen, wait for a
+       * debounce to enable the button, press it, find Close, press Ctrl-R. Four
+       * actions and a wait, of which exactly none was a decision. The status bar is
+       * on every screen a draft is open on, so this is that whole loop from wherever
+       * the author already is.
+       *
+       * REVIEW DID NOT GO AWAY, and it should not: it is where the errors, the
+       * emitted files and the manifest are, and an author who wants to look before
+       * they leap still has the button next to this one. What changed is that
+       * looking is no longer compulsory in order to try something. */
+      draft === undefined
+        ? null
+        : button({
+            label: "Try it in the game",
+            kind: "primary",
+            tiny: true,
+            tip:
+              "Forges the mod, loads it for this session only, and reloads the game so it takes effect - content " +
+              "always needs a reload. It is not added to your mods and it is gone when you close the game. What " +
+              "it does to the character who plays it is not, so play one you do not mind changing.",
+            onClick: () => void deps.acts.loadForSession(),
+          }),
+      draft === undefined
+        ? null
+        : button({
+            label: "Review it",
+            tiny: true,
+            tip: "The errors, the files it would write, and the manifest as it will ship.",
+            onClick: () => deps.acts.go({ at: "verdict" }),
+          }),
     );
   };
 
@@ -273,11 +304,24 @@ export function mountApp(deps: AppDeps): App {
         deps.acts.go({ at: "record", change: route.change, path: up });
         return true;
       }
-      if (route.at !== "mods") {
-        deps.acts.go(state.openId === undefined ? { at: "mods" } : { at: "details" });
+      /* THE LADDER HAD NO BOTTOM RUNG while a mod was open, and the bug was
+       * invisible because nothing about it looked wrong. `details` satisfied
+       * `at !== "mods"`, so Escape there navigated to `details` - the route it was
+       * already on. `keyOf` was unchanged, so the screen was updated in place and
+       * nothing moved. Escape could therefore never reach `close()` with a mod open,
+       * and the title bar's button was the only way out of the workshop.
+       *
+       * Each rung now names where it goes, and the last two are the ones that were
+       * missing: details steps out to the mod list, and the mod list closes. */
+      if (route.at === "mods") {
+        deps.acts.close();
         return true;
       }
-      deps.acts.close();
+      if (route.at === "details" || state.openId === undefined) {
+        deps.acts.go({ at: "mods" });
+        return true;
+      }
+      deps.acts.go({ at: "details" });
       return true;
     }
     const chord = event.ctrlKey || event.metaKey;

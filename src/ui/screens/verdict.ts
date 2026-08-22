@@ -54,13 +54,14 @@ export function verdictScreen(shop: Workshop): View {
   filesCard.body.appendChild(filesHost);
 
   const tryIt = button({
-    label: "Forge and try it now",
+    label: "Forge it and play it now",
     kind: "primary",
     seal: true,
     onClick: () => void shop.acts.loadForSession(),
     tip:
-      "Loads it for this session without adding it to your mods. Reload to play it, and it is gone when you " +
-      "close the game. What it does to the character who plays it is not.",
+      "Forges it, loads it for this session only, and reloads the game so it takes effect - content always needs " +
+      "a reload. It is not added to your mods and it is gone when you close the game. What it does to the " +
+      "character who plays it is not.",
   });
   const install = button({
     label: "Forge and install",
@@ -203,10 +204,10 @@ export function verdictScreen(shop: Workshop): View {
       shop.seams.session.available
         ? h("p", {
             text:
-              "Trying it loads the mod for this session only: it is not added to your mods and it is gone when " +
-              "you close the game. It still takes a reload to pick up, because composing content always does. " +
-              "It is the real mod and not a preview, so play a character you do not mind changing - next time, " +
-              "with the mod gone, the game treats anything it added as belonging to something not installed.",
+              "Playing it loads the mod for this session only and reloads the game, because composing content " +
+              "always needs a reload. It is not added to your mods and it is gone when you close the game. It is " +
+              "the real mod and not a preview, so play a character you do not mind changing - next time, with " +
+              "the mod gone, the game treats anything it added as belonging to something not installed.",
           })
         : h("p", { text: shop.seams.session.why ?? "" }),
       shop.seams.install.available
@@ -219,8 +220,14 @@ export function verdictScreen(shop: Workshop): View {
     installNote.replaceChildren(...notes);
   };
 
+  /* CHECKED BEFORE THE FIRST PAINT, not a quarter of a second after it. This screen
+   * is rebuilt from scratch on every visit and its buttons are disabled until a
+   * verdict exists, so a debounced check meant the primary action was grey exactly
+   * when the player's hand arrived on it - every single visit. `checkNow` returns
+   * immediately when the verdict is already current, so this costs nothing on the
+   * common path. */
+  shop.acts.checkNow();
   render(shop.store.get());
-  shop.acts.scheduleCheck();
 
   return {
     el,

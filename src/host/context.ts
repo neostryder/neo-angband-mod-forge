@@ -75,26 +75,102 @@ export type SessionModResult =
     }
   | { readonly ok: false; readonly problem: string };
 
+/** What came of one debug command. `did` is a sentence, ready for the status line. */
+export type WizardOutcome =
+  | { readonly ok: true; readonly did: string }
+  | { readonly ok: false; readonly problem: string };
+
+/** The save a session is still attached to, for naming what is about to stop. */
+export interface WizardAttached {
+  readonly name: string;
+}
+
+/** One record the test panel can offer, and which pack put it in the game. */
+export interface WizardEntry {
+  readonly name: string;
+  readonly index: number;
+  readonly level: number;
+  /**
+   * The pack that ADDED the record, absent when the base game did.
+   *
+   * This is the field the whole browser is built around. It is how a workshop can
+   * put the author's own content at the top without keeping its own list of what
+   * vanilla contains, which is a list that would be wrong the first time the game
+   * added a monster.
+   */
+  readonly from?: string;
+}
+
+/** Everything the running game has, after this session's mods composed. */
+export interface WizardCatalogue {
+  readonly items: readonly WizardEntry[];
+  readonly creatures: readonly WizardEntry[];
+  readonly artifacts: readonly WizardEntry[];
+}
+
+/** Where the character is and what it has, for filling the panel's fields in. */
+export interface WizardWhere {
+  readonly depth: number;
+  readonly maxDepth: number;
+  readonly level: number;
+  readonly experience: number;
+  readonly gold: number;
+  readonly stats: readonly { readonly name: string; readonly value: number }[];
+}
+
 /**
- * The game's own wired debug dependencies, all but opaque here.
+ * The game's debug commands as a surface of METHODS, not as a bag of its internals.
  *
- * Opaque on purpose, with exactly one field read. The workshop passes this
- * straight back into the `wiz*` functions on `ctx.core` and reaches inside it for
- * nothing else, because the one thing that makes the seam correct is that it is
- * the game's instances by identity: `makeDeps.artifacts` must be the single
- * `ArtifactState` the game owns, or an artifact can be created twice. A mod that
- * read fields off it would be one refactor away from rebuilding it.
+ * THIS IS NOT THE SHAPE THIS SEAM WAS PLANNED AS, and the change is worth reading
+ * because it moved a guarantee out of this repository. The plan was for the game to
+ * hand over its wired `WizardDeps` bundle so the workshop could pass it back into
+ * the `wiz*` functions on `ctx.core` itself. That works, and it puts the player's
+ * character behind the workshop's own care: those functions are gated on a `debug`
+ * flag in a bag the CALLER assembles, so nothing outside this repository could stop
+ * a mistake here from writing a cheated character over one somebody loved.
  *
- * `debug` is the exception, and it is read rather than passed because it is the
- * difference between a control that is off and a control that lies. Every one of
- * those functions is gated on it, it comes from the character's persisted
- * NOSCORE.DEBUG bit rather than from wizard mode, and a character that has never
- * taken that mark cannot spawn anything. Saying so is better than a button that
- * does nothing.
+ * A method surface moves the guarantee to the host, where it can be enforced rather
+ * than intended. Every command below refuses until `sandbox()` has cut the session
+ * loose from its save slot, and the host checks that on every call. The workshop
+ * cannot opt out of it and neither can a bug in the workshop.
+ *
+ * WHAT IS STILL TRUE is that nothing here is reimplemented. Each method is the
+ * function the game's own `^A` menu dispatches to, called through the game's own
+ * live dependencies - so an artifact still cannot be created twice by this route,
+ * and a spawned object is still stamped as a cheat by the code that stamps the
+ * debug menu's.
  */
-export interface WizardDepsLike {
-  readonly debug: boolean;
-  readonly [key: string]: unknown;
+export interface WizardApi {
+  sandboxed(): boolean;
+  attached(): WizardAttached | null;
+  sandbox(): WizardOutcome;
+  catalogue(): WizardCatalogue;
+  where(): WizardWhere | null;
+
+  spawnItem(which: number | string, quantity?: number): WizardOutcome;
+  spawnCreature(which: number | string, quantity?: number): WizardOutcome;
+  spawnArtifact(which: number | string): WizardOutcome;
+
+  goToDepth(depth: number): WizardOutcome;
+  grantExperience(amount: number): WizardOutcome;
+  setExperience(value: number): WizardOutcome;
+  setGold(value: number): WizardOutcome;
+  setStat(stat: string, value: number): WizardOutcome;
+  maxOut(): WizardOutcome;
+  heal(): WizardOutcome;
+  rerollLife(): WizardOutcome;
+
+  acquire(quantity: number, great?: boolean): WizardOutcome;
+  summonRandom(quantity: number): WizardOutcome;
+  banish(range?: number): WizardOutcome;
+  killVisible(): WizardOutcome;
+  teleport(range: number): WizardOutcome;
+
+  mapLevel(): WizardOutcome;
+  lightLevel(): WizardOutcome;
+  findCreatures(): WizardOutcome;
+  learnItems(upTo?: number): WizardOutcome;
+  learnCreatures(): WizardOutcome;
 }
 
 /** A live game, narrowed to nothing: the workshop only ever passes it on. */
@@ -133,8 +209,25 @@ export interface BuilderCtx {
    * says so before it stages anything.
    */
   readonly loadModForSession?: (bytes: Uint8Array) => Promise<SessionModResult>;
-  /** Seam 4. The game's wired debug dependencies. Gated by `debug:spawn`. */
-  readonly wizard?: WizardDepsLike;
+  /**
+   * Seam 4. The game's debug commands. Gated by `debug:wizard`.
+   *
+   * Every command refuses until `sandbox()` has cut the session loose from its save
+   * slot, which cannot be undone. `attached()` names the character that is about to
+   * stop being saved, so the workshop can put them in the question it asks.
+   */
+  readonly wizard?: WizardApi;
+  /**
+   * Reload the page.
+   *
+   * NOT A CAPABILITY, and it does not come from the host at all. A plugin's code
+   * runs in the page and can reach `location` with or without anybody's permission,
+   * so a seam for it would be a formality that reads as a boundary. It is declared
+   * here so `seams.ts` can resolve it to the one thing that works on a front end
+   * with no `location` (a test, or a headless host), and so the only place the
+   * workshop navigates from is one function with a name.
+   */
+  readonly reload?: () => void;
 }
 
 /** The three rule flags this mod declares, by name, in one place. */

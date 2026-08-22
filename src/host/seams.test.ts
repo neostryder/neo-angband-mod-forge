@@ -69,49 +69,105 @@ describe("the install seam", () => {
   });
 });
 
-describe("the spawn seam", () => {
-  const deps = { debug: true };
+describe("the wizard seam", () => {
+  const api = wizardStub();
+  const on = { "builder.cheatSpawn": true };
 
   it("is off, and says which setting, when the toggle is off", () => {
-    const seams = resolveSeams(ctxWith({ wizard: deps, state: {} }));
-    expect(seams.spawn.available).toBe(false);
-    expect(seams.spawn.why).toContain("setting is off");
+    const seams = resolveSeams(ctxWith({ wizard: api, state: {} }));
+    expect(seams.wizard.available).toBe(false);
+    expect(seams.wizard.why).toContain("setting is off");
   });
 
   it("is off, and says the engine cannot, when the seam is absent", () => {
-    const seams = resolveSeams(ctxWith({ flags: { "builder.cheatSpawn": true }, state: {} }));
-    expect(seams.spawn.available).toBe(false);
-    expect(seams.spawn.why).toContain("cannot lend");
+    const seams = resolveSeams(ctxWith({ flags: on, state: {} }));
+    expect(seams.wizard.available).toBe(false);
+    expect(seams.wizard.why).toContain("cannot lend");
   });
 
   it("is off, and says there is no character, when no game is running", () => {
-    const seams = resolveSeams(ctxWith({ flags: { "builder.cheatSpawn": true }, wizard: deps }));
-    expect(seams.spawn.available).toBe(false);
-    expect(seams.spawn.why).toContain("no character");
+    const seams = resolveSeams(ctxWith({ flags: on, wizard: api }));
+    expect(seams.wizard.available).toBe(false);
+    expect(seams.wizard.why).toContain("no character");
   });
 
-  it("is off, and names the permanent mark, when the character has not taken it", () => {
-    /* The workshop does not take that mark on anybody's behalf: it bars the
-     * character from the high score list for the rest of its life. */
-    const seams = resolveSeams(ctxWith({ flags: { "builder.cheatSpawn": true }, wizard: { debug: false }, state: {} }));
-    expect(seams.spawn.available).toBe(false);
-    expect(seams.spawn.why).toContain("high score");
+  it("carries the api on the no-character arm, so the browser can still fill in", () => {
+    /* The catalogue is readable before anything is consented to, and deciding what
+     * to test is how somebody decides whether to spend their session at all. A
+     * browser that only appeared afterwards would be asking them to agree to
+     * something they cannot see. */
+    const seams = resolveSeams(ctxWith({ flags: on, wizard: api }));
+    expect(seams.wizard.api).toBe(api);
   });
 
-  it("is on when all four hold", () => {
-    const seams = resolveSeams(ctxWith({ flags: { "builder.cheatSpawn": true }, wizard: deps, state: {} }));
-    expect(seams.spawn.available).toBe(true);
-    expect(seams.spawn.why).toBeUndefined();
-    expect(seams.spawn.deps).toBe(deps);
+  it("is on when the toggle, the seam and a game are all there", () => {
+    /* THREE CONDITIONS, NOT FOUR. The old seam had a fourth - the character having
+     * already taken Angband's permanent debug mark, which the workshop refused to
+     * take on anybody's behalf because it costs that character its place on the high
+     * score list forever. The seam now cuts the session loose from its save before
+     * it takes the mark, so the mark lands on a character that has stopped being
+     * written down and there is nothing left to refuse for somebody. */
+    const seams = resolveSeams(ctxWith({ flags: on, wizard: api, state: {} }));
+    expect(seams.wizard.available).toBe(true);
+    expect(seams.wizard.why).toBeUndefined();
+    expect(seams.wizard.api).toBe(api);
+  });
+});
+
+describe("reloading", () => {
+  it("is not by hand when the host offers a reload", () => {
+    const seams = resolveSeams(
+      ctxWith({
+        loadModForSession: async () => ({ ok: true, id: "x", version: "1.0.0", survivesReload: true }),
+        reload: () => undefined,
+      }),
+    );
+    expect(seams.session.available).toBe(true);
+    expect(seams.session.reloadByHand).toBe(false);
+  });
+
+  it("calls what it was given rather than navigating on its own", () => {
+    let reloaded = 0;
+    const seams = resolveSeams(
+      ctxWith({
+        loadModForSession: async () => ({ ok: true, id: "x", version: "1.0.0", survivesReload: true }),
+        reload: () => {
+          reloaded += 1;
+        },
+      }),
+    );
+    seams.session.reload();
+    expect(reloaded).toBe(1);
   });
 });
 
 describe("every seam", () => {
   it("carries a reason whenever it is unavailable, and none when it is not", () => {
     const seams = resolveSeams(ctxWith({}));
-    for (const seam of [seams.authoring, seams.install, seams.spawn]) {
+    for (const seam of [seams.authoring, seams.install, seams.wizard]) {
       if (seam.available) expect(seam.why).toBeUndefined();
       else expect(seam.why).toBeTruthy();
     }
   });
 });
+
+/**
+ * A `WizardApi` that answers everything and does nothing.
+ *
+ * Built by proxy rather than written out, because these tests are about which arm
+ * `resolveWizard` picks and about identity - `seams.wizard.api` being the object it
+ * was handed. Twenty-six hand-written stubs would be twenty-six things to keep in
+ * step with an interface none of them is testing.
+ */
+function wizardStub(): NonNullable<BuilderCtx["wizard"]> {
+  const refuse = { ok: false as const, problem: "a stub does nothing" };
+  return new Proxy({} as NonNullable<BuilderCtx["wizard"]>, {
+    get: (_t, name) => {
+      if (name === "sandboxed") return () => false;
+      if (name === "attached") return () => null;
+      if (name === "catalogue") return () => ({ items: [], creatures: [], artifacts: [] });
+      if (name === "where") return () => null;
+      return () => refuse;
+    },
+  });
+}

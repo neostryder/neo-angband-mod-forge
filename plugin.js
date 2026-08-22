@@ -462,13 +462,13 @@ function editDistance(a, b) {
   const first = rows[0];
   if (first) for (let j = 0; j <= b.length; j++) first[j] = j;
   for (let i = 1; i <= a.length; i++) {
-    const row = rows[i];
+    const row2 = rows[i];
     const prev = rows[i - 1];
-    if (!row || !prev) continue;
-    row[0] = i;
+    if (!row2 || !prev) continue;
+    row2[0] = i;
     for (let j = 1; j <= b.length; j++) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      row[j] = Math.min((row[j - 1] ?? 0) + 1, (prev[j] ?? 0) + 1, (prev[j - 1] ?? 0) + cost);
+      row2[j] = Math.min((row2[j - 1] ?? 0) + 1, (prev[j] ?? 0) + 1, (prev[j - 1] ?? 0) + cost);
     }
   }
   return rows[a.length]?.[b.length] ?? Math.max(a.length, b.length);
@@ -1117,10 +1117,9 @@ var NO_AUTHORING = "This game cannot hand the workshop its authoring library yet
 var NO_RECORDS = "This game cannot hand the workshop its own content yet, so the records you can base something on are the workshop's demonstration set rather than the real game's.";
 var NO_INSTALL = "This game has no way for a mod to install another mod, so the workshop saves the finished mod as a file and you add it with Import a zip on the Mods screen. That path is two extra steps and leaves you holding a file you can read, keep and share.";
 var NO_SESSION = "This game has no way to load a mod for one session, so trying one means installing it: the workshop saves the finished mod as a file, you add it with Import a zip on the Mods screen, turn it on and reload. That leaves the mod in your library, which is where you want it once it is finished anyway.";
-var NO_SPAWN_SEAM = "This game cannot lend the workshop its spawning machinery yet, so nothing can be put in front of you for testing. Build the mod, install it, reload, and go and find the thing.";
-var SPAWN_OFF = 'The "Let me spawn what I built" setting is off for this mod. Turn it on in the mod manager.';
-var NO_GAME = "There is no character in play, so there is nowhere to put anything.";
-var NO_MARK = "This character has not taken Angband's debug mark, and every one of these commands is gated on it. Taking it is permanent and it bars the character from the high score list for the rest of its life, so the workshop will not take it for you: turn debug commands on yourself, on a character you do not mind marking.";
+var NO_WIZARD_SEAM = "This game cannot lend the workshop its debug commands, so nothing can be put in front of you and nowhere can be jumped to. Forge the mod, try it for the session, reload, and go and find the thing yourself.";
+var WIZARD_OFF = 'The "Let me test what I built" setting is off for this mod. Turn it on in the mod manager.';
+var NO_GAME = "There is no character in play, so there is nothing to test with.";
 function resolveSeams(ctx) {
   const realApi = ctx.authoring;
   const realRecords = ctx.composedRecords;
@@ -1143,28 +1142,28 @@ function resolveSeams(ctx) {
     reload: async () => void 0,
     reloadByHand: true
   };
+  const reload = resolveReload(ctx);
   const stager = ctx.loadModForSession;
-  const session = stager ? {
-    available: true,
-    load: stager,
-    reload: reloader ?? (async () => void 0),
-    reloadByHand: reloader === void 0
-  } : {
+  const session = stager ? { available: true, load: stager, reload: reload ?? (() => void 0), reloadByHand: reload === null } : {
     available: false,
     why: NO_SESSION,
     load: async () => ({ ok: false, problem: NO_SESSION }),
-    reload: async () => void 0,
+    reload: () => void 0,
     reloadByHand: true
   };
-  const spawn = resolveSpawn(ctx);
-  return { authoring, install, session, spawn, engine: ctx.engine };
+  return { authoring, install, session, wizard: resolveWizard(ctx), engine: ctx.engine };
 }
-function resolveSpawn(ctx) {
-  if (ctx.flags[FLAG.cheatSpawn] !== true) return { available: false, why: SPAWN_OFF };
-  if (ctx.wizard === void 0) return { available: false, why: NO_SPAWN_SEAM };
-  if (ctx.state === void 0) return { available: false, why: NO_GAME };
-  if (ctx.wizard.debug !== true) return { available: false, why: NO_MARK, deps: ctx.wizard, state: ctx.state };
-  return { available: true, deps: ctx.wizard, state: ctx.state };
+function resolveWizard(ctx) {
+  if (ctx.flags[FLAG.cheatSpawn] !== true) return { available: false, why: WIZARD_OFF };
+  if (ctx.wizard === void 0) return { available: false, why: NO_WIZARD_SEAM };
+  if (ctx.state === void 0) return { available: false, why: NO_GAME, api: ctx.wizard };
+  return { available: true, api: ctx.wizard };
+}
+function resolveReload(ctx) {
+  if (ctx.reload !== void 0) return ctx.reload;
+  const loc = globalThis.location;
+  if (typeof loc?.reload === "function") return () => loc.reload?.();
+  return null;
 }
 
 // src/model/persist.ts
@@ -2164,6 +2163,40 @@ var Actions = class {
       }
     }, CHECK_DELAY);
   }
+  /**
+   * Recheck NOW, on the way into a screen whose controls depend on the answer.
+   *
+   * WHY THIS EXISTS BESIDE `scheduleCheck`. The debounce is right for typing: a
+   * full build per keystroke is work nobody asked for. It is wrong for arriving,
+   * because a screen built during the debounce paints its primary action DISABLED
+   * and enables it a quarter of a second later - so the button is grey exactly when
+   * the player has just moved their hand to it, and the workshop's own test had to
+   * settle twice to click it. Every route change rebuilds the screen from scratch,
+   * so that happened on every visit rather than once.
+   *
+   * Cheap enough to be worth doing on the spot: the build is over one draft's own
+   * records, the same work the debounce was going to do anyway, and it is already
+   * being done inside a try because a throw here is a workshop bug rather than the
+   * mod's.
+   */
+  checkNow() {
+    if (this.checkTimer !== void 0) {
+      clearTimeout(this.checkTimer);
+      this.checkTimer = void 0;
+    }
+    const state = this.deps.store.get();
+    const draft = openDraft(state);
+    if (!draft) return;
+    if (state.verdict.revision === state.revision && !state.verdict.stale) return;
+    const revision = state.revision;
+    try {
+      const build = buildDraft(this.deps.api, draft, this.deps.records);
+      this.deps.store.view(() => ({ verdict: { revision, stale: false, build } }));
+    } catch (e) {
+      this.deps.store.view(() => ({ verdict: { revision, stale: false, broke: String(e) } }));
+      this.deps.log(`build threw: ${String(e)}`);
+    }
+  }
   /** The files this draft would write. Recomputed rather than cached. */
   files() {
     const draft = openDraft(this.deps.store.get());
@@ -2220,12 +2253,21 @@ var Actions = class {
     }
   }
   /**
-   * Load it for this session, so it can be played now without joining the library.
+   * Load it for this session and go and play it. One action.
    *
-   * THE SHORTEST HONEST LOOP the workshop has: build, try, reload, play. What it
-   * is not is a preview - the pack composes into the game exactly as an installed
-   * one does, so this is the real mod, and the only thing that is temporary is the
-   * archive. What it did to the character who plays it is not.
+   * THE SHORTEST HONEST LOOP the workshop has, and it used to be three steps
+   * longer than it needed to be. Content composes at load, so a reload is genuinely
+   * unavoidable - but the workshop was announcing that in a status line, leaving the
+   * player to find the Close button and then press Ctrl-R themselves, while holding
+   * a `reload` it never called. Reloading is not a capability anybody grants: a
+   * plugin's code runs in the page and can reach `location` either way. So the
+   * reload was never the game's to withhold, and asking the player to do by hand
+   * something the workshop could do was friction with nothing behind it.
+   *
+   * WHAT IT IS NOT is a preview. The pack composes into the game exactly as an
+   * installed one does, so this is the real mod, and the only thing that is
+   * temporary is the archive. What it did to the character who plays it is not, and
+   * the button that calls this says so before it is pressed.
    *
    * The drafts are written down FIRST, for the same reason `install` writes them
    * first: what follows is a reload, and an unflushed draft would not survive it.
@@ -2236,6 +2278,7 @@ var Actions = class {
     this.deps.writer.flush();
     const files = this.files();
     if (files.length === 0) return;
+    this.notice(`Forging ${draft.id}...`, "plain");
     const outcome = await this.deps.seams.session.load(zipDraft(files));
     if (!outcome.ok) {
       this.notice(outcome.problem, "bad");
@@ -2248,10 +2291,15 @@ var Actions = class {
       );
       return;
     }
-    this.notice(
-      `${outcome.id} ${outcome.version} is loaded for this session. Reload to play it. It is not in your mods and it is gone when you close the game - but whatever it does to the character who plays it is not.`,
-      "good"
-    );
+    if (this.deps.seams.session.reloadByHand) {
+      this.notice(
+        `${outcome.id} ${outcome.version} is loaded for this session. Reload the game to play it. It is not in your mods and it is gone when you close the game - but whatever it does to the character who plays it is not.`,
+        "good"
+      );
+      return;
+    }
+    this.notice(`${outcome.id} ${outcome.version} is forged. Reloading to play it...`, "good");
+    this.deps.seams.session.reload();
   }
   /** The manifest as it will ship, for the review screen. */
   manifestText() {
@@ -2345,7 +2393,10 @@ function apply(el, attrs) {
   if (attrs.href !== void 0 && el instanceof HTMLAnchorElement) el.href = attrs.href;
   if (attrs.download !== void 0 && el instanceof HTMLAnchorElement) el.download = attrs.download;
   if (attrs.spellcheck !== void 0) el.spellcheck = attrs.spellcheck;
-  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) {
+  if (el instanceof HTMLOptionElement) {
+    if (attrs.value !== void 0) el.value = String(attrs.value);
+    if (attrs.disabled !== void 0) el.disabled = attrs.disabled;
+  } else if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) {
     if (attrs.type !== void 0 && el instanceof HTMLInputElement) el.type = attrs.type;
     if (attrs.value !== void 0) el.value = String(attrs.value);
     if (attrs.placeholder !== void 0 && !(el instanceof HTMLSelectElement)) el.placeholder = attrs.placeholder;
@@ -2932,7 +2983,7 @@ function baseScreen(shop, file, mode) {
         break;
       }
     }
-    const row = listRow({
+    const row2 = listRow({
       badge: kind.badge,
       name: label,
       meta: notes.join(", "),
@@ -2949,8 +3000,8 @@ function baseScreen(shop, file, mode) {
         else shop.acts.notice("That record has no identity the game can address, so it cannot be adjusted.", "bad");
       }
     });
-    if (shop.seams.spawn.available && mode === "new") {
-      row.querySelector(".mb-row-acts")?.appendChild(
+    if (shop.seams.wizard.api !== void 0 && mode === "new") {
+      row2.querySelector(".mb-row-acts")?.appendChild(
         button({
           label: "Look at it",
           tiny: true,
@@ -2961,7 +3012,7 @@ function baseScreen(shop, file, mode) {
       );
     }
     if (mode === "change" && key !== null) {
-      row.querySelector(".mb-row-acts")?.appendChild(
+      row2.querySelector(".mb-row-acts")?.appendChild(
         button({
           label: "Remove",
           tiny: true,
@@ -2971,7 +3022,7 @@ function baseScreen(shop, file, mode) {
         })
       );
     }
-    return row;
+    return row2;
   };
   const seedFrom = (record) => {
     const seed = {};
@@ -3099,7 +3150,12 @@ function detailsScreen(shop) {
     "div",
     { class: "mb-row-actions" },
     button({ label: "Add or change something", kind: "primary", onClick: () => shop.acts.go({ at: "kinds" }) }),
-    button({ label: "Review and install", onClick: () => shop.acts.go({ at: "verdict" }) })
+    button({ label: "Review it", onClick: () => shop.acts.go({ at: "verdict" }) }),
+    shop.seams.wizard.api !== void 0 ? button({
+      label: "Test it in the game",
+      tip: "Go where this mod's content belongs, put some in front of you, and look at it.",
+      onClick: () => shop.acts.go({ at: "test" })
+    }) : null
   );
   el.append(detailsCard.el, derivedCard.el, changesCard.el, actions);
   const render = (state) => {
@@ -3143,7 +3199,7 @@ function detailsScreen(shop) {
     const rows = current.changes.map((change, index) => {
       const kindLabel = change.kind === "add" ? "new" : change.kind === "patch" ? `${change.ops.length} adjustment${change.ops.length === 1 ? "" : "s"}` : change.kind === "replace" ? "replaced whole" : "removed";
       const label = change.kind === "add" ? draftLabel(shop.api, change.file, change.record) : change.ref;
-      const row = listRow({
+      const row2 = listRow({
         badge: change.file.charAt(0).toUpperCase(),
         name: label,
         meta: `${change.file} - ${kindLabel}`,
@@ -3153,7 +3209,7 @@ function detailsScreen(shop) {
           else shop.acts.go({ at: "record", change: index, path: "" });
         }
       });
-      row.querySelector(".mb-row-acts")?.appendChild(
+      row2.querySelector(".mb-row-acts")?.appendChild(
         button({
           label: "Drop",
           tiny: true,
@@ -3162,7 +3218,7 @@ function detailsScreen(shop) {
           onClick: () => shop.acts.dropChange(index)
         })
       );
-      return row;
+      return row2;
     });
     fillList(
       changesList,
@@ -3356,7 +3412,7 @@ function modsScreen(shop) {
       if (size.added > 0) parts.push(`${size.added} new`);
       if (size.patched > 0) parts.push(`${size.patched} adjusted`);
       if (size.removed > 0) parts.push(`${size.removed} removed`);
-      const row = listRow({
+      const row2 = listRow({
         badge: draft.id.charAt(0).toUpperCase(),
         name: `${draft.name} ${draft.version}`,
         meta: parts.length === 0 ? "nothing in it yet" : parts.join(", "),
@@ -3364,7 +3420,7 @@ function modsScreen(shop) {
         selected: state.openId === draft.id,
         onClick: () => shop.acts.openMod(draft.id)
       });
-      const acts = row.querySelector(".mb-row-acts");
+      const acts = row2.querySelector(".mb-row-acts");
       acts?.appendChild(
         button({
           label: "Delete",
@@ -3377,7 +3433,7 @@ function modsScreen(shop) {
           }
         })
       );
-      return row;
+      return row2;
     });
     fillList(
       list,
@@ -3772,11 +3828,11 @@ function flagEditor(path, flags, shape, on) {
 }
 function rowsEditor(path, rows, on) {
   const list = rows.map(
-    (row, index) => h(
+    (row2, index) => h(
       "div",
       { class: "mb-row" },
       h("span", { class: "mb-row-index", text: String(index) }),
-      h("span", { class: "mb-row-summary", text: describeRow(row) }),
+      h("span", { class: "mb-row-summary", text: describeRow(row2) }),
       h(
         "span",
         { class: "mb-row-acts" },
@@ -3786,7 +3842,7 @@ function rowsEditor(path, rows, on) {
           tiny: true,
           kind: "ghost",
           tip: "Add another entry just like this one. Cloning something that works is how most content gets made.",
-          onClick: () => on.addRow(path, JSON.parse(JSON.stringify(row)))
+          onClick: () => on.addRow(path, JSON.parse(JSON.stringify(row2)))
         }),
         button({
           label: "Up",
@@ -3806,7 +3862,7 @@ function rowsEditor(path, rows, on) {
           label: "Remove",
           tiny: true,
           kind: "danger",
-          onClick: () => on.removeRow(path, row)
+          onClick: () => on.removeRow(path, row2)
         })
       )
     )
@@ -3824,18 +3880,18 @@ function rowsEditor(path, rows, on) {
     })
   );
 }
-function describeRow(row) {
+function describeRow(row2) {
   const parts = [];
-  for (const [key, value] of Object.entries(row)) {
+  for (const [key, value] of Object.entries(row2)) {
     if (typeof value === "object" && value !== null) continue;
     parts.push(`${key} ${String(value)}`);
     if (parts.length === 4) break;
   }
   return parts.length === 0 ? "(empty)" : parts.join(", ");
 }
-function blankLike(row) {
+function blankLike(row2) {
   const out = {};
-  for (const [key, value] of Object.entries(row)) {
+  for (const [key, value] of Object.entries(row2)) {
     out[key] = typeof value === "number" ? 0 : typeof value === "boolean" ? false : Array.isArray(value) ? [] : typeof value === "object" && value !== null ? {} : "";
   }
   return out;
@@ -3937,10 +3993,14 @@ function recordScreen(shop, index, path) {
         h("span", { text: "show every field" })
       ),
       h("span", { class: "mb-spacer" }),
-      button({ label: "Review and install", onClick: () => shop.acts.go({ at: "verdict" }) }),
-      shop.seams.spawn.available ? button({
-        label: "Test it",
-        tip: "Put something in front of you in the game, to look at it.",
+      button({ label: "Review it", onClick: () => shop.acts.go({ at: "verdict" }) }),
+      /* GATED ON THE SEAM EXISTING, not on it being usable. The panel's whole first
+       * half is the explanation of what testing costs and the button that spends it,
+       * so a route that only appeared once the player had already paid would be a
+       * route to a screen they no longer needed. */
+      shop.seams.wizard.api !== void 0 ? button({
+        label: "Test it in the game",
+        tip: "Go where this belongs, put one in front of you, and look at it.",
         onClick: () => shop.acts.go({ at: "test" })
       }) : null
     ),
@@ -4127,12 +4187,12 @@ function recordScreen(shop, index, path) {
           focused: state.focusField === full,
           pristine: isPristine(shop.acts.target(index) ?? target, full)
         };
-        let row = rows.get(full);
-        if (!row) {
-          row = fieldRow(input, handlers);
-          rows.set(full, row);
-        } else row.update(input);
-        children.push(row.el);
+        let row2 = rows.get(full);
+        if (!row2) {
+          row2 = fieldRow(input, handlers);
+          rows.set(full, row2);
+        } else row2.update(input);
+        children.push(row2.el);
       }
       fill(block.body, ...children);
       order.push(block.el);
@@ -4195,9 +4255,9 @@ function recordScreen(shop, index, path) {
                 click: () => {
                   if (finding.field === void 0) return;
                   shop.acts.focusField(finding.field);
-                  const row = rows.get(finding.field);
-                  row?.el.scrollIntoView({ block: "center" });
-                  row?.el.querySelector("input, textarea, select, button")?.focus();
+                  const row2 = rows.get(finding.field);
+                  row2?.el.scrollIntoView({ block: "center" });
+                  row2?.el.querySelector("input, textarea, select, button")?.focus();
                 }
               }
             },
@@ -4382,82 +4442,72 @@ function middle(numbers) {
 }
 
 // src/host/spawn.ts
-function raceByName(registries, name) {
-  const wanted = name.trim().toLowerCase();
-  for (const race of registries?.monsters?.races ?? []) {
-    if (typeof race.name === "string" && race.name.toLowerCase() === wanted) return race;
+var NO_CATALOGUE = { items: [], creatures: [], artifacts: [] };
+function packsInPlay(catalogue) {
+  const seen = [];
+  for (const entry of allEntries(catalogue)) {
+    const from = entry.entry.from;
+    if (from !== void 0 && !seen.includes(from)) seen.push(from);
   }
-  return void 0;
+  return seen;
 }
-function kindIndexByName(registries, name) {
-  const wanted = name.trim().toLowerCase();
-  const kinds = registries?.objects?.kinds ?? [];
-  for (let index = 0; index < kinds.length; index++) {
-    const kind = kinds[index];
-    if (kind && typeof kind.name === "string" && kind.name.toLowerCase() === wanted) return index;
-  }
-  return void 0;
+function testRows(catalogue, opts) {
+  const needle = (opts.search ?? "").trim().toLowerCase();
+  const rows = listFor(catalogue, opts.kind).filter((row2) => {
+    if (opts.pack !== void 0 && row2.entry.from !== opts.pack) return false;
+    return needle === "" || row2.entry.name.toLowerCase().includes(needle);
+  });
+  return rows.slice().sort(compareRows);
 }
-function spawnable(registries, kind) {
-  const source = kind === "monster" ? registries?.monsters?.races ?? [] : registries?.objects?.kinds ?? [];
-  const out = [];
-  for (const entry of source) {
-    if (entry && typeof entry.name === "string" && entry.name !== "") out.push(entry.name);
-  }
-  return out;
+function compareRows(a, b) {
+  if (a.modded !== b.modded) return a.modded ? -1 : 1;
+  if (a.entry.level !== b.entry.level) return a.entry.level - b.entry.level;
+  return a.entry.name.localeCompare(b.entry.name);
 }
-function spawnByName(core, state, deps, registries, kind, name) {
-  const api = core;
-  try {
-    if (kind === "monster") {
-      const race = raceByName(registries, name);
-      if (race === void 0) {
-        return { ok: false, says: `Nothing loaded is called "${name}". A record you have not installed yet is not in the game.` };
-      }
-      if (typeof api.wizSummonNamed !== "function") {
-        return { ok: false, says: "This game does not have the summon command the workshop needs." };
-      }
-      const placed = api.wizSummonNamed(state, { race }, deps);
-      return placed ? { ok: true, says: `${name} is beside you.` } : { ok: false, says: `There was nowhere next to you to put ${name}. Try again somewhere with more room.` };
-    }
-    const index = kindIndexByName(registries, name);
-    if (index === void 0) {
-      return { ok: false, says: `Nothing loaded is called "${name}". A record you have not installed yet is not in the game.` };
-    }
-    if (typeof api.wizCreateObj !== "function") {
-      return { ok: false, says: "This game does not have the create-object command the workshop needs." };
-    }
-    const made = api.wizCreateObj(state, { index }, deps);
-    return made ? { ok: true, says: `${name} is on the floor where you are standing.` } : { ok: false, says: `The game refused to make ${name}.` };
-  } catch (e) {
-    return { ok: false, says: `That went wrong inside the game: ${String(e)}` };
-  }
+function listFor(catalogue, kind) {
+  const source = kind === "creature" ? catalogue.creatures : kind === "item" ? catalogue.items : catalogue.artifacts;
+  return source.map((entry) => ({ kind, entry, modded: entry.from !== void 0 }));
+}
+function allEntries(catalogue) {
+  return [
+    ...listFor(catalogue, "creature"),
+    ...listFor(catalogue, "item"),
+    ...listFor(catalogue, "artifact")
+  ];
 }
 
 // src/ui/screens/test.ts
 var PAGE2 = 60;
+var HANDFUL = 5;
 function testScreen(shop) {
-  const el = h("div", { class: "mb-main" });
-  const intro = h(
-    "div",
-    { class: "mb-prose" },
-    h("h2", { text: "Test something" }),
-    h("p", {
-      text: "This puts a creature beside you, or an item on the floor where you are standing, using the game's own debug commands. It reaches only what the game currently has loaded, so something you have just built appears here after you install the mod and the game reloads."
-    }),
-    h(
-      "p",
-      null,
-      h("b", { text: "It marks the character. " }),
-      "Angband records that a character has been handed something this way, permanently, and a marked character cannot appear on the high score list again. The workshop will not take that mark for you: the game's own debug toggle is where that decision belongs."
-    )
-  );
+  const main = h("div", { class: "mb-main" });
+  const aside = h("div", { class: "mb-aside" });
+  const el = h("div", { class: "mb-cols mb-cols-2" }, main, aside);
+  const seam = shop.seams.wizard;
+  const intro = h("div", { class: "mb-prose" }, h("h2", { text: "Test it in the game" }));
+  const blocked = h("div", { class: "mb-banner" });
+  const armCard = card({ title: "Before anything works", open: true });
+  const armProse = h("div", { class: "mb-prose" });
+  const arm = button({
+    label: "Stop saving, and let me test",
+    kind: "danger",
+    seal: true,
+    tip: "Cuts this session loose from its save slot. Your character on disk keeps whatever the last save left and nothing after this is ever written. It cannot be undone; reload the game to go back to them.",
+    onClick: () => {
+      if (!seam.api) return;
+      report(seam.api.sandbox());
+      renderAll();
+    }
+  });
+  armCard.body.append(armProse, h("div", { class: "mb-row-actions" }, arm));
   const kindPick = h(
     "select",
     null,
-    h("option", { value: "monster", text: "a creature, beside me" }),
-    h("option", { value: "object", text: "an item, on the floor" })
+    h("option", { value: "creature", text: "creatures" }),
+    h("option", { value: "item", text: "items" }),
+    h("option", { value: "artifact", text: "artifacts" })
   );
+  const packPick = h("select", null);
   const search = searchBox("filter by name", (value) => shop.acts.setFilter(value));
   const list = h("div", { class: "mb-list" });
   const more = button({
@@ -4465,76 +4515,326 @@ function testScreen(shop) {
     kind: "ghost",
     onClick: () => {
       shown += PAGE2;
-      render(shop.store.get());
+      renderList(shop.store.get());
     }
   });
-  const panel = card({ title: "Spawn", open: true });
-  panel.body.append(h("div", { class: "mb-row-actions" }, kindPick, search), list, more);
-  const blocked = h("div", { class: "mb-banner" });
-  el.append(intro, blocked, panel.el);
+  const browse = card({ title: "Put one in front of me", open: true });
+  browse.body.append(h("div", { class: "mb-row-actions" }, kindPick, packPick, search), list, more);
+  const depth = numberField("dungeon level", "0 is the town", 0);
+  const goDeep = button({ label: "Go there", kind: "primary", onClick: () => act((w) => w.goToDepth(depth.read())) });
+  const exp = numberField("experience to gain", "levels up on the way, as play would", 0);
+  const giveExp = button({ label: "Grant it", onClick: () => act((w) => w.grantExperience(exp.read())) });
+  const gold = numberField("gold", "set outright, not added", 0);
+  const giveGold = button({ label: "Set it", onClick: () => act((w) => w.setGold(gold.read())) });
+  const statPick = h("select", null);
+  const statValue = numberField("value", "the game clamps this to its own band", 18);
+  const setStat = button({
+    label: "Set it",
+    onClick: () => act((w) => w.setStat(statPick.value, statValue.read()))
+  });
+  const loot = numberField("how many", "good random items, as acquirement makes them", 3);
+  const acquire = button({ label: "Drop them", onClick: () => act((w) => w.acquire(loot.read())) });
+  const acquireGreat = button({
+    label: "Excellent ones",
+    onClick: () => act((w) => w.acquire(loot.read(), true))
+  });
+  const horde = numberField("how many", "random creatures, near you", 5);
+  const summon = button({ label: "Summon them", onClick: () => act((w) => w.summonRandom(horde.read())) });
+  const hop = numberField("squares", "a random teleport of up to this far", 40);
+  const teleport = button({ label: "Teleport", onClick: () => act((w) => w.teleport(hop.read())) });
+  const depthCard = card({ title: "Where you are", open: true });
+  depthCard.body.append(row(depth.el, goDeep), row(hop.el, teleport));
+  const charCard = card({ title: "What you are", open: true });
+  charCard.body.append(
+    row(exp.el, giveExp),
+    row(gold.el, giveGold),
+    row(statPick, statValue.el, setStat),
+    row(
+      null,
+      button({ label: "Heal and cure", onClick: () => act((w) => w.heal()) }),
+      button({ label: "Reroll hit points", onClick: () => act((w) => w.rerollLife()) }),
+      button({
+        label: "Max everything out",
+        kind: "danger",
+        tip: "Every stat, the experience cap, a million gold. For testing the top of the game.",
+        onClick: () => act((w) => w.maxOut())
+      })
+    )
+  );
+  const roomCard = card({ title: "What is around you", open: true });
+  roomCard.body.append(
+    row(loot.el, acquire, acquireGreat),
+    row(horde.el, summon),
+    row(
+      null,
+      button({ label: "Map this level", onClick: () => act((w) => w.mapLevel()) }),
+      button({ label: "Light it all", onClick: () => act((w) => w.lightLevel()) }),
+      button({ label: "Show every creature", onClick: () => act((w) => w.findCreatures()) })
+    ),
+    row(
+      null,
+      button({
+        label: "Clear the level",
+        kind: "danger",
+        tip: "Removes every creature on the level, so you can look at one thing without being interrupted.",
+        onClick: () => act((w) => w.banish())
+      }),
+      button({
+        label: "Hit everything in sight",
+        kind: "danger",
+        onClick: () => act((w) => w.killVisible())
+      })
+    )
+  );
+  const knowCard = card({ title: "What you know", note: "so nothing shows up unidentified", open: false });
+  knowCard.body.append(
+    row(
+      null,
+      button({ label: "Learn every item", onClick: () => act((w) => w.learnItems()) }),
+      button({ label: "Learn every creature", onClick: () => act((w) => w.learnCreatures()) })
+    )
+  );
+  const whereSection = asideSection("Right now");
+  const whereBody = h("div", { class: "mb-prose" });
+  whereSection.body.appendChild(whereBody);
+  const minesSection = asideSection("In this game");
+  const minesBody = h("div", { class: "mb-prose" });
+  minesSection.body.appendChild(minesBody);
+  aside.append(whereSection.el, minesSection.el);
+  main.append(intro, blocked, armCard.el, browse.el, depthCard.el, charCard.el, roomCard.el, knowCard.el);
   let shown = PAGE2;
-  const render = (state) => {
-    const seam = shop.seams.spawn;
-    if (!seam.available) {
-      blocked.style.display = "";
-      blocked.replaceChildren(h("b", { text: "Not available. " }), h("span", { text: seam.why ?? "" }));
-      panel.el.style.display = "none";
+  let catalogue = NO_CATALOGUE;
+  let statsFilled = false;
+  const armed = () => seam.api?.sandboxed() === true;
+  const report = (outcome) => {
+    if (outcome.ok) shop.acts.notice(outcome.did, "good");
+    else shop.acts.notice(outcome.problem, "bad");
+  };
+  const act = (run) => {
+    const api = seam.api;
+    if (!api) return;
+    report(run(api));
+    renderAll();
+  };
+  const renderArm = () => {
+    if (armed()) {
+      armCard.setOpen(false);
+      armCard.setNote("done");
+      arm.disabled = true;
+      armProse.replaceChildren(
+        h(
+          "p",
+          null,
+          h("b", { text: "This session is no longer being saved. " }),
+          "Everything below works. Your character on disk is exactly as their last save left them, and reloading the game takes you back to them - anything you do from here is gone when you do."
+        )
+      );
       return;
     }
-    blocked.style.display = "none";
-    panel.el.style.display = "";
-    const kind = kindPick.value === "object" ? "object" : "monster";
-    const names = spawnable(shop.registries, kind);
-    const needle = state.filter.trim().toLowerCase();
-    const matched = needle === "" ? names : names.filter((name) => name.toLowerCase().includes(needle));
-    const page = matched.slice(0, shown);
-    more.style.display = matched.length > page.length ? "" : "none";
-    more.textContent = `Show more (${matched.length - page.length} left)`;
-    panel.setNote(`${matched.length} of ${names.length} loaded`);
-    list.replaceChildren(
-      ...page.length === 0 ? [
-        empty(
-          "?",
-          names.length === 0 ? "Nothing is loaded to spawn" : "Nothing matches",
-          names.length === 0 ? "The game has not handed the workshop its registries, so there is nothing to choose from." : "No loaded record has that in its name."
-        )
-      ] : page.map(
-        (name) => h(
-          "button",
-          {
-            class: "mb-listrow",
-            type: "button",
-            on: {
-              click: () => {
-                const live = shop.seams.spawn;
-                if (!live.available || live.deps === void 0 || live.state === void 0) return;
-                const outcome = spawnByName(shop.core, live.state, live.deps, shop.registries, kind, name);
-                shop.acts.notice(outcome.says, outcome.ok ? "good" : "bad");
-              }
-            }
-          },
-          h("span", { class: "mb-badge", text: kind === "monster" ? "o" : "|" }),
-          h("span", { class: "mb-listrow-main" }, h("span", { class: "mb-listrow-name", text: name })),
-          h("span", { class: "mb-row-acts" }, h("span", { class: "mb-tag", text: "spawn" }))
-        )
-      )
+    armCard.setOpen(true);
+    armCard.setNote("");
+    arm.disabled = !seam.available;
+    const who = seam.api?.attached()?.name;
+    armProse.replaceChildren(
+      h(
+        "p",
+        null,
+        h("b", { text: "Everything here is off until this session stops being saved. " }),
+        "These are the game's own debug commands, and using them on a character you are keeping would mean keeping whatever they did to it. So the workshop cuts the session loose from its save slot first, and then nothing at all is written down."
+      ),
+      h("p", {
+        text: who === void 0 || who === "" ? "Nothing is being saved right now in any case, so this costs you nothing." : `${who} keeps whatever their last save left - at most a few seconds of walking behind. Everything after that is discarded, and reloading the game brings them back exactly as they are on disk.`
+      }),
+      h("p", { text: "It cannot be undone. Reload the game to go back to normal play." })
     );
+  };
+  const renderList = (state) => {
+    const kind = kindPick.value;
+    const pack = packPick.value === "" ? void 0 : packPick.value;
+    const rows = testRows(catalogue, {
+      kind,
+      search: state.filter,
+      ...pack === void 0 ? {} : { pack }
+    });
+    const page = rows.slice(0, shown);
+    const total = testRows(catalogue, { kind }).length;
+    more.style.display = rows.length > page.length ? "" : "none";
+    setText(more, `Show more (${rows.length - page.length} left)`);
+    browse.setNote(`${rows.length} of ${total}`);
+    fillList(
+      list,
+      page.map(
+        (entry) => buildRow(entry.kind, entry.entry.name, entry.entry.level, entry.modded, entry.entry.from)
+      ),
+      total === 0 ? empty(
+        "[ ]",
+        "Nothing is loaded to test with",
+        armedOrNot(
+          "The game has not handed the workshop its content, so there is nothing to choose from.",
+          "Forge the mod and play it, and everything it adds turns up here."
+        )
+      ) : empty("[ ]", "Nothing matches", "No loaded record has that in its name.")
+    );
+  };
+  const buildRow = (kind, name, level, modded, from) => {
+    const row2 = listRow({
+      badge: kind === "creature" ? "o" : kind === "artifact" ? "*" : "|",
+      name,
+      meta: level > 0 ? `level ${level}` : "town",
+      /* THE PROVENANCE TAG IS THE POINT OF THE WHOLE LIST. A workshop's user is
+       * looking for what they wrote, in six hundred entries of what they did not. */
+      tags: modded ? [{ text: from ?? "a mod", tone: "mine", tip: `Added by "${from ?? "a mod"}", not by the base game.` }] : [],
+      onClick: () => spawn(kind, name, 1)
+    });
+    const acts = row2.querySelector(".mb-row-acts");
+    if (acts && kind !== "artifact") {
+      acts.appendChild(
+        button({
+          label: `x${HANDFUL}`,
+          tiny: true,
+          tip: `Put ${HANDFUL} of them there at once.`,
+          onClick: () => spawn(kind, name, HANDFUL)
+        })
+      );
+    }
+    return row2;
+  };
+  const spawn = (kind, name, quantity) => {
+    act(
+      (w) => kind === "creature" ? w.spawnCreature(name, quantity) : kind === "artifact" ? w.spawnArtifact(name) : w.spawnItem(name, quantity)
+    );
+  };
+  const renderPacks = () => {
+    const packs = packsInPlay(catalogue);
+    const wanted = ["", ...packs].join(" ");
+    if (packPick.dataset["packs"] === wanted) return;
+    packPick.dataset["packs"] = wanted;
+    fill(
+      packPick,
+      h("option", { value: "", text: "everything loaded" }),
+      ...packs.map((pack) => h("option", { value: pack, text: `only ${pack}` }))
+    );
+    packPick.value = packs.length === 1 ? packs[0] ?? "" : "";
+  };
+  const renderWhere = () => {
+    const where = seam.api?.where() ?? null;
+    if (where === null) {
+      whereBody.replaceChildren(h("p", { text: "There is no character in play." }));
+      return;
+    }
+    if (!statsFilled) {
+      fill(statPick, ...where.stats.map((stat) => h("option", { value: stat.name, text: stat.name })));
+      statsFilled = true;
+    }
+    depth.setPlaceholder(`0 to ${where.maxDepth}`);
+    whereBody.replaceChildren(
+      h("p", {
+        text: `Dungeon level ${where.depth}${where.depth === 0 ? " (the town)" : ""}, character level ${where.level}, ${where.experience} experience, ${where.gold} gold.`
+      }),
+      h("p", { text: where.stats.map((stat) => `${stat.name} ${stat.value}`).join("   ") })
+    );
+  };
+  const renderMine = () => {
+    const packs = packsInPlay(catalogue);
+    const counts = {
+      creatures: catalogue.creatures.filter((entry) => entry.from !== void 0).length,
+      items: catalogue.items.filter((entry) => entry.from !== void 0).length,
+      artifacts: catalogue.artifacts.filter((entry) => entry.from !== void 0).length
+    };
+    minesBody.replaceChildren(
+      packs.length === 0 ? h("p", {
+        text: "Everything loaded is the base game's. Content composes when the game loads, so a record you have just written turns up here after you forge the mod and play it - the button in the bar below."
+      }) : h("p", {
+        text: `${packs.join(", ")} added ${counts.creatures} creature${counts.creatures === 1 ? "" : "s"}, ${counts.items} item${counts.items === 1 ? "" : "s"} and ${counts.artifacts} artifact${counts.artifacts === 1 ? "" : "s"} to this game. They are at the top of the list.`
+      }),
+      h("p", {
+        text: "Anything you change in the workshop now is not in the game until you forge it and play it again, because composing content always takes a reload."
+      })
+    );
+  };
+  const armedOrNot = (whenNoSeam, whenSeam) => seam.api === void 0 ? whenNoSeam : whenSeam;
+  const renderAll = () => {
+    const usable = seam.available || seam.api !== void 0;
+    blocked.style.display = seam.available ? "none" : "";
+    if (!seam.available) {
+      blocked.replaceChildren(h("b", { text: "Not available. " }), h("span", { text: seam.why ?? "" }));
+    }
+    armCard.el.style.display = seam.api === void 0 ? "none" : "";
+    for (const section of [depthCard, charCard, roomCard, knowCard]) {
+      section.el.style.display = usable ? "" : "none";
+    }
+    browse.el.style.display = usable ? "" : "none";
+    catalogue = seam.api?.catalogue() ?? NO_CATALOGUE;
+    renderPacks();
+    renderArm();
+    renderWhere();
+    renderMine();
+    renderList(shop.store.get());
+    const live = armed() && seam.available;
+    for (const control of main.querySelectorAll("button")) {
+      if (control === arm) continue;
+      if (control === more) continue;
+      if (control.classList.contains("mb-card-head")) continue;
+      control.disabled = !live;
+    }
+    for (const field of [depth, exp, gold, statValue, loot, horde, hop]) field.setEnabled(live);
+    for (const picker of [kindPick, packPick, statPick]) picker.disabled = catalogue === NO_CATALOGUE;
+    search.disabled = false;
   };
   kindPick.addEventListener("change", () => {
     shown = PAGE2;
-    render(shop.store.get());
+    renderList(shop.store.get());
   });
-  render(shop.store.get());
+  packPick.addEventListener("change", () => {
+    shown = PAGE2;
+    renderList(shop.store.get());
+  });
+  renderAll();
   return {
     el,
     update(next, prev) {
       if (next.filter !== prev.filter) {
         shown = PAGE2;
-        render(next);
+        renderList(next);
       }
     },
     dispose: () => void 0
   };
+}
+function numberField(label, note, initial) {
+  const input = h("input", {
+    type: "text",
+    class: "mb-mono",
+    value: String(initial),
+    spellcheck: false
+  });
+  const el = h(
+    "div",
+    { class: "mb-field" },
+    h(
+      "label",
+      { class: "mb-label" },
+      h("span", { class: "mb-label-name", text: label }),
+      h("span", { class: "mb-label-meta", text: note })
+    ),
+    h("div", { class: "mb-control" }, input)
+  );
+  return {
+    el,
+    read() {
+      const text = input.value.trim();
+      return text === "" ? Number.NaN : Number(text);
+    },
+    setEnabled(enabled) {
+      input.disabled = !enabled;
+    },
+    setPlaceholder(text) {
+      input.placeholder = text;
+    }
+  };
+}
+function row(field, ...controls) {
+  return h("div", { class: "mb-row-actions" }, field, ...controls);
 }
 
 // src/ui/screens/tour.ts
@@ -4695,11 +4995,11 @@ function verdictScreen(shop) {
   const filesCard = card({ title: "What it writes", note: "", open: true });
   filesCard.body.appendChild(filesHost);
   const tryIt = button({
-    label: "Forge and try it now",
+    label: "Forge it and play it now",
     kind: "primary",
     seal: true,
     onClick: () => void shop.acts.loadForSession(),
-    tip: "Loads it for this session without adding it to your mods. Reload to play it, and it is gone when you close the game. What it does to the character who plays it is not."
+    tip: "Forges it, loads it for this session only, and reloads the game so it takes effect - content always needs a reload. It is not added to your mods and it is gone when you close the game. What it does to the character who plays it is not."
   });
   const install = button({
     label: "Forge and install",
@@ -4795,7 +5095,7 @@ function verdictScreen(shop) {
     );
     const notes = [
       shop.seams.session.available ? h("p", {
-        text: "Trying it loads the mod for this session only: it is not added to your mods and it is gone when you close the game. It still takes a reload to pick up, because composing content always does. It is the real mod and not a preview, so play a character you do not mind changing - next time, with the mod gone, the game treats anything it added as belonging to something not installed."
+        text: "Playing it loads the mod for this session only and reloads the game, because composing content always needs a reload. It is not added to your mods and it is gone when you close the game. It is the real mod and not a preview, so play a character you do not mind changing - next time, with the mod gone, the game treats anything it added as belonging to something not installed."
       }) : h("p", { text: shop.seams.session.why ?? "" }),
       shop.seams.install.available ? h("p", { text: "Installing keeps it, and takes effect after a reload, because enabling any mod does." }) : h("p", { text: shop.seams.install.why ?? "" })
     ];
@@ -4804,8 +5104,8 @@ function verdictScreen(shop) {
     }
     installNote.replaceChildren(...notes);
   };
+  shop.acts.checkNow();
   render(shop.store.get());
-  shop.acts.scheduleCheck();
   return {
     el,
     update(next) {
@@ -4931,7 +5231,31 @@ function mountApp(deps) {
         tip: "Writes the mod as a zip you can keep, read, edit by hand and give away. Unfinished work lives in this browser's storage, which can quietly run out of room, so this is the only save point the workshop will promise you.",
         onClick: () => deps.acts.download()
       }),
-      draft === void 0 ? null : button({ label: "Review and install", tiny: true, onClick: () => deps.acts.go({ at: "verdict" }) })
+      /* THE ONE-CLICK LOOP, and it is here rather than only on the review screen
+       * because the review screen was the friction. Getting a draft into the game
+       * used to be: leave what you are doing for the verdict screen, wait for a
+       * debounce to enable the button, press it, find Close, press Ctrl-R. Four
+       * actions and a wait, of which exactly none was a decision. The status bar is
+       * on every screen a draft is open on, so this is that whole loop from wherever
+       * the author already is.
+       *
+       * REVIEW DID NOT GO AWAY, and it should not: it is where the errors, the
+       * emitted files and the manifest are, and an author who wants to look before
+       * they leap still has the button next to this one. What changed is that
+       * looking is no longer compulsory in order to try something. */
+      draft === void 0 ? null : button({
+        label: "Try it in the game",
+        kind: "primary",
+        tiny: true,
+        tip: "Forges the mod, loads it for this session only, and reloads the game so it takes effect - content always needs a reload. It is not added to your mods and it is gone when you close the game. What it does to the character who plays it is not, so play one you do not mind changing.",
+        onClick: () => void deps.acts.loadForSession()
+      }),
+      draft === void 0 ? null : button({
+        label: "Review it",
+        tiny: true,
+        tip: "The errors, the files it would write, and the manifest as it will ship.",
+        onClick: () => deps.acts.go({ at: "verdict" })
+      })
     );
   };
   const crumbTrail = (state, name) => {
@@ -4986,11 +5310,15 @@ function mountApp(deps) {
         deps.acts.go({ at: "record", change: route.change, path: up });
         return true;
       }
-      if (route.at !== "mods") {
-        deps.acts.go(state.openId === void 0 ? { at: "mods" } : { at: "details" });
+      if (route.at === "mods") {
+        deps.acts.close();
         return true;
       }
-      deps.acts.close();
+      if (route.at === "details" || state.openId === void 0) {
+        deps.acts.go({ at: "mods" });
+        return true;
+      }
+      deps.acts.go({ at: "details" });
       return true;
     }
     const chord = event.ctrlKey || event.metaKey;
@@ -6067,7 +6395,7 @@ function openWorkshop(ctx, doc2) {
     acts.dispose();
   });
   log(
-    `workshop opened: authoring ${seams.authoring.available ? "live" : "demonstration"}, install ${seams.install.available ? "in place" : "by file"}, spawn ${seams.spawn.available ? "on" : "off"}`
+    `workshop opened: authoring ${seams.authoring.available ? "live" : "demonstration"}, install ${seams.install.available ? "in place" : "by file"}, testing ${seams.wizard.available ? "on" : "off"}`
   );
   return handle;
 }

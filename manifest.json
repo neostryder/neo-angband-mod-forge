@@ -15,11 +15,12 @@
   },
   "capabilities": [
     "ui:region.create",
-    "mod:session"
+    "mod:session",
+    "debug:wizard"
   ],
   "author": "neostryder",
   "license": "GPL-2.0-only",
-  "description": "Make your own mod from inside the game. Pick something that already exists - a monster, a sword, a shop, a spell - and the workshop shows you what it is made of, what its neighbours in the game carry for every number, and what would have to change to make the thing you had in mind. When you are happy it packs the result up: try it in this session to play it straight away, install it to keep it, or save it as a file to hand to somebody.\n\nIt never asks you what JSON is. It also never hides it: every screen can show you the exact file it is about to write, and a mod it built can be taken away, hand-edited and brought back.\n\nThe workshop tab appears in the corner of the screen. Tap it to open.",
+  "description": "Make your own mod from inside the game. Pick something that already exists - a monster, a sword, a shop, a spell - and the workshop shows you what it is made of, what its neighbours in the game carry for every number, and what would have to change to make the thing you had in mind. When you are happy it packs the result up: one button forges it, loads it for this session and reloads the game so you are playing it, or save it as a file to hand to somebody.\n\nIt never asks you what JSON is. It also never hides it: every screen can show you the exact file it is about to write, and a mod it built can be taken away, hand-edited and brought back.\n\nThe workshop tab appears in the corner of the screen. Tap it to open.",
   "rules": [
     {
       "flag": "builder.showTab",
@@ -35,8 +36,8 @@
     },
     {
       "flag": "builder.cheatSpawn",
-      "title": "Let me spawn what I built, to test it",
-      "description": "Adds a Test panel that puts a creature or an item straight in front of you, so you can look at the thing you just made without going and finding it. Off by default, and it stays off until you say otherwise for one reason: Angband marks a character that has been handed anything this way, permanently, and a marked character is barred from the high score list for the rest of its life. The workshop says so again before it spawns the first thing.",
+      "title": "Let me test what I built, in the game",
+      "description": "Adds a Test panel that arranges the game around the thing you just made, using the game's own debug commands: put one in front of you, go to the depth it belongs at, be the level it is balanced for, carry the gold a shop would want for it, map the level so you can find it. Off by default, and it stays off until you say otherwise for one reason: not one control on that panel works until the panel has stopped this session being saved, which cannot be undone. Your character on disk keeps whatever their last save left, and nothing after that is written - so testing can never spoil a character you are keeping, but a session you test in is a session you are throwing away. The panel names the character and says all of this before the button that spends it.",
       "default": false
     }
   ],

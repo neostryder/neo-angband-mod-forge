@@ -131,11 +131,15 @@ export function recordScreen(shop: Workshop, index: number, path: string): View 
         h("span", { text: "show every field" }),
       ),
       h("span", { class: "mb-spacer" }),
-      button({ label: "Review and install", onClick: () => shop.acts.go({ at: "verdict" }) }),
-      shop.seams.spawn.available
+      button({ label: "Review it", onClick: () => shop.acts.go({ at: "verdict" }) }),
+      /* GATED ON THE SEAM EXISTING, not on it being usable. The panel's whole first
+       * half is the explanation of what testing costs and the button that spends it,
+       * so a route that only appeared once the player had already paid would be a
+       * route to a screen they no longer needed. */
+      shop.seams.wizard.api !== undefined
         ? button({
-            label: "Test it",
-            tip: "Put something in front of you in the game, to look at it.",
+            label: "Test it in the game",
+            tip: "Go where this belongs, put one in front of you, and look at it.",
             onClick: () => shop.acts.go({ at: "test" }),
           })
         : null,

@@ -80,37 +80,61 @@ boundary, since a browser that restores a closed window restores session storage
 with it. The game's own `docs/PLANNED.md` carries the save-reproducibility gap
 behind the first of those.
 
-### Installing without leaving the workshop - NEEDS A SEAM
+### Installing without leaving the workshop - DECLINED
 
-`ctx.installMod` and `ctx.reloadGame` behind a new `mod:install` capability
-(seam 3).
+`ctx.installMod` behind a new `mod:install` capability (seam 3). Not asked for, and
+the "Forge and install" button stays inert by design rather than waiting on a door.
 
-**Meanwhile:** the workshop writes the same bytes to a file the player downloads,
-and the mod manager's existing `Import a zip` accepts exactly those bytes. Two
-extra actions, and the player ends up holding a file they can read, keep,
-hand-edit and push to a repository - so the download button stays after the seam
-lands rather than being replaced by it.
+The workshop writes the same bytes to a file the player downloads, and the mod
+manager's existing `Import a zip` accepts exactly those bytes. Two extra actions,
+and the player ends up holding a file they can read, keep, hand-edit and push to a
+repository.
 
-**A live objection, recorded rather than settled.** A cross-check argued this seam
-should not be requested at all: a mod that can put another mod into the install is
-an elevated permission whose only benefit is one fewer click, and the install
-consent prompt is the boundary that actually holds. The counter-argument is that
-`installModFromZip` already refuses before it opens the archive when third-party
-mods are switched off, and already runs the standards check that refuses a mod
-missing a required field, so the seam adds a caller rather than a bypass. Both
-positions are stated because the disagreement is the useful part. Nothing in this
-repository depends on the outcome.
+`ctx.reloadGame`, which was asked for alongside it, is not a seam either and never
+was: reloading is not a capability anybody grants, because a plugin's code runs in
+the page and can reach `location` regardless. The workshop reloads itself.
 
-### Spawning something to look at it - NEEDS A SEAM
+**The objection carried, and this seam is now DECLINED rather than open.** A
+cross-check argued it should not be requested at all: a mod that can put another
+mod into the install is an elevated permission whose only benefit is one fewer
+click, and the install consent prompt is the boundary that actually holds. The
+counter-argument was that `installModFromZip` already refuses before it opens the
+archive when third-party mods are switched off, and already runs the standards
+check that refuses a mod which would install and then do nothing, so the seam adds
+a caller rather than a bypass.
 
-`ctx.wizard` behind a new `debug:spawn` capability (seam 4). Every command needed
-is already exported from the engine and therefore already on `ctx.core`; what a mod
-cannot get is the wired dependencies they take, and rebuilding them would give the
-mod its own `ArtifactState`, which is how an artifact gets created twice.
+What settled it is that the benefit the seam was for has been got another way.
+"One fewer click" was never really the ask; the ask was for an author to get a draft
+into the game without ceremony, and that is now one button - forge it, load it for
+the session, reload. The install seam would add nothing to that except permanence,
+which is exactly the part a player should visit the mod manager for. So the elevated
+permission would be bought for a convenience that already exists, which is the
+weakest possible reason to ask for one.
 
-**Meanwhile:** the Test panel is present, disabled, and says which of four reasons
-applies - the setting is off, the engine has no seam, there is no character in
-play, or this character has not taken the debug mark.
+The download button stays, and it is the honest end of the loop: a finished mod is a
+file the author can read, keep, hand-edit and push to a repository, and a mod that
+only ever existed inside the browser's storage is none of those.
+
+### Testing what you built, in the game - LANDED
+
+`ctx.wizard` behind a new `debug:wizard` capability (seam 4), and it landed in a
+different shape from the one asked for. The ask was the wired `WizardDeps` bundle,
+for the workshop to pass back into the `wiz*` functions on `ctx.core` itself; what
+shipped is a surface of methods that refuses every command until the session has
+been cut loose from its save.
+
+The reasoning for the bundle was sound as far as it went and is recorded in
+`docs/ENGINE_SEAMS.md`. What it could not do is stop a mistake in this repository
+from reaching somebody's character: those functions are gated on a flag in a bag
+the caller assembles, so the only thing between a bug here and a cheated character
+written over a real save was this repository's own care. The method surface puts
+that rule in the host, where it is enforced rather than intended.
+
+One refusal went away with it. The old design would not act until the character had
+already taken Angband's permanent debug mark, and would not take that mark for
+anybody, because it costs the character its place on the high score list forever.
+Detaching the session first is a smaller thing to spend and is spent in the open,
+so the mark now lands on a character that has stopped being written down.
 
 ### The overlay's held-key state - NEEDS A SEAM, and a small one
 

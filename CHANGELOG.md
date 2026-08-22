@@ -60,19 +60,40 @@ it against; what follows is what it does.
 - **The finished mod as a file**, always, whether or not the game offers a way to
   install one in place. The file is a zip the mod manager's own `Import a zip`
   accepts, and it is the only copy of the work that exists outside the browser.
-- **Forge and try it now**, which loads the finished mod for the rest of the
-  session without adding it to the player's mods. It composes into the game on the
-  next reload exactly as an installed pack does, and it is forgotten when the game
-  is closed - so the build, look, change loop leaves nothing behind in the library.
-  The note under the button says the half that "just for this session" hides: this
-  is the real mod and not a preview, so the character who plays it keeps whatever
-  it does to them, and next launch, with the pack gone, the game treats anything it
-  added as belonging to something that is not installed.
-- **A Test panel that puts a creature or an item in front of the player**, using
-  the game's own debug commands, for looking at something rather than going to find
-  it. Off by default and it stays off until the player says otherwise: Angband
-  marks a character that has been handed anything this way, permanently, and a
-  marked character is barred from the high score list for the rest of its life.
+- **Try it in the game**, one button, from every screen a mod is open on. It forges
+  the mod, loads it for the rest of the session without adding it to the player's
+  mods, and reloads the game so it takes effect - composing content always needs a
+  reload. The pack composes exactly as an installed one does and is forgotten when
+  the game is closed, so the build, look, change loop leaves nothing behind in the
+  library. The button says the half that "just for this session" hides: this is the
+  real mod and not a preview, so the character who plays it keeps whatever it does
+  to them, and next launch, with the pack gone, the game treats anything it added as
+  belonging to something that is not installed. The review screen is still there,
+  with the errors and the files and the manifest, and looking first is no longer
+  compulsory in order to try something.
+- **A Test panel that arranges the game around the thing you just made.** Testing
+  one record means arranging everything around it: a monster written for dungeon
+  level forty says nothing on level one, and an item balanced for a hundred hit
+  points says nothing to a character with nine. So the panel carries the game's own
+  debug set - go to a depth, gain experience, set gold and stats, acquire items,
+  summon, banish, teleport, map the level, light it, learn every item and creature -
+  rather than a spawn button with extras.
+
+  Its browser lists everything the running game has, with the author's own content
+  at the top and marked with the pack that added it. That ordering is read off each
+  record's own provenance, so the workshop keeps no list of what the base game
+  contains, which is a list that would be wrong the first time the game added a
+  monster. It is not limited to the mod's own content: the filter turns off, because
+  the record an author is modelling theirs on is the thing they most often want to
+  test against.
+
+  **Not one control on it works until the panel has stopped this session being
+  saved**, which is one button and cannot be undone. The character on disk keeps
+  whatever their last save left and nothing after that is ever written, so testing
+  can never spoil a character somebody is keeping - and a session tested in is a
+  session thrown away. The panel names the character and says all of it before the
+  button that spends it. Off by default, and the setting's own description says the
+  same thing.
 - **A guide covering the four things people usually make**, each card naming the
   game's own written tutorial for the same idea, plus a card for everything the
   workshop cannot reach and where to read about it.
@@ -81,17 +102,20 @@ it against; what follows is what it does.
 
 ### Known limitations, stated here because they change what the mod is
 
-- **The numbers are a demonstration.** Four of the five engine seams this needs do
-  not exist, so the records the workshop draws its evidence from are its own fixture
-  of a few dozen invented entries rather than the game's own content. Every
-  suggestion, every evidence table and every usage share is therefore about the
-  fixture. A banner says so and cannot be dismissed, and the validator returns a
-  note on every call saying that its checks are the workshop's own small set and not
-  the game's. `docs/ENGINE_SEAMS.md` specifies all five seams; `PLANNED.md` records
-  what each one blocks.
+- **The numbers are a demonstration.** Two of the engine seams this needs do not
+  exist, so the records the workshop draws its evidence from are its own fixture of a
+  few dozen invented entries rather than the game's own content. Every suggestion,
+  every evidence table and every usage share is therefore about the fixture. A banner
+  says so and cannot be dismissed, and the validator returns a note on every call
+  saying that its checks are the workshop's own small set and not the game's.
+  `docs/ENGINE_SEAMS.md` specifies every seam; `PLANNED.md` records what each one
+  blocks.
 - **A finished mod is either tried for the session or saved as a file and added
-  through the mod manager.** There is no way yet for a mod to put another mod into
-  the library for keeps.
+  through the mod manager.** There is deliberately no way for a mod to put another
+  mod into the library for keeps: that would be an elevated permission bought for a
+  convenience the one-button session loop already provides, and permanence is exactly
+  the part a player should visit the mod manager for. `PLANNED.md` records the
+  argument.
 - **What is temporary about trying a mod is the mod, not what it does.** The
   archive is forgotten; a character it changed stays changed, and the values seen at
   save time can differ next launch because a pack's adjustments live in the

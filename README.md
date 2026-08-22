@@ -118,9 +118,10 @@ anything.
 push to a repository. This is the only copy of your work that exists outside the
 browser's storage, which is why the button is on every screen.
 
-**Try it for this session.** The shortest loop there is: the mod is loaded for the
-rest of the session without being added to your mods, and it is forgotten when you
-close the game. So iterating costs you nothing in your library.
+**Try it in the game.** One button, on every screen a mod is open on. It forges the
+mod, loads it for the rest of the session without adding it to your mods, and
+reloads the game so it takes effect. It is forgotten when you close the game, so
+iterating costs you nothing in your library.
 
 It is the real mod and not a preview, which cuts both ways. The pack composes into
 the game exactly as an installed one does, so play a character you do not mind
@@ -128,11 +129,14 @@ changing: next time, with the mod gone, the game treats anything it added as
 belonging to something that is not installed, and a value it adjusted goes back to
 what it was. What is temporary is the mod, not what it did.
 
-**Install it in place.** Available when the engine offers a door for it, which
-today it does not. It saves two steps and nothing else; the file button stays
-either way.
+The reload is not optional and never was, because composing content always needs
+one. What changed is who does it: the workshop used to say "reload to play it" and
+leave you to find the Close button and press Ctrl-R.
 
-All three take effect after a reload, because composing content always does.
+**Install it in place.** Deliberately absent. A mod that can put another mod into
+your library is an elevated permission, and the only thing it would buy is a click
+the button above already saves. Permanence is worth visiting the mod manager for,
+and a mod on disk is one you can read, keep and hand to somebody.
 
 ## Unfinished work, and the one honest warning
 
@@ -175,14 +179,25 @@ Three, in the mod manager:
 | --- | --- | --- |
 | Show the workshop tab | on | The tab in the corner, which is the only way in. |
 | Remember work in progress | on | Keep unfinished mods between sessions. |
-| Let me spawn what I built, to test it | **off** | A Test panel that puts a creature or an item in front of you. |
+| Let me test what I built, in the game | **off** | A Test panel that arranges the game around the thing you made. |
 
-The third is off, and it stays off until you say otherwise, for one reason:
-Angband marks a character that has been handed anything this way, permanently, and
-a marked character is barred from the high score list for the rest of its life.
-The workshop will not take that mark on your behalf - the game's own debug toggle
-is where that decision belongs - and the panel says so again before it spawns
-anything.
+The third is off, and it stays off until you say otherwise, for one reason. Testing
+one record honestly means arranging everything around it - a monster written for
+dungeon level forty tells you nothing on level one - so the panel carries the game's
+own debug set: go to a depth, gain experience, set gold and stats, acquire items,
+summon, banish, teleport, map the level, light it, learn everything.
+
+**Not one control on it works until the panel has stopped this session being saved,
+and that cannot be undone.** Your character on disk keeps whatever their last save
+left and nothing after that is ever written, so testing can never spoil a character
+you are keeping. Reload the game and they are waiting exactly as they were. What you
+give up is the session you tested in, which is the point: it was a scratchpad. The
+panel names the character and says all of this before the button that spends it.
+
+Its browser puts your own content at the top, marked with the pack that added it,
+and it is not limited to it - the whole game's catalogue is behind the same filter,
+because the record you are modelling yours on is usually the one you want to compare
+against.
 
 ## Building this repository
 

@@ -7,14 +7,22 @@ an engine that lacks the seam, so the workshop is openable and every screen
 renders. What the fallbacks cannot do is written down beside each seam and again
 in `PLANNED.md`.
 
-Seam 5 is in the engine and is declared in `manifest.json`; that is why the
-declared range starts at 0.26.0, since a capability string the running engine
-does not recognise refuses the whole mod. Seams 1 to 4 are read through the same
+Seams 4 and 5 are in the engine and are declared in `manifest.json`; that is why
+the declared range starts at 0.26.0, since a capability string the running engine
+does not recognise refuses the whole mod. Seams 1 to 3 are read through the same
 accessors and are still absent, which is what the fallbacks are for.
 
-The seams are ordered by how much they cost to leave out, with seam 5 last
-because it landed last. Seam 1 is the only one whose absence makes the workshop a
-demonstration rather than a tool.
+The seams are ordered by how much they cost to leave out. Seam 1 is the only one
+whose absence makes the workshop a demonstration rather than a tool.
+
+**Reloading was never one of these, and pretending it was cost the try-it loop
+three steps.** Composing content takes a reload, so a mod loaded for the session
+does not take effect until the page comes back. The workshop used to say so and
+leave the player to press Ctrl-R, while holding a `reload` it never called - which
+was reporting a restriction that does not exist. A plugin's code runs in the page
+and can reach `location` with or without anybody's permission, exactly as it can
+reach the document. So it is not a seam, it is not a capability, and the workshop
+does it.
 
 Two rules apply to all five:
 
@@ -27,7 +35,7 @@ Two rules apply to all five:
   already exist. A new capability therefore arrives here paired with an `engine`
   range starting at the release that carries it, which a player meets as "this
   needs a newer game" rather than as a mod that fails to load. The manifest
-  declares `ui:region.create` and `mod:session`.
+  declares `ui:region.create`, `mod:session` and `debug:wizard`.
 
 ---
 
@@ -202,81 +210,87 @@ removes a round trip rather than unlocking a capability.
 
 ---
 
-## Seam 4. `ctx.wizard` - spawn something, to look at it
+## Seam 4. `ctx.wizard` - the whole debug set, on a session that is not being saved
 
-**Capability: `debug:spawn`.** New string, and the one in this document whose
-consent text has to be blunt, because taking it has a permanent consequence for
-the character.
+**Capability: `debug:wizard`. LANDED in the engine.** A separate string from
+`debug:spawn` rather than a wider reading of it, because the two cost the player
+different things and neither is a bigger helping of the other. The engine's
+`grantCovers` compares the action, so one consent cannot buy both.
 
 ```ts
 /**
- * The wired debug dependencies the running game owns, for the `wiz*` commands
- * on `core`.
+ * The game's debug commands as METHODS, plus a catalogue of everything loaded.
  *
- * Present only when the manifest declared `debug:spawn`, the player consented,
- * and there is a live game. It is the GAME'S object, by identity, not a rebuilt
- * one - see below.
+ * Present only when the manifest declared `debug:wizard`, the player consented,
+ * and there is a live game. Every command refuses until `sandbox()` has cut the
+ * session loose from its save slot, which cannot be undone.
  */
-readonly wizard?: WizardDeps;
+readonly wizard?: WizardApi;
 ```
 
-`WizardDeps` already exists, and so does the function that assembles it: the web
-shell's `buildWizardDeps()` spreads `StartedGame.wizardBundles` (itself
-`Pick<WizardDeps, "makeDeps" | "expDeps" | "effect" | "trapDeps" | "monPlace">`,
-assembled once in `wireGame`) and adds `wizard`, `debug`, `msg`, `markNoscore`,
-`races`, `egos`, `artifacts` and `curses`. The whole seam is putting the result of
-that existing function on the plugin context.
+**This is not the shape this seam was asked for, and the change moved a guarantee
+out of this repository.** The ask was for the wired `WizardDeps` bundle, so the
+workshop could pass it back into the `wiz*` functions on `ctx.core` itself. The
+reasoning was sound as far as it went: everything a spawn needs is already exported
+from core, what a mod cannot get is the deps those functions take, and rebuilding
+`MakeDeps` from `ctx.registries` would hand the mod a fresh `ArtifactState` and
+create the Phial twice.
 
-**The whole `WizardDeps`, not just the bundle.** `debug` is the field that decides
-whether any of these commands do anything, and it comes from the character's
-persisted `NOSCORE.DEBUG` bit rather than from wizard mode. A mod handed only the
-bundle would have to invent that flag, and inventing it means either a control that
-silently does nothing or a mod deciding on its own to mark somebody's character.
-Handing over the assembled deps makes the honest answer available: the workshop
-reads `debug`, and when it is false the Test panel is disabled with that as the
-stated reason. `markNoscore` is in there too and the workshop does not call it -
-taking that mark is the player's decision, made through the game's own debug
-toggle, not a mod's.
+What that shape could not do is stop a mistake here from reaching somebody's
+character. Those functions are gated on a `debug` flag in a bag the CALLER
+assembles, so the only thing between a bug in this repository and a cheated
+character written over a real save was this repository's own care. A method surface
+puts the rule in the host, where it is enforced instead of intended.
 
-**Why the deps rather than a purpose-built `spawn(name)` function.** Everything a
-spawn needs is already exported from core and therefore already on `ctx.core`:
-`wizCreateObj`, `wizCreateObjectFromKind`, `wizDropObject`, `wizCreateArtifact`,
-`wizSummonNamed`, `wizAcquire`. What a mod cannot get is the deps they all take.
-A narrower function would be a second way to spawn, with its own bugs, wrapping
-functions the mod can already call.
+**What the host enforces, which is the whole bargain.** Not one command runs until
+`sandbox()` has dropped the session's active save slot id. That id is the single
+thing every write to a character consults - the turn-tail autosave, the level-change
+save, `S`, the options screen, `pagehide` and the death save all end up there - so a
+session without one writes nowhere. Detaching also throws a one-way latch in the
+page's own memory, because the id itself lives in storage every tab shares. It
+cannot be undone.
 
-**Why it must be the game's own instance.** `MakeDeps.artifacts` is a single
-`ArtifactState` and its own doc comment says it must be the one instance the game
-owns, or an artifact can be created twice. A mod that rebuilt `MakeDeps` from
-`ctx.registries` would get a fresh `ArtifactState`, and the failure would be a
-duplicate Phial in a save, discovered long afterwards. The same argument applies
-to `MonAllocTable` on the live `MonPlaceDeps`. Handing over the wired bundle is
-not a convenience: it is the only version of this seam that is correct.
+**So this grant is SAFER for the character on disk than `debug:spawn` is, not more
+dangerous.** Spawning acts on the character the player is actually playing and costs
+them that character's place on the high score list for good. This one refuses to
+touch a character that is still being written down at all. The consent sentence says
+so; describing it as "more debug commands" would have the risk exactly backwards.
 
-**What the workshop does with it, and what it refuses to do.**
+**Which is also why the panel no longer refuses on somebody's behalf.** The old
+design had a fourth disabled reason: the character had not taken Angband's permanent
+debug mark, and the workshop would not take it for them, correctly, because it cost
+that character its scoring eligibility forever. Detaching first is a smaller thing to
+spend and it is spent in the open, so the mark now lands on a character that has
+already stopped being written down, where it is simply true. There is nothing left to
+refuse for anybody.
 
-- It spawns only records that are already in the composed game. It never spawns
-  from an uncommitted draft, and it never asks the engine to recompose content
-  while a game is running. Recomposition can invalidate references held by live
-  entities and by generation code, and the payoff would be small: enabling a mod
-  already reloads the process, so the loop is build, install, reload, spawn, and
-  the reload was never optional.
-- Before the first spawn of a session it states, in the panel and not in a
-  tooltip, that every one of these commands is gated on the character's
-  `NOSCORE.DEBUG` bit, that taking that mark is permanent, and that a marked
-  character is barred from the high score list for the rest of its life. It then
-  requires an explicit confirmation. `debugEnabled(deps)` reads that bit, so a
-  character that has never taken the mark cannot spawn at all, and saying so is
-  better than a command that silently does nothing.
-- It spawns the peer a draft is being modelled on as readily as it spawns
-  something the player made, which is what makes the panel useful before there is
-  anything to test.
+**What the workshop does with it.**
 
-**Without it.** The Test panel is present, disabled, and says which of the three
-reasons applies: the seam is absent, the capability was not granted, or there is
-no live game.
+- It arranges the game around one record rather than only conjuring one. Testing a
+  monster written for dungeon level forty means being on level forty; testing an item
+  balanced for a hundred hit points means having them. The panel carries the depth
+  jump, the experience and gold and stat edits, acquirement, summoning, banishment,
+  mapping, lighting and lore, because that set is what one honest test takes.
+- It says what testing costs, in the panel and not in a tooltip, naming the character
+  who is about to stop being saved, before the button that spends it. That button is
+  the only live control until it is pressed.
+- It shows the author's own content first. Every catalogue entry carries the pack
+  that added it, so the ordering needs no list of what the base game contains - a
+  list that would be wrong the first time the game added a monster. It is **not**
+  limited to the mod's own content: the filter turns off, and the record an author is
+  modelling theirs on is the thing they most often want to test against.
+- It reads the catalogue BEFORE anything is consented to, which is the one thing that
+  works unarmed. Deciding what to test is how somebody decides whether to spend their
+  session; a browser that filled in afterwards would ask them to agree to something
+  they cannot see.
+- It still spawns only records already in the composed game. It never spawns from an
+  uncommitted draft and never asks the engine to recompose under a live game, which
+  can invalidate references held by live entities and by generation code. The loop is
+  forge, play, test - and forging and playing is now one button.
 
----
+**Without it.** The Test panel is reachable, disabled, and says which of three
+reasons applies: the setting is off, the engine has no seam, or there is no live
+game. The catalogue browser still fills in whenever there is a game to read.
 
 ---
 

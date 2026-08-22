@@ -1,125 +1,120 @@
 /**
- * Putting a thing in front of you, to look at it.
+ * Ordering a catalogue so the author's own work is at the top.
  *
- * THE NARROWEST USEFUL VERSION OF THIS FEATURE, deliberately. It spawns records
- * that are ALREADY in the composed game and nothing else: it never spawns from an
- * unfinished draft, and it never asks the engine to recompose content while a game
- * is running. That is not timidity. Recomposing under a live game can invalidate
- * references held by monsters and objects already on the level and by the
- * generation code, and the payoff would be small, because enabling a mod reloads
- * the process anyway. So the loop is build, install, reload, spawn, and the reload
- * was never optional.
+ * WHAT THIS FILE USED TO BE, because the change is the whole story. It used to
+ * resolve a name to a registry index and call the game's `wiz*` functions itself,
+ * passing back the raw debug dependency bundle the host handed over. That worked,
+ * and it put the player's character behind this repository's own care: those
+ * functions are gated on a flag in a bag the CALLER assembles, so nothing outside
+ * this file could stop a mistake in it from writing a cheated character over one
+ * somebody loved.
  *
- * WHICH LEAVES IT USEFUL BEFORE THERE IS ANYTHING TO TEST, which is the half that
- * is easy to miss. The base picker offers "look at it" on the record you are about
- * to copy, so the question "what is a Studded Leather Armour actually like" is
- * answered by going and holding one rather than by reading its numbers.
+ * The host now offers the commands as methods and refuses every one of them until
+ * the session has been cut loose from its save. So the resolving, the placement and
+ * the refusals all moved there, where they can be enforced instead of intended, and
+ * what is left here is the one job that is genuinely the workshop's: deciding what
+ * order to show things in.
  *
- * EVERY COMMAND HERE IS THE GAME'S OWN. `wizSummonNamed` and `wizCreateObj` are
- * exported from core and are what the game's own debug menu calls. The workshop
- * resolves a name to the race or the kind index and passes the game's own
- * dependencies straight back in. Nothing is reimplemented, which is why an
- * artifact cannot be created twice by this route and why a spawned object is
- * stamped as a cheat by the same code that stamps the debug menu's.
+ * AND THAT ORDER IS THE FEATURE. A workshop's user has just written a monster, and
+ * the list they need is not six hundred entries with theirs somewhere in it. Every
+ * catalogue entry says which pack added it, so the author's own content sorts to the
+ * front without this file keeping a list of what the base game contains - a list
+ * that would be wrong the first time the game added a monster.
+ *
+ * WHOSE IS "MINE", though, is not as obvious as it looks. A record the author has
+ * only just written is not in the catalogue at all: content composes at load, so
+ * what is in the running game is what was there when it started. The pack ids that
+ * matter are therefore the ones the running game has - including a draft that was
+ * forged and tried for the session, which is exactly the loop this panel exists to
+ * close. So "mine" is read off the catalogue rather than off the open draft, and a
+ * draft that has never been tried shows nothing and says so.
  */
 
-import type { CoreApi, RegistriesLike, WizardDepsLike } from "./context.js";
+import type { WizardCatalogue, WizardEntry } from "./context.js";
 
-export type SpawnKind = "monster" | "object";
+/** Which of the three lists a row came from. */
+export type TestKind = "creature" | "item" | "artifact";
 
-export interface SpawnOutcome {
-  readonly ok: boolean;
-  /** One sentence for the status line, whichever way it went. */
-  readonly says: string;
+/** One row of the browser: an entry, plus what the panel needs to draw it. */
+export interface TestRow {
+  readonly kind: TestKind;
+  readonly entry: WizardEntry;
+  /** True when a pack added this record, rather than the base game. */
+  readonly modded: boolean;
+}
+
+/** The empty catalogue, for a front end with no game behind it. */
+export const NO_CATALOGUE: WizardCatalogue = { items: [], creatures: [], artifacts: [] };
+
+/**
+ * Every pack id that put something into the running game, in first-seen order.
+ *
+ * For the "whose content" filter. First-seen rather than sorted, because the order
+ * a player reads is more useful when it matches the order the game composed in than
+ * when it is alphabetical for no reason.
+ */
+export function packsInPlay(catalogue: WizardCatalogue): readonly string[] {
+  const seen: string[] = [];
+  for (const entry of allEntries(catalogue)) {
+    const from = entry.entry.from;
+    if (from !== undefined && !seen.includes(from)) seen.push(from);
+  }
+  return seen;
 }
 
 /**
- * The shape of the two core functions the workshop calls.
+ * The rows to show, filtered and ordered.
  *
- * Declared structurally rather than by importing core's own types, so this file
- * compiles in a repository with no copy of the engine and so what the workshop
- * touches is written down where somebody can read it.
+ * ORDER: a pack's own records first, then the base game's, and each half by depth
+ * then by name. Depth before name because a builder comparing their new monster to
+ * its neighbours wants the neighbours, and "what else lives at this depth" is that
+ * question; alphabetical order answers a question nobody asked.
  */
-interface SpawnCore {
-  wizSummonNamed?: (state: unknown, params: { race: unknown }, deps: unknown) => boolean;
-  wizCreateObj?: (state: unknown, params: { index: number }, deps: unknown) => boolean;
+export function testRows(
+  catalogue: WizardCatalogue,
+  opts: {
+    readonly kind: TestKind;
+    /** Substring match on the name, case-insensitively. Empty matches everything. */
+    readonly search?: string;
+    /**
+     * Show only records from this pack, or every record when absent.
+     *
+     * Absent is not the same as "the base game": a filter that could not be turned
+     * off would hide the thing an author most often wants to test against, which is
+     * whatever their record is supposed to resemble.
+     */
+    readonly pack?: string;
+  },
+): readonly TestRow[] {
+  const needle = (opts.search ?? "").trim().toLowerCase();
+  const rows = listFor(catalogue, opts.kind).filter((row) => {
+    if (opts.pack !== undefined && row.entry.from !== opts.pack) return false;
+    return needle === "" || row.entry.name.toLowerCase().includes(needle);
+  });
+  return rows.slice().sort(compareRows);
 }
 
-/** Find a bound monster race by name, case-insensitively. */
-export function raceByName(registries: RegistriesLike | undefined, name: string): unknown | undefined {
-  const wanted = name.trim().toLowerCase();
-  for (const race of registries?.monsters?.races ?? []) {
-    if (typeof race.name === "string" && race.name.toLowerCase() === wanted) return race;
-  }
-  return undefined;
+/** Mod content first, then by depth, then by name. */
+function compareRows(a: TestRow, b: TestRow): number {
+  if (a.modded !== b.modded) return a.modded ? -1 : 1;
+  if (a.entry.level !== b.entry.level) return a.entry.level - b.entry.level;
+  return a.entry.name.localeCompare(b.entry.name);
 }
 
-/**
- * Find a bound object kind's INDEX by name.
- *
- * The index rather than the kind, because `wizCreateObj` takes an index into the
- * registry's own array and prints its own refusal when it is out of range. Using
- * the game's own accessor keeps the workshop from having a second opinion about
- * what a valid kind is.
- */
-export function kindIndexByName(registries: RegistriesLike | undefined, name: string): number | undefined {
-  const wanted = name.trim().toLowerCase();
-  const kinds = registries?.objects?.kinds ?? [];
-  for (let index = 0; index < kinds.length; index++) {
-    const kind = kinds[index];
-    if (kind && typeof kind.name === "string" && kind.name.toLowerCase() === wanted) return index;
-  }
-  return undefined;
+function listFor(catalogue: WizardCatalogue, kind: TestKind): readonly TestRow[] {
+  const source =
+    kind === "creature"
+      ? catalogue.creatures
+      : kind === "item"
+        ? catalogue.items
+        : catalogue.artifacts;
+  return source.map((entry) => ({ kind, entry, modded: entry.from !== undefined }));
 }
 
-/** Every name that can be spawned, for the picker. */
-export function spawnable(registries: RegistriesLike | undefined, kind: SpawnKind): readonly string[] {
-  const source = kind === "monster" ? (registries?.monsters?.races ?? []) : (registries?.objects?.kinds ?? []);
-  const out: string[] = [];
-  for (const entry of source) {
-    if (entry && typeof entry.name === "string" && entry.name !== "") out.push(entry.name);
-  }
-  return out;
-}
-
-/** Spawn one thing by name. Never throws: a failure is a sentence. */
-export function spawnByName(
-  core: CoreApi,
-  state: object,
-  deps: WizardDepsLike,
-  registries: RegistriesLike | undefined,
-  kind: SpawnKind,
-  name: string,
-): SpawnOutcome {
-  const api = core as unknown as SpawnCore;
-  try {
-    if (kind === "monster") {
-      const race = raceByName(registries, name);
-      if (race === undefined) {
-        return { ok: false, says: `Nothing loaded is called "${name}". A record you have not installed yet is not in the game.` };
-      }
-      if (typeof api.wizSummonNamed !== "function") {
-        return { ok: false, says: "This game does not have the summon command the workshop needs." };
-      }
-      const placed = api.wizSummonNamed(state, { race }, deps);
-      return placed
-        ? { ok: true, says: `${name} is beside you.` }
-        : { ok: false, says: `There was nowhere next to you to put ${name}. Try again somewhere with more room.` };
-    }
-    const index = kindIndexByName(registries, name);
-    if (index === undefined) {
-      return { ok: false, says: `Nothing loaded is called "${name}". A record you have not installed yet is not in the game.` };
-    }
-    if (typeof api.wizCreateObj !== "function") {
-      return { ok: false, says: "This game does not have the create-object command the workshop needs." };
-    }
-    const made = api.wizCreateObj(state, { index }, deps);
-    return made
-      ? { ok: true, says: `${name} is on the floor where you are standing.` }
-      : { ok: false, says: `The game refused to make ${name}.` };
-  } catch (e) {
-    /* A throw out of a debug command is the game's problem, not something to
-     * hide: the workshop says what happened and stays open. */
-    return { ok: false, says: `That went wrong inside the game: ${String(e)}` };
-  }
+function allEntries(catalogue: WizardCatalogue): readonly TestRow[] {
+  return [
+    ...listFor(catalogue, "creature"),
+    ...listFor(catalogue, "item"),
+    ...listFor(catalogue, "artifact"),
+  ];
 }

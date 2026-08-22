@@ -119,7 +119,14 @@ export function detailsScreen(shop: Workshop): View {
     "div",
     { class: "mb-row-actions" },
     button({ label: "Add or change something", kind: "primary", onClick: () => shop.acts.go({ at: "kinds" }) }),
-    button({ label: "Review and install", onClick: () => shop.acts.go({ at: "verdict" }) }),
+    button({ label: "Review it", onClick: () => shop.acts.go({ at: "verdict" }) }),
+    shop.seams.wizard.api !== undefined
+      ? button({
+          label: "Test it in the game",
+          tip: "Go where this mod's content belongs, put some in front of you, and look at it.",
+          onClick: () => shop.acts.go({ at: "test" }),
+        })
+      : null,
   );
 
   el.append(detailsCard.el, derivedCard.el, changesCard.el, actions);
