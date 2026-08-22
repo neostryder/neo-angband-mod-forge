@@ -37,6 +37,28 @@ Last reviewed: 2026-08-21.
 
 ---
 
+## Test creation
+
+### Scaffolding tests for the plugin an author wrote by hand
+
+Raised 2026-08-21, and it names a real gap: the seven modding tutorials and the
+mod-check CLI take an author cleanly from "I want to write a mod" to a working
+`plugin.js`, but nothing anywhere tells a third-party author how to write a
+standalone test for that file outside this monorepo - the one worked example
+(`docs/modding/tutorials/05-hook-behaviour.md`) runs the plugin through the
+engine's own internal sample-mod suite, which a mod living in its own repository
+has no access to.
+
+Not yet scoped against the seams above, and deliberately held for after the
+authoring seams (`ctx.authoring`, `ctx.composedRecords`) land, since a
+test-scaffolding feature built against the fixture stub would need redoing once
+the workshop is drafting against the game's real records. What a test needs to
+assert against - the compose result over real data, a plugin's hooks reacting to
+a real state transition - is exactly what those two seams also unlock, so this
+is likely a THIRD consumer of the same door rather than a separate one.
+
+---
+
 ## The engine seams
 
 ### Drafting, validating and emitting against the game's own content - NEEDS A SEAM
