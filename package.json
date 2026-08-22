@@ -21,8 +21,9 @@
     "The mod SDK is different here than in every other mod in this family: this mod",
     "CALLS it at runtime rather than only building against it. It still is not a runtime",
     "dependency, for the same reason core is not - plugin.js resolves no specifier. The",
-    "authoring functions arrive on ctx.core, which re-exports them, and the SDK is here",
-    "for types, for the tests, and for tools/build.mjs."
+    "authoring functions arrive on ctx.authoring, a separate namespace core hands in",
+    "alongside ctx.core rather than through it, and the SDK is here for types, for the",
+    "tests, and for tools/build.mjs."
   ],
   "scripts": {
     "build": "node tools/build.mjs",
