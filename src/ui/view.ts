@@ -24,6 +24,26 @@ export interface View {
   readonly el: HTMLElement;
   update(next: AppState, prev: AppState): void;
   dispose(): void;
+  /**
+   * A key the screen wants before the shell's own ladder sees it.
+   *
+   * WHY A SCREEN CANNOT JUST LISTEN FOR ITSELF, which is the obvious way and does
+   * not work here. The overlay registers its keyboard listeners on the WINDOW in the
+   * capture phase and calls `stopImmediatePropagation` on every one of them, because
+   * the game's keyboard model is single-owner and a letter that reaches it moves the
+   * character. Stopping propagation at the window in the capture phase means the
+   * event never descends to the elements below, so a `keydown` listener on a
+   * textarea inside the shadow root NEVER FIRES. Measured, not assumed.
+   *
+   * So a screen that needs a key gesture - Tab to indent, Enter to keep the
+   * indentation, a chord to save - asks for it here, and the shell offers every key
+   * to the screen that is up before doing anything with it itself.
+   *
+   * Returning true means handled, and the overlay then calls `preventDefault`.
+   * Returning false leaves the key alone, which is how the browser keeps the ones
+   * that belong to it - a textarea's own undo among them.
+   */
+  keys?(event: KeyboardEvent): boolean;
 }
 
 /** Everything a screen is allowed to reach. */

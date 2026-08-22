@@ -71,16 +71,69 @@ meant after a game update retunes it and after another mod adjusts it first.
 Ticking a flag writes "add this flag", so another mod adding a different flag to
 the same record keeps its change and you keep yours.
 
+## When you outgrow the screens: editing the files
+
+Every screen above asks a question and writes the answer into a file. There is one
+more screen, reached with **Edit the files directly** from a mod's own page, that
+shows the files.
+
+**It is the same mod, printed.** Not a mode, not an import, not a second copy. A
+monster added on the record screen is in `monster.json` there; a number changed
+there is the number the record screen shows next time you open it. Saving a file
+parses the text back into the mod that every other screen edits, which is why the
+two can never come apart.
+
+It has line numbers, syntax colouring for JSON and JavaScript, bracket matching,
+Tab and Shift-Tab to indent and outdent, `Ctrl+F` to find, `Ctrl+S` to save the
+file, and a line and column readout. `Ctrl+Z` in the editor is the browser's own
+undo over your typing; `Ctrl+Z` anywhere else is the workshop's undo over the mod.
+
+**Three things are only possible here**, and they are why it exists rather than
+being a viewer:
+
+- **A script.** `Start a plugin.js` writes a working entry point with nothing in
+  it. A `plugin.js` needs no build step: it is an ES module with no bare imports
+  and a default export, and the engine arrives as `ctx.core`. The manifest grows
+  the `plugin` facet and the `modApi` number by itself, because a mod that ships
+  code without declaring both installs and then does nothing.
+- **A manifest key nothing asks you about.** `capabilities`, `rules` a player can
+  switch on and off, `optionalDependencies`. The game passes a key it does not
+  model straight through, so these work, and they survive every later save.
+- **Sections and anything else a record file can carry.** Written through to the
+  folder exactly as typed.
+
+**What it will not pretend.** The check under a JSON file is the same parser the
+game uses, so a clean file is really clean. The check under a script is quotes,
+comments and brackets, and it says so: it is not a syntax check, there is no
+compiler in a browser tab, and code that passes it can still be wrong. A mod that
+ships a script also cannot be tried for a session, because that door takes content
+only - save it as a file and add it with `Import a zip`, which is the door that
+runs code and asks you first. The button says which of those you are looking at
+before you press it.
+
+**It is not the way in.** A first mod made here is a first mod made without the
+evidence table, without the sentence saying where each suggested number came from,
+and without the check that runs as you type. Start with the screens. This is the
+door at the far end of them.
+
 ## What it does not do, and why
 
-**It does not write code.** A mod that runs code needs a built ES module with no
-bare imports, and there is no bundler in a browser tab. Everything a first mod is
-likely to be - a monster, a sword, a rebalanced spell, an item in a shop, an
-artifact - is content and needs no build step at all.
+**It does not write code for you.** It will carry a `plugin.js` you wrote, and it
+will not produce one: a mod written in TypeScript becomes a module through a
+bundler that runs in Node, and there is no bundler in a browser tab. Everything a
+first mod is likely to be - a monster, a sword, a rebalanced spell, an item in a
+shop, an artifact - is content and needs no build step at all.
 `docs/modding/PLUGINS.md` in the game's own repository is the path for a mod that
-does run code.
+does run code, and `docs/modding/tutorials/05-hook-behaviour.md` is ten lines of
+it.
 
-**It does not ship pictures, sounds or fonts.** The emitter produces text.
+**It does not ship pictures, sounds or fonts.** The emitter produces text. A file
+whose name ends in `.png` can be made in the file editor and will hold whatever
+text is typed into it, which is not a picture.
+
+**It does not open a mod you already have.** The editor edits the mod in the
+workshop. A finished mod is a folder with a text editor and a repository behind
+it, which is a better place to work on one.
 
 **It does not offer `constants`, `visuals` or `history`.** Those three are
 whole-file configuration rather than records with identities, so contributing one
@@ -109,7 +162,8 @@ Escape backs out of the innermost thing: a tooltip, then a level of nesting insi
 a record, then the screen, then the workshop. Nothing on that ladder discards
 anything.
 
-`Ctrl+Z` and `Ctrl+Shift+Z` undo and redo. `Ctrl+S` saves the mod as a file.
+`Ctrl+Z` and `Ctrl+Shift+Z` undo and redo. `Ctrl+S` saves the mod as a file, or
+saves the open file into the mod when the caret is in the file editor.
 
 ## Getting the mod out
 

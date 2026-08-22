@@ -331,9 +331,21 @@ an evening.
 - No `lines`. Unlike an install, there is no second vocabulary to match: a
   refusal here is `problem`, one whole sentence, and the archive is refused by the
   same functions the install door uses so the wording is already the game's.
-- Content only, refused by name, on exactly the terms seam 3 is. The workshop
-  emits content and nothing else, so this costs it nothing - and it means the
-  seam is not a route by which any mod could get code to run.
+- Content only, refused by name, on exactly the terms seam 3 is. The door refuses
+  an archive holding a `.js`, `.mjs`, `.cjs`, `.ts` or `.wasm` at any depth, and
+  refuses one whose manifest declares any capability. That is right, and it is the
+  reason the seam is not a route by which any mod could get code to run without a
+  player being asked.
+
+  **It costs the workshop something now, which it did not when this was written.**
+  The file editor can carry a hand-written `plugin.js`, so a mod made here is no
+  longer content by construction. The button is therefore off for a mod that ships
+  a script, with the reason on it, and the route for that mod is the file and the
+  mod manager's own import door. Nothing is asked for here: consent belongs where
+  the player is, and a mod that runs code should arrive through the door that says
+  so. See `sessionRefusal` in `src/model/files.ts` - one function, asked by both
+  buttons and by the action behind them, so a disabled control and the refusal
+  behind it cannot drift apart.
 
 **What the workshop says before it stages anything.** That trying it is not a
 preview: the pack composes into the game exactly as an installed one does, so the

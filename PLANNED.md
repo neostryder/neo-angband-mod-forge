@@ -183,17 +183,31 @@ presentation with it, this becomes trivial and worth doing.
 
 ## Content the workshop cannot write
 
-### A `plugin.js` - NOT APPLICABLE
+### A `plugin.js` the workshop COMPILES - NOT APPLICABLE
 
-A code mod's entry point is a built ES module with no bare imports and a validated
-default export, all of which comes from an esbuild pipeline that runs in Node.
-Nothing in a browser tab can produce one, and there is no in-browser bundler
-anywhere in the tree. The only honest version would be a fixed literal template
-with substituted values, which is a much smaller promise than "the workshop writes
-code" and would be mistaken for the larger one.
+A mod written in TypeScript becomes an ES module through an esbuild pipeline that
+runs in Node. Nothing in a browser tab can run that pipeline, and there is no
+in-browser bundler anywhere in the tree. The only honest version would be a fixed
+literal template with substituted values, which is a much smaller promise than
+"the workshop writes code" and would be mistaken for the larger one.
 
-The written path is real and better: `docs/modding/tutorials/05-hook-behaviour.md`
-runs code in ten lines and needs no compiler.
+**The other half of this is now LANDED, and it is the half that mattered.** A
+`plugin.js` does not have to be compiled from anything: the ABI wants an ES module
+with no bare imports and a validated default export, and that is a file a person
+can type. The file editor carries one, the manifest grows the `plugin` facet and
+the `modApi` number from the same condition that notices the file, and the emitted
+folder is a code mod. What the workshop does not do is write the code, which is
+the part that needed a compiler and the part an author was always going to want to
+do themselves.
+
+Two consequences, both stated where they happen rather than here. A mod that ships
+a script cannot be tried for a session, because that door takes content only. And
+nothing checks the script: the game imports it and reports a failure as a mod that
+is not working, so the editor's own check says in as many words that it looks at
+quotes, comments and brackets and is not a syntax check.
+
+The written path is still real and still the place to learn:
+`docs/modding/tutorials/05-hook-behaviour.md` runs code in ten lines.
 
 ### Tile packs, sounds, fonts and other binary resources - NEEDS A SEAM
 
@@ -220,10 +234,20 @@ workshop says so rather than implying the tile story is solved.
 ### Sections, so somebody else can switch half your mod off - NEEDS A SEAM
 
 A section needs a manifest entry and the content grouped under it, and the project
-builder writes neither. It is the most obviously wanted thing not in this version:
-a player who makes five changes and wants a friend to be able to switch off two of
+builder writes neither. It is the most obviously wanted thing no screen offers: a
+player who makes five changes and wants a friend to be able to switch off two of
 them is describing sections exactly. Additive SDK work with no consequence for the
 plugin ABI.
+
+**Meanwhile:** a record file's `sections` block can be typed into the file editor,
+and it reaches the emitted folder exactly as written. That is worth having and it
+is not the same as the seam, so the difference is said on the screen rather than
+left to be discovered. The draft cannot model a section, so the workshop carries
+one through unread: the composer never sees it, the review screen's verdict is not
+a verdict on it, and both the file editor and the review screen name the file and
+the keys and say so. A blind spot that is declared is a different thing from one
+that is not, and the reason to allow it at all is that the alternative was a file
+the editor could open and never save.
 
 ### The coarse whole-record patch kind - DECLINED
 
@@ -232,20 +256,62 @@ mod silently replaced an array another mod was contributing to", which is the ex
 problem the per-field patches exist to avoid. A workshop that offered it would be
 handing a beginner the sharper of two tools for no gain.
 
-### Whole-record replacement - NEEDS NO SEAM, NOT BUILT
+### Whole-record replacement - NEEDS NO SEAM, NO SCREEN
 
-`replace` is in the project builder and no screen offers it. Removal is offered,
-in the dangerous colour, with the ref spelled out. Replacement is the same weight
-of gesture and wants the same treatment plus a diff against what it replaces, and
-that is a screen rather than a button.
+`replace` is in the project builder and the file editor round-trips it, so a
+`replaces` block typed into a record file is a real replacement that the review
+screen composes and checks like any other change. What is not built is a SCREEN
+for it. Removal has one: offered last, in the dangerous colour, with the reference
+spelled out. Replacement is the same weight of gesture and wants the same
+treatment plus a diff against what it replaces, and that is a screen rather than a
+button. Until it exists, the honest place for the gesture is the text, where an
+author can see exactly what they are writing over.
 
-### Fields of the author's own, namespaced - NEEDS NO SEAM, NOT BUILT
+### Fields of the author's own, namespaced - NEEDS NO SEAM, NO SCREEN
 
-The draft carries a `fields` list and the emitter writes it; nothing in the
-interface adds one. Version one emits no code, so a field the workshop coined
-would be read by nothing, which is why this is last rather than first. When it is
-built it has to be one gesture: an undeclared namespaced key is stripped and
-reported, and a bare novel key is not a mod's to coin at all.
+The draft carries a `fields` list, the emitter writes it, and the file editor
+round-trips it out of `manifest.json`. So an author can coin a field today, and
+now that the same editor can carry the script that reads it, a coined field is a
+field something can actually use - which is what made this last on the list rather
+than first when nothing here emitted code.
+
+What is not built is a gesture in the interface, and it still has to be one
+gesture when it is: an undeclared namespaced key is stripped and reported, and a
+bare novel key is not a mod's to coin at all.
+
+---
+
+## The file editor
+
+### A second editor for a mod nobody is holding - DECLINED
+
+An author with a finished mod on disk cannot open it here: the editor edits the
+draft, and there is no import. The zip the workshop writes can be hand-edited and
+brought back through the mod manager, which is the loop that exists, and reading a
+mod back into a draft is the same shape as writing one out - `files.ts` does the
+hard half already. It is declined rather than planned because the reason to want
+it is thin. A mod that has left the workshop is a mod with a repository and a text
+editor behind it, and a second, worse editor inside a game is not what that author
+needs. What would change the argument is a mod that was MADE here, exported, and
+edited by hand once: that person has a real use for bringing it back, and no way
+to say so yet.
+
+### Anything that is not text - NEEDS A SEAM
+
+The same seam the emitter needs: `EmittedFile.contents` is a `string`, so a tile,
+a font or a sound cannot be carried whatever the editor does. The editor refuses
+nothing and offers nothing here; a path ending in `.png` can be created and will
+hold whatever text is typed into it, which is not a picture. Recorded beside the
+emit seam above rather than as a separate ask.
+
+### Searching across files, and a diff - NOT BUILT
+
+Find works inside the file that is open. There is no search across the folder and
+no view of what a save changed. Both are real and neither is the difference
+between having a text editor and not having one, which is what this version is
+for. A diff is the more useful of the two, because a save on a record file rewrites
+the text into the emitter's own spelling and an author currently sees that happen
+without being shown what moved.
 
 ---
 

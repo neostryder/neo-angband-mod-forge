@@ -94,6 +94,34 @@ it against; what follows is what it does.
   session thrown away. The panel names the character and says all of it before the
   button that spends it. Off by default, and the setting's own description says the
   same thing.
+- **The mod as its own text files, editable, for authors who outgrow the screens.**
+  Reached with `Edit the files directly` from a mod's page. It lists every file the
+  folder ships and opens any of them in an editor with line numbers, syntax
+  colouring for JSON and JavaScript, bracket matching, Tab and Shift-Tab to indent
+  and outdent, find, a line and column readout, and a save chord.
+
+  **It is the same mod, printed, and not a second copy of it.** A monster added on
+  the record screen is in `monster.json` there; a number changed there is what the
+  record screen shows next time. Saving a file parses the text back into the same
+  document every other screen edits, through the same undo. A file that has moved
+  in the mod since it was opened is not written over silently: the save is refused
+  and the choice between keeping what is in the editor and starting again from what
+  the mod says is offered as two buttons.
+
+  **Three things are only possible this way.** A hand-written `plugin.js`, which
+  needs no build step and makes this the first version that can produce a mod that
+  runs code - the manifest grows the `plugin` facet and the `modApi` number from the
+  same condition that notices the file, because either alone is a mod that installs
+  and does nothing. A manifest key no screen offers, `capabilities` and `rules`
+  among them, kept exactly as typed through every later save. And a record file
+  grouped into sections, or anything else a record file can carry.
+
+  **What it does not claim.** A JSON file is checked by the same parser the game
+  uses, so a clean answer is a real one. A script is checked for quotes, comments
+  and brackets, and the pane says in as many words that this is not a syntax check
+  and that code passing it can still be wrong. Anything in a record file the
+  workshop cannot model is written through unread, and both the file editor and the
+  review screen name the file and the keys and say the verdict does not cover them.
 - **A guide covering the four things people usually make**, each card naming the
   game's own written tutorial for the same idea, plus a card for everything the
   workshop cannot reach and where to read about it.
@@ -110,6 +138,13 @@ it against; what follows is what it does.
   saying that its checks are the workshop's own small set and not the game's.
   `docs/ENGINE_SEAMS.md` specifies every seam; `PLANNED.md` records what each one
   blocks.
+- **A mod that ships a script cannot be tried for a session.** That door takes
+  content only: it refuses an archive holding a script of any kind at any depth,
+  and one whose manifest asks for a capability. So the moment a mod grows either,
+  the one-button loop is off, with the reason on the button, and the route is the
+  file and the mod manager's own import. That is the right boundary rather than a
+  gap - a mod that runs code should arrive through the door that asks the player
+  first - and nothing is requested to change it.
 - **A finished mod is either tried for the session or saved as a file and added
   through the mod manager.** There is deliberately no way for a mod to put another
   mod into the library for keeps: that would be an elevated permission bought for a

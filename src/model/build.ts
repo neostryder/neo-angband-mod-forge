@@ -27,18 +27,35 @@ import type {
   ProjectBuild,
 } from "../host/authoring.js";
 import type { Draft } from "./draft.js";
-import { dependenciesFor, groupFor } from "./draft.js";
+import { dependenciesFor, groupFor, MOD_API } from "./draft.js";
 import { ownerOf } from "./refs.js";
 import { zipStored } from "./zip.js";
 
-/** The manifest a draft emits. Built here so one function owns every field. */
+/**
+ * The manifest a draft emits. Built here so one function owns every field.
+ *
+ * SHIPPING A SCRIPT CHANGES TWO KEYS AT ONCE, and it has to change both or
+ * neither. The host refuses to import a `plugin.js` unless the manifest declares
+ * the `plugin` facet AND a `modApi` number, and the install-time standards check
+ * refuses the whole mod for either one on its own. So a draft that has grown a
+ * script gets both, from the same condition, in the same place. Declaring one and
+ * not the other is the failure this codebase keeps finding: a mod that installs,
+ * loads, and does nothing at all.
+ *
+ * `facets` carries `content` as well, because the validator requires the facet list
+ * to contain whatever `shape` says, and the shape of everything the workshop writes
+ * is content.
+ */
 export function manifestFor(draft: Draft): PackManifest {
+  const ships = Object.keys(draft.extras ?? {});
+  const code = ships.some((path) => /\.(?:js|mjs|cjs|ts|wasm)$/i.test(path));
+
   const manifest: PackManifest = {
     id: draft.id,
     name: draft.name,
     version: draft.version,
     shape: "content",
-    facets: ["content"],
+    facets: code ? ["content", "plugin"] : ["content"],
     engine: draft.engine,
     group: groupFor(draft.changes),
     dependencies: dependenciesFor(draft.changes),
@@ -51,8 +68,14 @@ export function manifestFor(draft: Draft): PackManifest {
     license: draft.license,
     repository: draft.repository,
   };
+  if (code) manifest.modApi = MOD_API;
   if (draft.fields.length > 0) manifest.fields = [...draft.fields];
-  return manifest;
+
+  /* Whatever the author wrote by hand wins, and the reason it is safe to let it is
+   * that the game's validator passes an unknown key through untouched, so a key it
+   * does not model is a key that works. `writeManifest` is where the decision about
+   * WHICH keys land here is made, and it refuses the two above. */
+  return { ...manifest, ...(draft.manifestExtras ?? {}) } as PackManifest;
 }
 
 /**
@@ -143,7 +166,16 @@ function mergeBase(packs: readonly LoadedPack[]): LoadedPack {
   };
 }
 
-/** The files this draft would write, exactly as the folder reader expects them. */
+/**
+ * The files this draft would write, exactly as the folder reader expects them.
+ *
+ * THE WHOLE FOLDER, not just the records: the project builder's own files, then
+ * whatever a record file carries that the draft cannot model, then every file the
+ * author wrote by hand. That order matters, because it is also the order of
+ * authority - a hand-written file never shadows a generated one, so no amount of
+ * editing can produce a folder in which `monster.json` is not what the mod does to
+ * monsters.
+ */
 export function emitDraft(api: AuthoringApi, draft: Draft): readonly EmittedFile[] {
   const project = api.modProject(manifestFor(draft));
   for (const field of draft.fields) project.declareField(field);
@@ -163,7 +195,50 @@ export function emitDraft(api: AuthoringApi, draft: Draft): readonly EmittedFile
         break;
     }
   }
-  return project.emit();
+  return withHandWritten(project.emit(), draft);
+}
+
+/**
+ * Fold the author's own text into the generated folder.
+ *
+ * A record file's unmodelled keys are merged INTO the generated file rather than
+ * beside it, because a mod folder has one `monster.json` and the game reads all of
+ * it. The generated keys are written first so that a draft's actual changes cannot
+ * be overwritten by a stale copy of themselves.
+ */
+function withHandWritten(generated: readonly EmittedFile[], draft: Draft): readonly EmittedFile[] {
+  const fileExtras = draft.fileExtras ?? {};
+  const extras = draft.extras ?? {};
+
+  const out = generated.map((file) => {
+    const stem = file.path.endsWith(".json") ? file.path.slice(0, -".json".length) : "";
+    const spare = fileExtras[stem];
+    if (file.path === "manifest.json" || spare === undefined || Object.keys(spare).length === 0) return file;
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(file.contents) as Record<string, unknown>;
+    } catch {
+      return file;
+    }
+    return { path: file.path, contents: `${JSON.stringify({ ...body, ...spare }, null, 2)}\n` };
+  });
+
+  /* A stem with nothing but unmodelled keys still has to be written, or an author
+   * who put a whole mod's worth of sections in one file would emit no file at all. */
+  const written = new Set(out.map((file) => file.path));
+  for (const [stem, spare] of Object.entries(fileExtras)) {
+    const path = `${stem}.json`;
+    if (written.has(path) || Object.keys(spare).length === 0) continue;
+    out.push({ path, contents: `${JSON.stringify(spare, null, 2)}\n` });
+    written.add(path);
+  }
+
+  for (const [path, contents] of Object.entries(extras)) {
+    if (written.has(path)) continue;
+    out.push({ path, contents });
+  }
+
+  return out.sort((a, b) => (a.path === "manifest.json" ? -1 : b.path === "manifest.json" ? 1 : a.path.localeCompare(b.path)));
 }
 
 /** The bytes of the mod, ready for the install door or for a download. */

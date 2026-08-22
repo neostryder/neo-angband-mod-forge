@@ -23,12 +23,14 @@
 import type { AuthoringApi, ComposedRecords } from "../host/authoring.js";
 import type { CoreApi, RegistriesLike } from "../host/context.js";
 import type { Seams } from "../host/seams.js";
+import { sessionRefusal } from "../model/files.js";
 import { fill, h, setText, useDocument } from "./dom.js";
 import type { Overlay } from "./overlay.js";
 import { installTooltips } from "./tooltip.js";
 import type { Tooltips } from "./tooltip.js";
 import { baseScreen } from "./screens/base.js";
 import { detailsScreen } from "./screens/details.js";
+import { filesScreen } from "./screens/files.js";
 import { kindsScreen } from "./screens/kinds.js";
 import { modsScreen } from "./screens/mods.js";
 import { rebalanceScreen } from "./screens/rebalance.js";
@@ -161,6 +163,8 @@ export function mountApp(deps: AppDeps): App {
         return verdictScreen(shop);
       case "test":
         return testScreen(shop);
+      case "files":
+        return filesScreen(shop, route.path);
     }
   };
 
@@ -218,16 +222,24 @@ export function mountApp(deps: AppDeps): App {
        * emitted files and the manifest are, and an author who wants to look before
        * they leap still has the button next to this one. What changed is that
        * looking is no longer compulsory in order to try something. */
+      /* THE ONE BUTTON THAT CAN GO AWAY, and it goes away with its reason rather
+       * than going grey. The session door takes content only, so the moment a mod
+       * grows a script it cannot be tried this way - and pressing it would produce
+       * the host's refusal, written for somebody importing a stranger's mod, at the
+       * end of a build the author waited for. `sessionRefusal` is asked here and
+       * again inside the action, from one function, so the two cannot disagree. */
       draft === undefined
         ? null
         : button({
             label: "Try it in the game",
             kind: "primary",
             tiny: true,
+            disabled: sessionRefusal(draft) !== undefined,
             tip:
+              sessionRefusal(draft) ??
               "Forges the mod, loads it for this session only, and reloads the game so it takes effect - content " +
-              "always needs a reload. It is not added to your mods and it is gone when you close the game. What " +
-              "it does to the character who plays it is not, so play one you do not mind changing.",
+                "always needs a reload. It is not added to your mods and it is gone when you close the game. What " +
+                "it does to the character who plays it is not, so play one you do not mind changing.",
             onClick: () => void deps.acts.loadForSession(),
           }),
       draft === undefined
@@ -296,9 +308,30 @@ export function mountApp(deps: AppDeps): App {
 
   deps.overlay.onKey((event) => {
     const state = deps.store.get();
+
+    /* THE SCREEN GETS FIRST REFUSAL, and it has to, because it cannot listen for
+     * itself: the overlay stops every key at the window in the capture phase so the
+     * game never sees one, which also means nothing below the window ever does. A
+     * screen that needs Tab to indent or Enter to keep its indentation asks for it
+     * through `View.keys`, and everything it does not want falls through to the
+     * ladder below exactly as before. */
+    if (current?.keys?.(event) === true) return true;
+
+    /* UNDO IN A CODE EDITOR IS THE BROWSER'S. A textarea keeps its own history of
+     * what was typed in it, at a finer grain than a mod's document has any business
+     * having, and taking the chord for the workshop's undo would both discard that
+     * and undo a change the reader had already saved and moved on from. Returning
+     * false leaves the key unclaimed, and the overlay only calls `preventDefault`
+     * for a key nothing wanted that carries no modifier - so the textarea gets it. */
+    const inCode = (event.composedPath()[0] as HTMLElement | undefined)?.dataset?.["code"] === "1";
+
     if (event.key === "Escape") {
       if (tips.hide()) return true;
       const route = state.route;
+      if (route.at === "files" && route.path !== "") {
+        deps.acts.go({ at: "files", path: "" });
+        return true;
+      }
       if (route.at === "record" && route.path !== "") {
         const up = route.path.split(".").slice(0, -1).join(".");
         deps.acts.go({ at: "record", change: route.change, path: up });
@@ -326,11 +359,13 @@ export function mountApp(deps: AppDeps): App {
     }
     const chord = event.ctrlKey || event.metaKey;
     if (chord && event.key.toLowerCase() === "z") {
+      if (inCode) return false;
       if (event.shiftKey) deps.store.redo();
       else deps.store.undo();
       return true;
     }
     if (chord && event.key.toLowerCase() === "y") {
+      if (inCode) return false;
       deps.store.redo();
       return true;
     }
@@ -388,6 +423,8 @@ function leafName(route: Route): string | undefined {
       return "Review";
     case "test":
       return "Test";
+    case "files":
+      return route.path === "" ? "Files" : route.path;
     default:
       return undefined;
   }

@@ -1193,7 +1193,7 @@ function looksLikeDraft(value) {
 function saveDrafts(prefs, drafts, seenTour) {
   const stored = { v: 1, drafts, seenTour };
   const text = JSON.stringify(stored);
-  const bytes = text.length;
+  const bytes = new TextEncoder().encode(text).length;
   if (!prefs) {
     return {
       ok: false,
@@ -1328,6 +1328,7 @@ function valueAt(record, path) {
 }
 
 // src/model/draft.ts
+var MOD_API = 1;
 var ID_RE2 = /^[a-z][a-z0-9-]*$/;
 var VERSION_RE2 = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 function newDraft(id, engine, now) {
@@ -1485,12 +1486,14 @@ function zipStored(entries) {
 
 // src/model/build.ts
 function manifestFor(draft) {
+  const ships = Object.keys(draft.extras ?? {});
+  const code = ships.some((path) => /\.(?:js|mjs|cjs|ts|wasm)$/i.test(path));
   const manifest = {
     id: draft.id,
     name: draft.name,
     version: draft.version,
     shape: "content",
-    facets: ["content"],
+    facets: code ? ["content", "plugin"] : ["content"],
     engine: draft.engine,
     group: groupFor(draft.changes),
     dependencies: dependenciesFor(draft.changes),
@@ -1503,8 +1506,9 @@ function manifestFor(draft) {
     license: draft.license,
     repository: draft.repository
   };
+  if (code) manifest.modApi = MOD_API;
   if (draft.fields.length > 0) manifest.fields = [...draft.fields];
-  return manifest;
+  return { ...manifest, ...draft.manifestExtras ?? {} };
 }
 function basePacks(api, records) {
   const byOwner = /* @__PURE__ */ new Map();
@@ -1592,7 +1596,37 @@ function emitDraft(api, draft) {
         break;
     }
   }
-  return project.emit();
+  return withHandWritten(project.emit(), draft);
+}
+function withHandWritten(generated, draft) {
+  const fileExtras = draft.fileExtras ?? {};
+  const extras = draft.extras ?? {};
+  const out = generated.map((file) => {
+    const stem = file.path.endsWith(".json") ? file.path.slice(0, -".json".length) : "";
+    const spare = fileExtras[stem];
+    if (file.path === "manifest.json" || spare === void 0 || Object.keys(spare).length === 0) return file;
+    let body;
+    try {
+      body = JSON.parse(file.contents);
+    } catch {
+      return file;
+    }
+    return { path: file.path, contents: `${JSON.stringify({ ...body, ...spare }, null, 2)}
+` };
+  });
+  const written = new Set(out.map((file) => file.path));
+  for (const [stem, spare] of Object.entries(fileExtras)) {
+    const path = `${stem}.json`;
+    if (written.has(path) || Object.keys(spare).length === 0) continue;
+    out.push({ path, contents: `${JSON.stringify(spare, null, 2)}
+` });
+    written.add(path);
+  }
+  for (const [path, contents] of Object.entries(extras)) {
+    if (written.has(path)) continue;
+    out.push({ path, contents });
+  }
+  return out.sort((a, b) => a.path === "manifest.json" ? -1 : b.path === "manifest.json" ? 1 : a.path.localeCompare(b.path));
 }
 function zipDraft(files) {
   return zipStored(files.map((f) => ({ path: f.path, contents: f.contents })));
@@ -1613,6 +1647,253 @@ function countFindings(findings) {
     else hints++;
   }
   return { errors, warnings, hints };
+}
+
+// src/model/files.ts
+var MANIFEST = "manifest.json";
+var CODE_EXTENSIONS = [".js", ".mjs", ".cjs", ".ts", ".wasm"];
+var PLUGIN = "plugin.js";
+function isCodePath(path) {
+  const lower = path.toLowerCase();
+  return CODE_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
+function scriptFiles(draft) {
+  return Object.keys(draft.extras ?? {}).filter(isCodePath).sort();
+}
+function sessionRefusal(draft) {
+  const scripts = scriptFiles(draft);
+  if (scripts.length > 0) {
+    return `Trying it for one session takes content only, and this mod ships ${scripts.join(", ")}. Save it as a file and add it with Import a zip on the Mods screen instead: that door runs code, and it asks you first.`;
+  }
+  const wanted = (draft.manifestExtras ?? {})["capabilities"];
+  if (Array.isArray(wanted) && wanted.length > 0) {
+    return `Trying it for one session takes content only, and this mod's manifest asks for ${wanted.join(", ")}. A capability is something a player grants, so it is granted in the mod manager: save this as a file and add it with Import a zip.`;
+  }
+  return void 0;
+}
+function unread(draft) {
+  return Object.entries(draft.fileExtras ?? {}).filter(([, spare]) => Object.keys(spare).length > 0).map(([stem, spare]) => ({ path: `${stem}.json`, keys: Object.keys(spare).sort() })).sort((a, b) => a.path.localeCompare(b.path));
+}
+function classify(api, path) {
+  if (path === MANIFEST) return "manifest";
+  if (path.includes("/")) return "extra";
+  if (!path.endsWith(".json")) return "extra";
+  const stem = path.slice(0, -".json".length);
+  return api.BLUEPRINT_FILES.includes(stem) ? "records" : "extra";
+}
+function projectFiles(api, draft) {
+  return emitDraft(api, draft).map((file) => ({ path: file.path, kind: classify(api, file.path), contents: file.contents })).sort((a, b) => a.path === MANIFEST ? -1 : b.path === MANIFEST ? 1 : a.path.localeCompare(b.path));
+}
+function fileText(api, draft, path) {
+  return projectFiles(api, draft).find((file) => file.path === path)?.contents;
+}
+var DEVICE_NAMES = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i;
+function pathShapeProblem(path) {
+  if (path === "") return "A file needs a name.";
+  if (path.length > 240) return "That path is longer than the 240 characters an installed mod may use.";
+  if (path.includes("\\")) return "Folders are separated with a forward slash, even on Windows.";
+  if (path.startsWith("/")) return "A path is relative to the mod folder, so it cannot start with a slash.";
+  if (/[\u0000-\u001f\u007f]/.test(path)) return "That path has an invisible control character in it.";
+  for (const segment of path.split("/")) {
+    if (segment === "") return "That path has an empty folder name in it.";
+    if (segment === "." || segment === "..") return "A mod may only hold its own files, so a path cannot use . or ..";
+    if (segment.length > 255) return "One part of that path is longer than 255 characters.";
+    if (segment.endsWith(".") || segment.endsWith(" ")) return "A file or folder name cannot end in a dot or a space.";
+    if (DEVICE_NAMES.test(segment)) return `"${segment}" is a reserved device name on Windows, so the archive would be refused.`;
+  }
+  return void 0;
+}
+function pathProblem(api, draft, path) {
+  const shape = pathShapeProblem(path);
+  if (shape !== void 0) return shape;
+  const kind = classify(api, path);
+  if (kind === "manifest") return "The manifest already exists. Open it from the list.";
+  if (kind === "records") {
+    return `${path} is written from what the mod does to ${path.slice(0, -".json".length)} records, so it is not a file to create by hand. Add or change one and it appears in this list, ready to edit.`;
+  }
+  const taken = projectFiles(api, draft).map((file) => file.path.toLowerCase());
+  if (taken.includes(path.toLowerCase())) return "There is already a file with that name.";
+  return void 0;
+}
+function pathNote(api, path) {
+  if (classify(api, path) !== "extra") return void 0;
+  if (!path.includes("/") && path.endsWith(".json") && path !== MANIFEST) {
+    return "The game reads every top-level JSON file as a record file. This one is not a record file the game knows, so it will be loaded and contribute nothing. Put it in a folder - data/ is the usual one - to have it treated as data your own code reads.";
+  }
+  if (isCodePath(path) && path !== PLUGIN && !path.includes("/")) {
+    return `Only ${PLUGIN} is an entry point. Another script beside it runs only if ${PLUGIN} imports it.`;
+  }
+  return void 0;
+}
+function writeFileText(api, draft, path, text) {
+  const shape = pathShapeProblem(path);
+  if (shape !== void 0) return { ok: false, why: shape };
+  switch (classify(api, path)) {
+    case "manifest":
+      return writeManifest(draft, text);
+    case "records":
+      return writeRecordFile(draft, path.slice(0, -".json".length), text);
+    case "extra":
+      return { ok: true, draft: { ...draft, extras: { ...draft.extras ?? {}, [path]: text } } };
+  }
+}
+function deleteFile(api, draft, path) {
+  if (classify(api, path) !== "extra") {
+    return {
+      ok: false,
+      why: `${path} is written from what the mod contains, so there is nothing to delete. Take the changes out instead.`
+    };
+  }
+  const extras = { ...draft.extras ?? {} };
+  delete extras[path];
+  return { ok: true, draft: { ...draft, extras } };
+}
+function projectBytes(api, draft) {
+  const encoder = new TextEncoder();
+  let total = 0;
+  for (const file of projectFiles(api, draft)) total += encoder.encode(file.contents).length;
+  return total;
+}
+function parseObject(text, what) {
+  let value;
+  try {
+    value = JSON.parse(text);
+  } catch (e) {
+    return { ok: false, why: `${what} is not valid JSON: ${e instanceof Error ? e.message : String(e)}` };
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return { ok: false, why: `${what} has to be a JSON object, written with { }.` };
+  }
+  return { ok: true, value };
+}
+var OWNED = ["id", "name", "version", "author", "description", "repository", "license", "engine", "fields"];
+var DERIVED = ["shape", "facets", "group", "dependencies", "affectsGameplay", "modApi"];
+function writeManifest(draft, text) {
+  const parsed = parseObject(text, "The manifest");
+  if (!parsed.ok) return parsed;
+  const raw = parsed.value;
+  if (raw["id"] !== void 0 && raw["id"] !== draft.id) {
+    return {
+      ok: false,
+      why: `The id cannot be changed here. The game treats a renamed mod as a different mod, so ${draft.id} would install alongside this one rather than replacing it. Start a new mod instead.`
+    };
+  }
+  const strings = {};
+  for (const key of ["name", "version", "author", "description", "repository", "license", "engine"]) {
+    const value = raw[key];
+    if (value === void 0) continue;
+    if (typeof value !== "string") return { ok: false, why: `"${key}" in the manifest has to be a string.` };
+    strings[key] = value;
+  }
+  let fields = draft.fields;
+  if (raw["fields"] !== void 0) {
+    const declared = raw["fields"];
+    if (!Array.isArray(declared)) return { ok: false, why: `"fields" in the manifest has to be a list.` };
+    for (const entry of declared) {
+      if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+        return { ok: false, why: `Every entry in "fields" has to be an object with a name and a list of files.` };
+      }
+      const decl = entry;
+      if (typeof decl["name"] !== "string" || !Array.isArray(decl["files"])) {
+        return { ok: false, why: `Every entry in "fields" needs a "name" and a "files" list.` };
+      }
+    }
+    fields = declared;
+  }
+  const next = { ...draft, ...strings, fields };
+  const derivedNow = manifestFor({ ...next, manifestExtras: {} });
+  const extras = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (OWNED.includes(key)) continue;
+    if (DERIVED.includes(key) && JSON.stringify(derivedNow[key]) === JSON.stringify(value)) {
+      continue;
+    }
+    extras[key] = value;
+  }
+  if (scriptFiles(next).length > 0) {
+    const facets = extras["facets"];
+    if (facets !== void 0 && !(Array.isArray(facets) && facets.includes("plugin"))) {
+      return {
+        ok: false,
+        why: `This mod ships ${scriptFiles(next).join(", ")}, so "facets" has to include "plugin" or the game will not run the code at all. Leave the line out and the workshop writes it.`
+      };
+    }
+    if (extras["modApi"] !== void 0 && typeof extras["modApi"] !== "number") {
+      return {
+        ok: false,
+        why: `"modApi" has to be a whole number. It is the plugin ABI the code is written against.`
+      };
+    }
+  }
+  return { ok: true, draft: { ...next, manifestExtras: extras } };
+}
+var CONTRIBUTIONS = ["records", "fieldPatches", "replaces", "removes"];
+function writeRecordFile(draft, file, text) {
+  const changes = [];
+  const spare = {};
+  if (text.trim() !== "") {
+    const parsed = parseObject(text, `${file}.json`);
+    if (!parsed.ok) return parsed;
+    const raw = parsed.value;
+    for (const [key, value] of Object.entries(raw)) {
+      if (!CONTRIBUTIONS.includes(key)) spare[key] = value;
+    }
+    const records = raw["records"];
+    if (records !== void 0) {
+      if (!Array.isArray(records)) return { ok: false, why: `"records" in ${file}.json has to be a list.` };
+      for (const record of records) {
+        if (typeof record !== "object" || record === null || Array.isArray(record)) {
+          return { ok: false, why: `Every entry in "records" has to be an object.` };
+        }
+        changes.push({ kind: "add", file, record });
+      }
+    }
+    const patches = raw["fieldPatches"];
+    if (patches !== void 0) {
+      if (typeof patches !== "object" || patches === null || Array.isArray(patches)) {
+        return { ok: false, why: `"fieldPatches" in ${file}.json has to be an object of reference to operations.` };
+      }
+      for (const [ref, ops] of Object.entries(patches)) {
+        if (!Array.isArray(ops)) return { ok: false, why: `The operations for ${ref} have to be a list.` };
+        for (const op of ops) {
+          if (typeof op !== "object" || op === null || Array.isArray(op) || typeof op["op"] !== "string") {
+            return { ok: false, why: `Every operation for ${ref} needs an "op" and a "path".` };
+          }
+        }
+        changes.push({ kind: "patch", file, ref, ops });
+      }
+    }
+    const replaces = raw["replaces"];
+    if (replaces !== void 0) {
+      if (typeof replaces !== "object" || replaces === null || Array.isArray(replaces)) {
+        return { ok: false, why: `"replaces" in ${file}.json has to be an object of reference to record.` };
+      }
+      for (const [ref, record] of Object.entries(replaces)) {
+        if (typeof record !== "object" || record === null || Array.isArray(record)) {
+          return { ok: false, why: `The replacement for ${ref} has to be an object.` };
+        }
+        changes.push({ kind: "replace", file, ref, record });
+      }
+    }
+    const removes = raw["removes"];
+    if (removes !== void 0) {
+      if (!Array.isArray(removes) || removes.some((ref) => typeof ref !== "string")) {
+        return { ok: false, why: `"removes" in ${file}.json has to be a list of references.` };
+      }
+      for (const ref of removes) changes.push({ kind: "remove", file, ref });
+    }
+  }
+  const fileExtras = { ...draft.fileExtras ?? {} };
+  if (Object.keys(spare).length === 0) delete fileExtras[file];
+  else fileExtras[file] = spare;
+  return { ok: true, draft: { ...draft, changes: spliceFile(draft.changes, file, changes), fileExtras } };
+}
+function spliceFile(changes, file, replacement) {
+  const at = changes.findIndex((change) => change.file === file);
+  const others = changes.filter((change) => change.file !== file);
+  if (at < 0) return [...others, ...replacement];
+  const before = changes.slice(0, at);
+  return [...before, ...replacement, ...others.slice(before.length)];
 }
 
 // src/model/ops.ts
@@ -1860,6 +2141,7 @@ function initialState(drafts, seenTour) {
     showAllFields: false,
     filter: "",
     collapsed: {},
+    buffers: {},
     seenTour
   };
 }
@@ -2135,6 +2417,134 @@ var Actions = class {
     );
   }
   /* --------------------------------------------------------------- *
+   * Files, as text                                                  *
+   * --------------------------------------------------------------- */
+  /**
+   * Open a file in the editor.
+   *
+   * The buffer remembers the text it was HANDED, which is what makes the check on
+   * the way out mean something.
+   *
+   * A BUFFER WITH NOTHING UNSAVED IN IT IS REFRESHED, and one with unsaved work is
+   * not. That distinction is the whole of this method and it was got wrong first
+   * time in a way no test in a synthetic document could see: keeping every buffer
+   * meant that opening a file, saving it, changing the same record on a wizard
+   * screen and opening the file again showed the text from before the wizard
+   * change. It looked exactly like the two views having come apart, which is the
+   * one thing this feature promises they do not. Found by driving a real browser.
+   *
+   * Unsaved work is still never thrown away for the crime of clicking a name twice:
+   * a dirty buffer is kept as it was, and the stale check on save is what tells the
+   * reader that the mod moved underneath it.
+   */
+  openFile(path) {
+    const draft = openDraft(this.deps.store.get());
+    if (!draft) return;
+    const text = fileText(this.deps.api, draft, path);
+    this.deps.store.view((state) => {
+      const held = state.buffers[path];
+      const dirty = held !== void 0 && held.text !== held.from;
+      if (text === void 0 || dirty) return { route: { at: "files", path } };
+      return { route: { at: "files", path }, buffers: { ...state.buffers, [path]: { text, from: text } } };
+    });
+  }
+  /** The reader typed. Held outside the document until they save it. */
+  editFile(path, text) {
+    this.deps.store.view((state) => {
+      const held = state.buffers[path];
+      if (held === void 0) return {};
+      return { buffers: { ...state.buffers, [path]: { ...held, text } } };
+    });
+  }
+  /** Throw away what is in the buffer and show the file as the mod has it. */
+  revertFile(path) {
+    const draft = openDraft(this.deps.store.get());
+    if (!draft) return;
+    const text = fileText(this.deps.api, draft, path) ?? "";
+    this.deps.store.view((state) => ({ buffers: { ...state.buffers, [path]: { text, from: text } } }));
+    this.notice(`${path} is back to what the mod says.`, "plain");
+  }
+  /**
+   * Save the buffer into the mod.
+   *
+   * ONE STORE EDIT, WHICH IS ONE STEP OF UNDO. A saved record file can be a dozen
+   * changes at once, and undo here is a stack of whole documents rather than a
+   * stack of inverse operations, so the whole save goes back with one press. Putting
+   * each parsed change through the store separately would have been the other
+   * option and it is the wrong one: it would mean pressing undo twelve times to take
+   * back one gesture the reader made once.
+   *
+   * THE STALE CHECK IS ON THE BYTES THE READER WAS SHOWN. A file's text is derived
+   * from the draft, so it moves when the draft does - an undo, or a change made on
+   * another screen. Comparing what the file says NOW against what the buffer was
+   * opened from is what turns "your work was quietly overwritten" into a question
+   * with two answers. It is safe to compare bytes because the derivation is
+   * deterministic: the emitter writes the same keys in the same order for the same
+   * draft, so a difference is a real difference and never formatting.
+   */
+  saveFile(path, options = {}) {
+    const state = this.deps.store.get();
+    const draft = openDraft(state);
+    const held = state.buffers[path];
+    if (!draft || held === void 0) return false;
+    const now = fileText(this.deps.api, draft, path);
+    if (options.force !== true && now !== void 0 && now !== held.from) {
+      this.notice(
+        `${path} has changed in the mod since you opened it here, so saving would write over that change. Save anyway to keep what is in the editor, or reload the file to start from what the mod says.`,
+        "bad"
+      );
+      return false;
+    }
+    const outcome = writeFileText(this.deps.api, draft, path, held.text);
+    if (!outcome.ok) {
+      this.notice(outcome.why, "bad");
+      return false;
+    }
+    this.mutate(() => outcome.draft);
+    const saved = fileText(this.deps.api, openDraft(this.deps.store.get()) ?? outcome.draft, path) ?? held.text;
+    this.deps.store.view((current) => ({ buffers: { ...current.buffers, [path]: { text: saved, from: saved } } }));
+    this.notice(`Saved ${path}.`, "good");
+    return true;
+  }
+  /** Start a new file of the author's own. Refused for a path the game would not take. */
+  createFile(path, contents = "") {
+    const draft = openDraft(this.deps.store.get());
+    if (!draft) return;
+    const problem = pathProblem(this.deps.api, draft, path);
+    if (problem !== void 0) {
+      this.notice(problem, "bad");
+      return;
+    }
+    const outcome = writeFileText(this.deps.api, draft, path, contents);
+    if (!outcome.ok) {
+      this.notice(outcome.why, "bad");
+      return;
+    }
+    this.mutate(() => outcome.draft);
+    this.deps.store.view((state) => ({
+      route: { at: "files", path },
+      buffers: { ...state.buffers, [path]: { text: contents, from: contents } }
+    }));
+    this.notice(`${path} is in the mod. It is empty until you write something in it.`, "good");
+  }
+  /** Take one of the author's own files out of the mod. */
+  deleteFile(path) {
+    const draft = openDraft(this.deps.store.get());
+    if (!draft) return;
+    const outcome = deleteFile(this.deps.api, draft, path);
+    if (!outcome.ok) {
+      this.notice(outcome.why, "bad");
+      return;
+    }
+    this.mutate(() => outcome.draft);
+    this.deps.store.view((state) => {
+      const buffers = { ...state.buffers };
+      delete buffers[path];
+      return { route: { at: "files", path: "" }, buffers };
+    });
+    this.notice(`${path} is out of the mod. Undo brings it back.`, "plain");
+  }
+  /* --------------------------------------------------------------- *
    * Building and shipping                                           *
    * --------------------------------------------------------------- */
   /**
@@ -2275,6 +2685,11 @@ var Actions = class {
   async loadForSession() {
     const draft = openDraft(this.deps.store.get());
     if (!draft) return;
+    const refusal = sessionRefusal(draft);
+    if (refusal !== void 0) {
+      this.notice(refusal, "bad");
+      return;
+    }
     this.deps.writer.flush();
     const files = this.files();
     if (files.length === 0) return;
@@ -3151,6 +3566,16 @@ function detailsScreen(shop) {
     { class: "mb-row-actions" },
     button({ label: "Add or change something", kind: "primary", onClick: () => shop.acts.go({ at: "kinds" }) }),
     button({ label: "Review it", onClick: () => shop.acts.go({ at: "verdict" }) }),
+    /* THE WAY OUT OF THE WIZARD, offered next to the way through it rather than
+     * hidden behind a setting. Somebody who wants a script, a manifest key no field
+     * here asks about, or a record file grouped into sections has outgrown these
+     * screens and should not have to guess that there is anywhere else to go. It is
+     * last in the row because it is the advanced door and not the front one. */
+    button({
+      label: "Edit the files directly",
+      tip: "The same mod, as the text files it ships. Everything here is in them, and saving one puts what you wrote back into the mod. It is also the only way to add a script, a manifest key no screen offers, or a record file grouped into sections.",
+      onClick: () => shop.acts.go({ at: "files", path: "" })
+    }),
     shop.seams.wizard.api !== void 0 ? button({
       label: "Test it in the game",
       tip: "Go where this mod's content belongs, put some in front of you, and look at it.",
@@ -3234,6 +3659,1088 @@ function detailsScreen(shop) {
     },
     dispose: () => void 0
   };
+}
+
+// src/model/syntax.ts
+function languageFor(path) {
+  const dot = path.lastIndexOf(".");
+  const ext = dot < 0 ? "" : path.slice(dot + 1).toLowerCase();
+  switch (ext) {
+    case "json":
+      return "json";
+    case "js":
+    case "mjs":
+    case "cjs":
+      return "js";
+    case "md":
+    case "markdown":
+      return "markdown";
+    default:
+      return "text";
+  }
+}
+function lineStarts(text) {
+  const out = [0];
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === "\n") out.push(i + 1);
+  }
+  return out;
+}
+function positionAt(text, offset) {
+  const at = Math.max(0, Math.min(offset, text.length));
+  const starts = lineStarts(text);
+  let line = starts.length - 1;
+  while (line > 0 && (starts[line] ?? 0) > at) line--;
+  return { line: line + 1, column: at - (starts[line] ?? 0) + 1 };
+}
+function offsetAt(text, line, column = 1) {
+  const starts = lineStarts(text);
+  const start = starts[Math.max(0, Math.min(line - 1, starts.length - 1))] ?? 0;
+  const end = text.indexOf("\n", start);
+  const limit = end < 0 ? text.length : end;
+  return Math.max(start, Math.min(start + column - 1, limit));
+}
+function tokenize(lang, text) {
+  switch (lang) {
+    case "json":
+      return tokenizeJson(text);
+    case "js":
+      return tokenizeJs(text);
+    case "markdown":
+      return tokenizeMarkdown(text);
+    case "text":
+      return [];
+  }
+}
+var WHITESPACE = /* @__PURE__ */ new Set([" ", "	", "\r", "\n"]);
+function isDigit(ch) {
+  return ch !== void 0 && ch >= "0" && ch <= "9";
+}
+function isWordStart(ch) {
+  return ch !== void 0 && (/[A-Za-z_$]/.test(ch) || ch.charCodeAt(0) > 127);
+}
+function isWord(ch) {
+  return isWordStart(ch) || isDigit(ch);
+}
+function scanQuoted(text, at, quote, stopAtNewline) {
+  let i = at + 1;
+  while (i < text.length) {
+    const ch = text[i];
+    if (ch === "\\") {
+      i += 2;
+      continue;
+    }
+    if (ch === quote) return { to: i + 1, closed: true };
+    if (stopAtNewline && ch === "\n") return { to: i, closed: false };
+    i++;
+  }
+  return { to: text.length, closed: false };
+}
+function tokenizeJson(text) {
+  const out = [];
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    if (WHITESPACE.has(ch)) {
+      i++;
+      continue;
+    }
+    if (ch === '"') {
+      const run = scanQuoted(text, i, '"', true);
+      let ahead = run.to;
+      while (ahead < text.length && WHITESPACE.has(text[ahead])) ahead++;
+      out.push({ at: i, to: run.to, cls: text[ahead] === ":" ? "key" : "str" });
+      i = run.to;
+      continue;
+    }
+    if (isDigit(ch) || ch === "-" && isDigit(text[i + 1])) {
+      let j = i + 1;
+      while (j < text.length && /[0-9eE+.\-]/.test(text[j])) j++;
+      out.push({ at: i, to: j, cls: "num" });
+      i = j;
+      continue;
+    }
+    if (isWordStart(ch)) {
+      let j = i;
+      while (j < text.length && isWord(text[j])) j++;
+      const word = text.slice(i, j);
+      out.push({ at: i, to: j, cls: word === "true" || word === "false" || word === "null" ? "lit" : "punc" });
+      i = j;
+      continue;
+    }
+    if ("{}[],:".includes(ch)) {
+      out.push({ at: i, to: i + 1, cls: "punc" });
+      i++;
+      continue;
+    }
+    i++;
+  }
+  return out;
+}
+var JS_KEYWORDS = /* @__PURE__ */ new Set([
+  "as",
+  "async",
+  "await",
+  "break",
+  "case",
+  "catch",
+  "class",
+  "const",
+  "continue",
+  "debugger",
+  "default",
+  "delete",
+  "do",
+  "else",
+  "export",
+  "extends",
+  "finally",
+  "for",
+  "from",
+  "function",
+  "get",
+  "if",
+  "import",
+  "in",
+  "instanceof",
+  "let",
+  "new",
+  "of",
+  "return",
+  "set",
+  "static",
+  "super",
+  "switch",
+  "this",
+  "throw",
+  "try",
+  "typeof",
+  "var",
+  "void",
+  "while",
+  "with",
+  "yield"
+]);
+var JS_LITERALS = /* @__PURE__ */ new Set(["true", "false", "null", "undefined", "NaN", "Infinity"]);
+function scanTemplate(text, at) {
+  let i = at + 1;
+  while (i < text.length) {
+    const ch = text[i];
+    if (ch === "\\") {
+      i += 2;
+      continue;
+    }
+    if (ch === "`") return { to: i + 1, closed: true };
+    if (ch === "$" && text[i + 1] === "{") {
+      let depth = 1;
+      i += 2;
+      while (i < text.length && depth > 0) {
+        const inner = text[i];
+        if (inner === "`") {
+          const nested = scanTemplate(text, i);
+          i = nested.to;
+          continue;
+        }
+        if (inner === "{") depth++;
+        else if (inner === "}") depth--;
+        i++;
+      }
+      continue;
+    }
+    i++;
+  }
+  return { to: text.length, closed: false };
+}
+function regexAllowed(before) {
+  return before !== "value";
+}
+function tokenizeJs(text) {
+  const out = [];
+  let before = "start";
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    if (WHITESPACE.has(ch)) {
+      i++;
+      continue;
+    }
+    if (ch === "/" && text[i + 1] === "/") {
+      const end = text.indexOf("\n", i);
+      const to = end < 0 ? text.length : end;
+      out.push({ at: i, to, cls: "com" });
+      i = to;
+      continue;
+    }
+    if (ch === "/" && text[i + 1] === "*") {
+      const end = text.indexOf("*/", i + 2);
+      const to = end < 0 ? text.length : end + 2;
+      out.push({ at: i, to, cls: "com" });
+      i = to;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      const run = scanQuoted(text, i, ch, true);
+      out.push({ at: i, to: run.to, cls: "str" });
+      i = run.to;
+      before = "value";
+      continue;
+    }
+    if (ch === "`") {
+      const run = scanTemplate(text, i);
+      out.push({ at: i, to: run.to, cls: "str" });
+      i = run.to;
+      before = "value";
+      continue;
+    }
+    if (ch === "/" && regexAllowed(before)) {
+      let j = i + 1;
+      let inClass = false;
+      let closed = false;
+      while (j < text.length) {
+        const c = text[j];
+        if (c === "\\") {
+          j += 2;
+          continue;
+        }
+        if (c === "\n") break;
+        if (c === "[") inClass = true;
+        else if (c === "]") inClass = false;
+        else if (c === "/" && !inClass) {
+          closed = true;
+          j++;
+          break;
+        }
+        j++;
+      }
+      if (closed) {
+        while (j < text.length && /[dgimsuvy]/.test(text[j])) j++;
+        out.push({ at: i, to: j, cls: "str" });
+        i = j;
+        before = "value";
+        continue;
+      }
+    }
+    if (isDigit(ch) || ch === "." && isDigit(text[i + 1])) {
+      let j = i + 1;
+      while (j < text.length && /[0-9a-fA-FxXoObBeE_.+-]/.test(text[j])) {
+        if ((text[j] === "+" || text[j] === "-") && !/[eE]/.test(text[j - 1] ?? "")) break;
+        j++;
+      }
+      if (text[j] === "n") j++;
+      out.push({ at: i, to: j, cls: "num" });
+      i = j;
+      before = "value";
+      continue;
+    }
+    if (isWordStart(ch)) {
+      let j = i;
+      while (j < text.length && isWord(text[j])) j++;
+      const word = text.slice(i, j);
+      const keyword = JS_KEYWORDS.has(word);
+      const cls = JS_LITERALS.has(word) ? "lit" : keyword ? "kw" : "punc";
+      if (cls !== "punc") out.push({ at: i, to: j, cls });
+      i = j;
+      before = keyword && !JS_LITERALS.has(word) ? "operator" : "value";
+      continue;
+    }
+    if ("{}[]()".includes(ch)) {
+      out.push({ at: i, to: i + 1, cls: "punc" });
+      i++;
+      before = ch === ")" || ch === "]" ? "value" : "operator";
+      continue;
+    }
+    i++;
+    before = "operator";
+  }
+  return out;
+}
+function tokenizeMarkdown(text) {
+  const out = [];
+  const starts = lineStarts(text);
+  let fenced = false;
+  for (let n = 0; n < starts.length; n++) {
+    const start = starts[n] ?? 0;
+    const next = starts[n + 1];
+    const end = next === void 0 ? text.length : next - 1;
+    const line = text.slice(start, end);
+    if (/^\s*(?:```|~~~)/.test(line)) {
+      out.push({ at: start, to: end, cls: "code" });
+      fenced = !fenced;
+      continue;
+    }
+    if (fenced) {
+      out.push({ at: start, to: end, cls: "code" });
+      continue;
+    }
+    if (/^\s{0,3}#{1,6}\s/.test(line)) {
+      out.push({ at: start, to: end, cls: "head" });
+      continue;
+    }
+    if (/^\s*>/.test(line)) {
+      out.push({ at: start, to: end, cls: "com" });
+      continue;
+    }
+    const bullet = /^(\s*(?:[-*+]|\d+\.)\s)/.exec(line);
+    if (bullet?.[1] !== void 0) out.push({ at: start, to: start + bullet[1].length, cls: "punc" });
+    const inline = /`[^`\n]+`/g;
+    let hit;
+    while ((hit = inline.exec(line)) !== null) {
+      out.push({ at: start + hit.index, to: start + hit.index + hit[0].length, cls: "code" });
+    }
+  }
+  return out.sort((a, b) => a.at - b.at);
+}
+var OPENERS = "{[(";
+var CLOSERS = "}])";
+var PARTNER = { "{": "}", "[": "]", "(": ")", "}": "{", "]": "[", ")": "(" };
+function literalMask(text, tokens) {
+  const mask = new Uint8Array(text.length);
+  for (const token of tokens) {
+    if (token.cls !== "str" && token.cls !== "com" && token.cls !== "code") continue;
+    const to = Math.min(token.to, text.length);
+    for (let i = Math.max(0, token.at); i < to; i++) mask[i] = 1;
+  }
+  return mask;
+}
+function matchingBrackets(lang, text, caret) {
+  if (lang === "markdown" || lang === "text") return [];
+  const mask = literalMask(text, tokenize(lang, text));
+  for (const at of [caret, caret - 1]) {
+    if (at < 0 || at >= text.length) continue;
+    const ch = text[at];
+    if (!OPENERS.includes(ch) && !CLOSERS.includes(ch)) continue;
+    if (mask[at] === 1) continue;
+    const partner = findPartner(text, mask, at, ch);
+    if (partner >= 0) return [at, partner];
+    return [];
+  }
+  return [];
+}
+function findPartner(text, mask, at, ch) {
+  const want = PARTNER[ch];
+  const step = OPENERS.includes(ch) ? 1 : -1;
+  let depth = 0;
+  for (let i = at; i >= 0 && i < text.length; i += step) {
+    const c = text[i];
+    if ((OPENERS.includes(c) || CLOSERS.includes(c)) && mask[i] !== 1) {
+      if (c === ch) depth++;
+      else if (c === want) {
+        depth--;
+        if (depth === 0) return i;
+      }
+    }
+  }
+  return -1;
+}
+function problemsIn(lang, text) {
+  switch (lang) {
+    case "json":
+      return jsonProblems(text);
+    case "js":
+      return jsProblems(text);
+    default:
+      return [];
+  }
+}
+function jsonProblems(text) {
+  if (text.trim() === "") return [];
+  try {
+    JSON.parse(text);
+    return [];
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    const spot = /line (\d+) column (\d+)/.exec(message);
+    if (spot?.[1] !== void 0 && spot[2] !== void 0) {
+      return [{ line: Number(spot[1]), column: Number(spot[2]), message: tidy(message) }];
+    }
+    const offset = /position (\d+)/.exec(message);
+    const at = offset?.[1] !== void 0 ? Number(offset[1]) : jsonFault(text);
+    const where = positionAt(text, at);
+    return [{ line: where.line, column: where.column, message: tidy(message) }];
+  }
+}
+function jsonFault(text) {
+  const tokens = tokenizeJson(text);
+  let at = 0;
+  const fault = () => tokens[at]?.at ?? text.length;
+  const isPunc = (ch) => {
+    const token = tokens[at];
+    return token !== void 0 && token.cls === "punc" && text.slice(token.at, token.to) === ch;
+  };
+  const value = () => {
+    const token = tokens[at];
+    if (token === void 0) return text.length;
+    if (token.cls === "str" || token.cls === "key" || token.cls === "num" || token.cls === "lit") {
+      at++;
+      return -1;
+    }
+    if (isPunc("{")) return object();
+    if (isPunc("[")) return array();
+    return fault();
+  };
+  const object = () => {
+    at++;
+    if (isPunc("}")) {
+      at++;
+      return -1;
+    }
+    for (; ; ) {
+      const name = tokens[at];
+      if (name === void 0) return text.length;
+      if (name.cls !== "key" && name.cls !== "str") return fault();
+      at++;
+      if (!isPunc(":")) return fault();
+      at++;
+      const bad2 = value();
+      if (bad2 !== -1) return bad2;
+      if (isPunc(",")) {
+        at++;
+        continue;
+      }
+      if (isPunc("}")) {
+        at++;
+        return -1;
+      }
+      return fault();
+    }
+  };
+  const array = () => {
+    at++;
+    if (isPunc("]")) {
+      at++;
+      return -1;
+    }
+    for (; ; ) {
+      const bad2 = value();
+      if (bad2 !== -1) return bad2;
+      if (isPunc(",")) {
+        at++;
+        continue;
+      }
+      if (isPunc("]")) {
+        at++;
+        return -1;
+      }
+      return fault();
+    }
+  };
+  const bad = value();
+  if (bad !== -1) return bad;
+  return tokens[at]?.at ?? text.length;
+}
+function tidy(message) {
+  return message.replace(/\s*(?:in JSON )?at position \d+.*$/, "").trim() || message;
+}
+function jsProblems(text) {
+  const out = [];
+  const tokens = tokenizeJs(text);
+  for (const token of tokens) {
+    if (token.cls === "com" && text.startsWith("/*", token.at) && !text.slice(token.at, token.to).endsWith("*/")) {
+      const where = positionAt(text, token.at);
+      out.push({ ...where, message: "This block comment is never closed. It swallows everything after it." });
+    }
+    if (token.cls === "str") {
+      const quote = text[token.at];
+      const run = text.slice(token.at, token.to);
+      const closed = quote === "`" ? run.length > 1 && run.endsWith("`") : run.length > 1 && run.endsWith(quote) && !run.endsWith(`\\${quote}`);
+      if (!closed) {
+        const where = positionAt(text, token.at);
+        out.push({ ...where, message: `This ${quote === "`" ? "template" : "string"} is never closed.` });
+      }
+    }
+  }
+  const mask = literalMask(text, tokens);
+  const stack = [];
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (!OPENERS.includes(ch) && !CLOSERS.includes(ch)) continue;
+    if (mask[i] === 1) continue;
+    if (OPENERS.includes(ch)) {
+      stack.push({ at: i, ch });
+      continue;
+    }
+    const top = stack.pop();
+    if (top === void 0) {
+      out.push({ ...positionAt(text, i), message: `A closing ${ch} with nothing open to close.` });
+      continue;
+    }
+    if (PARTNER[top.ch] !== ch) {
+      out.push({
+        ...positionAt(text, i),
+        message: `A ${ch} closes the ${top.ch} opened on line ${positionAt(text, top.at).line}, which wanted ${PARTNER[top.ch]}.`
+      });
+    }
+  }
+  for (const left of stack) {
+    out.push({ ...positionAt(text, left.at), message: `This ${left.ch} is never closed.` });
+  }
+  return out.sort((a, b) => a.line - b.line || a.column - b.column);
+}
+
+// src/ui/editor.ts
+var LINE_HEIGHT = 18;
+var INDENT = "  ";
+var COLOUR_CEILING = 2e5;
+var PROMPT_CEILING = 4e4;
+var REPAINT_DELAY = 140;
+function codeEditor(options) {
+  const { doc: doc2 } = options;
+  let lang = options.lang;
+  const area = doc2.createElement("textarea");
+  area.className = "mb-ed-area";
+  area.spellcheck = false;
+  area.wrap = "off";
+  area.value = options.text;
+  area.setAttribute("aria-label", "The file, as text");
+  area.dataset["code"] = "1";
+  const picture = h("pre", { class: "mb-ed-hl", aria: { hidden: "true" } });
+  const gutter = h("div", { class: "mb-ed-nums", aria: { hidden: "true" } });
+  const findInput = h("input", { type: "search", class: "mb-ed-find-box", placeholder: "Find", spellcheck: false });
+  const findCount = h("span", { class: "mb-ed-find-count" });
+  const findBar = h(
+    "div",
+    { class: "mb-ed-find" },
+    findInput,
+    h("button", { class: "mb-btn mb-tiny", type: "button", text: "Next", on: { click: () => step(1) } }),
+    h("button", { class: "mb-btn mb-tiny", type: "button", text: "Previous", on: { click: () => step(-1) } }),
+    findCount,
+    h("button", { class: "mb-btn mb-tiny mb-ghost", type: "button", text: "Close", on: { click: () => showFind(false) } })
+  );
+  findBar.style.display = "none";
+  const el = h(
+    "div",
+    { class: "mb-ed" },
+    findBar,
+    h("div", { class: "mb-ed-body" }, h("div", { class: "mb-ed-gutter" }, gutter), h("div", { class: "mb-ed-box" }, picture, area))
+  );
+  let focused = false;
+  let repaint;
+  let lines = -1;
+  const colouring = () => area.value.length <= COLOUR_CEILING;
+  const paint = () => {
+    const text = area.value;
+    drawGutter(text);
+    if (!colouring()) {
+      picture.textContent = `${text}
+`;
+      return;
+    }
+    const spans = tokenize(lang, text).map((token) => ({
+      at: token.at,
+      to: token.to,
+      cls: classOf(token.cls)
+    }));
+    const pair = focused ? matchingBrackets(lang, text, area.selectionStart) : [];
+    if (pair.length === 2) {
+      for (const at2 of pair) {
+        const covering = spans.findIndex((span) => span.at === at2 && span.to === at2 + 1);
+        if (covering >= 0) spans.splice(covering, 1);
+        spans.push({ at: at2, to: at2 + 1, cls: "mb-t-match" });
+      }
+      spans.sort((a, b) => a.at - b.at);
+    }
+    const parts = [];
+    let at = 0;
+    for (const span of spans) {
+      if (span.at < at || span.to > text.length) continue;
+      if (span.at > at) parts.push(doc2.createTextNode(text.slice(at, span.at)));
+      parts.push(h("span", { class: span.cls, text: text.slice(span.at, span.to) }));
+      at = span.to;
+    }
+    if (at < text.length) parts.push(doc2.createTextNode(text.slice(at)));
+    parts.push(doc2.createTextNode("\n"));
+    picture.replaceChildren(...parts);
+  };
+  const schedulePaint = () => {
+    if (repaint !== void 0) clearTimeout(repaint);
+    repaint = setTimeout(
+      () => {
+        repaint = void 0;
+        paint();
+      },
+      area.value.length > PROMPT_CEILING ? REPAINT_DELAY : 0
+    );
+  };
+  const drawGutter = (text) => {
+    const count = lineStarts(text).length;
+    if (count === lines) return;
+    lines = count;
+    const numbers = [];
+    for (let n = 1; n <= count; n++) numbers.push(String(n));
+    gutter.textContent = numbers.join("\n");
+  };
+  const sync = () => {
+    const x = -area.scrollLeft;
+    const y = -area.scrollTop;
+    picture.style.transform = `translate(${x}px, ${y}px)`;
+    gutter.style.transform = `translateY(${y}px)`;
+  };
+  const reportCaret = () => {
+    const where = positionAt(area.value, area.selectionStart);
+    options.onCaret?.(where.line, where.column);
+  };
+  const replaceRange = (start, end, text) => {
+    area.focus();
+    area.setSelectionRange(start, end);
+    let native = false;
+    try {
+      native = doc2.execCommand("insertText", false, text);
+    } catch {
+      native = false;
+    }
+    if (!native) {
+      area.setRangeText(text, start, end, "end");
+      area.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  };
+  const selectedLines = () => {
+    const starts = lineStarts(area.value);
+    const first = positionAt(area.value, area.selectionStart).line - 1;
+    const end = area.selectionEnd;
+    let last = positionAt(area.value, end).line - 1;
+    if (last > first && end === starts[last]) last--;
+    return { first, last };
+  };
+  const indent = (out) => {
+    const text = area.value;
+    const starts = lineStarts(text);
+    const { first, last } = selectedLines();
+    if (!out && first === last && area.selectionStart === area.selectionEnd) {
+      replaceRange(area.selectionStart, area.selectionStart, INDENT);
+      return;
+    }
+    const from = starts[first] ?? 0;
+    const nextStart = starts[last + 1];
+    const to = nextStart === void 0 ? text.length : nextStart - 1;
+    const block = text.slice(from, to);
+    const changed = block.split("\n").map((line) => {
+      if (!out) return line === "" ? line : INDENT + line;
+      if (line.startsWith(INDENT)) return line.slice(INDENT.length);
+      return line.replace(/^[ \t]/, "");
+    }).join("\n");
+    if (changed === block) return;
+    replaceRange(from, to, changed);
+    area.setSelectionRange(from, from + changed.length);
+  };
+  const newline = () => {
+    const text = area.value;
+    const at = area.selectionStart;
+    const start = offsetAt(text, positionAt(text, at).line, 1);
+    const lead = /^[ \t]*/.exec(text.slice(start, at))?.[0] ?? "";
+    const opens = /[{[(]\s*$/.test(text.slice(start, at));
+    replaceRange(at, area.selectionEnd, `
+${lead}${opens ? INDENT : ""}`);
+  };
+  const showFind = (on) => {
+    findBar.style.display = on ? "" : "none";
+    if (on) {
+      findInput.focus();
+      findInput.select();
+    } else {
+      findCount.textContent = "";
+      area.focus();
+    }
+  };
+  const step = (direction) => {
+    const needle = findInput.value;
+    if (needle === "") {
+      findCount.textContent = "";
+      return;
+    }
+    const hay = area.value.toLowerCase();
+    const want = needle.toLowerCase();
+    const all = [];
+    for (let at2 = hay.indexOf(want); at2 >= 0; at2 = hay.indexOf(want, at2 + 1)) all.push(at2);
+    if (all.length === 0) {
+      findCount.textContent = "not here";
+      return;
+    }
+    const from = area.selectionStart;
+    let index;
+    if (direction === 1) {
+      const next = all.findIndex((at2) => at2 > from);
+      index = next < 0 ? 0 : next;
+    } else {
+      const previous = [...all].reverse().find((at2) => at2 < from);
+      index = previous === void 0 ? all.length - 1 : all.indexOf(previous);
+    }
+    const at = all[index];
+    findCount.textContent = `${index + 1} of ${all.length}`;
+    area.focus();
+    area.setSelectionRange(at, at + needle.length);
+    scrollTo(positionAt(area.value, at).line);
+    reportCaret();
+    schedulePaint();
+  };
+  const scrollTo = (line) => {
+    const middle2 = (line - 1) * LINE_HEIGHT - area.clientHeight / 2;
+    area.scrollTop = Math.max(0, middle2);
+    sync();
+  };
+  area.addEventListener("input", () => {
+    options.onInput(area.value);
+    schedulePaint();
+    reportCaret();
+  });
+  area.addEventListener("scroll", sync);
+  area.addEventListener("click", () => {
+    reportCaret();
+    schedulePaint();
+  });
+  el.addEventListener("focusin", () => {
+    focused = true;
+    schedulePaint();
+  });
+  el.addEventListener("focusout", () => {
+    focused = false;
+    schedulePaint();
+  });
+  findInput.addEventListener("input", () => step(1));
+  const onSelectionChange = () => {
+    if (!focused) return;
+    reportCaret();
+    schedulePaint();
+  };
+  doc2.addEventListener("selectionchange", onSelectionChange);
+  paint();
+  sync();
+  return {
+    el,
+    text: () => area.value,
+    setText(text) {
+      area.value = text;
+      lines = -1;
+      paint();
+      area.scrollTop = 0;
+      area.scrollLeft = 0;
+      sync();
+    },
+    setLanguage(next) {
+      lang = next;
+      paint();
+    },
+    focus() {
+      area.focus();
+    },
+    goTo(line, column = 1) {
+      const at = offsetAt(area.value, line, column);
+      area.focus();
+      area.setSelectionRange(at, at);
+      scrollTo(line);
+      reportCaret();
+      schedulePaint();
+    },
+    hasFocus: () => focused,
+    colouring,
+    keys(event) {
+      if (!focused) return false;
+      const chord = event.ctrlKey || event.metaKey;
+      const key = event.key;
+      if (key === "Escape") {
+        if (findBar.style.display === "none") return false;
+        showFind(false);
+        return true;
+      }
+      if (chord && key.toLowerCase() === "f") {
+        showFind(true);
+        return true;
+      }
+      if (chord && key.toLowerCase() === "s") {
+        options.onSave();
+        return true;
+      }
+      if (chord && key.toLowerCase() === "g") {
+        step(event.shiftKey ? -1 : 1);
+        return true;
+      }
+      if (deepFocus(el) === findInput) {
+        if (key === "Enter") {
+          step(event.shiftKey ? -1 : 1);
+          return true;
+        }
+        return false;
+      }
+      if (key === "Tab" && !event.altKey) {
+        indent(event.shiftKey);
+        return true;
+      }
+      if (key === "Enter" && !chord && !event.altKey) {
+        newline();
+        return true;
+      }
+      return false;
+    },
+    dispose() {
+      if (repaint !== void 0) clearTimeout(repaint);
+      doc2.removeEventListener("selectionchange", onSelectionChange);
+    }
+  };
+}
+function deepFocus(within) {
+  const root = within.getRootNode();
+  const active = root.activeElement ?? null;
+  return active !== null && within.contains(active) ? active : null;
+}
+function classOf(cls) {
+  return `mb-t-${cls}`;
+}
+function problemRow(problem, onClick) {
+  return h(
+    "button",
+    { class: "mb-ed-problem", type: "button", on: { click: onClick } },
+    h("span", { class: "mb-ed-problem-at", text: `${problem.line}:${problem.column}` }),
+    h("span", { text: problem.message })
+  );
+}
+
+// src/ui/screens/files.ts
+var PLUGIN_TEMPLATE = `/*
+ * The entry point. The game imports this and calls what it finds.
+ *
+ * No imports: a module loaded from a mod folder cannot resolve a package by name.
+ * The engine arrives as ctx.core instead, which is the same module instance the
+ * game itself is running on.
+ */
+export default {
+  api: 1,
+
+  hooks(ctx) {
+    ctx.log?.("hello from a hand-written plugin");
+    return {};
+  },
+};
+`;
+function filesScreen(shop, path) {
+  const main = h("div", { class: "mb-main" });
+  const aside = h("div", { class: "mb-aside" });
+  const el = h("div", { class: "mb-cols mb-cols-2" }, main, aside);
+  const draft = openDraft(shop.store.get());
+  if (!draft) {
+    main.appendChild(empty("?", "No mod is open", "Pick one on the My mods screen."));
+    return { el, update: () => void 0, dispose: () => void 0 };
+  }
+  const list = h("div", { class: "mb-list" });
+  const listSection = asideSection("The mod folder");
+  const size = h("div", { class: "mb-why" });
+  const newName = h("input", { type: "text", class: "mb-mono", placeholder: "lib/dice.js", spellcheck: false });
+  const newProblem = h("div", { class: "mb-why" });
+  const add = button({
+    label: "Add it",
+    tiny: true,
+    tip: "Makes an empty file of your own in the mod folder. A path with a slash in it puts the file in a folder.",
+    onClick: () => {
+      shop.acts.createFile(newName.value.trim(), newName.value.trim() === PLUGIN ? PLUGIN_TEMPLATE : "");
+      newName.value = "";
+    }
+  });
+  const plugin = button({
+    label: `Start a ${PLUGIN}`,
+    tiny: true,
+    tip: "Writes a working entry point with nothing in it, so a mod that runs code is one file away. The manifest grows the plugin facet and the ABI number to match, because a mod that ships code without declaring both installs and then does nothing.",
+    onClick: () => shop.acts.createFile(PLUGIN, PLUGIN_TEMPLATE)
+  });
+  listSection.body.append(
+    list,
+    h("div", { class: "mb-ed-new" }, newName, add),
+    newProblem,
+    h("div", { class: "mb-row-actions" }, plugin),
+    size
+  );
+  aside.appendChild(listSection.el);
+  newName.addEventListener("input", () => {
+    const wanted = newName.value.trim();
+    const current = openDraft(shop.store.get());
+    const why = wanted === "" || !current ? void 0 : pathProblem(shop.api, current, wanted);
+    const note = wanted === "" || why !== void 0 ? void 0 : pathNote(shop.api, wanted);
+    setText(newProblem, why ?? note ?? "");
+    newProblem.dataset["tone"] = why === void 0 ? "plain" : "bad";
+    add.disabled = wanted === "" || why !== void 0;
+  });
+  add.disabled = true;
+  const title = h("div", { class: "mb-filename" });
+  const about = h("div", { class: "mb-why" });
+  const dirty = h("span", { class: "mb-tag" });
+  const caret = h("span", { class: "mb-ed-caret" });
+  const save = button({ label: "Save into the mod", kind: "primary", tiny: true, onClick: () => shop.acts.saveFile(path) });
+  const overwrite = button({
+    label: "Save anyway",
+    kind: "danger",
+    tiny: true,
+    tip: "Writes what is in the editor over whatever the mod now says for this file. It replaces the whole file, not the lines you changed.",
+    onClick: () => shop.acts.saveFile(path, { force: true })
+  });
+  const revert = button({
+    label: "Reload the file",
+    tiny: true,
+    tip: "Throws away what is in the editor and shows the file as the mod has it now.",
+    onClick: () => shop.acts.revertFile(path)
+  });
+  const remove = button({
+    label: "Delete",
+    kind: "danger",
+    tiny: true,
+    tip: "Takes this file out of the mod. Undo brings it back.",
+    onClick: () => shop.acts.deleteFile(path)
+  });
+  const bar = h("div", { class: "mb-row-actions" }, save, overwrite, revert, h("span", { class: "mb-spacer" }), caret, dirty, remove);
+  const problems = h("div", { class: "mb-ed-problems" });
+  const checkNote = h("div", { class: "mb-why" });
+  let editor;
+  const host = h("div");
+  if (path !== "") {
+    const opened = shop.store.get().buffers[path];
+    editor = codeEditor({
+      doc: shop.doc,
+      lang: languageFor(path),
+      text: opened?.text ?? "",
+      onInput: (text) => shop.acts.editFile(path, text),
+      onSave: () => shop.acts.saveFile(path),
+      onCaret: (line, column) => setText(caret, `line ${line}, column ${column}`)
+    });
+    host.appendChild(editor.el);
+    main.append(title, about, bar, host, problems, checkNote);
+  } else {
+    main.append(
+      h(
+        "div",
+        { class: "mb-prose" },
+        h("h2", { text: "The mod, as files" }),
+        h("p", {
+          text: "This is the same mod the other screens edit, printed. Every file here is a file the folder ships, and saving one puts what you wrote back into the mod - so a monster you added on the record screen is in monster.json, and a number you change here is the number that screen shows next time."
+        }),
+        h("p", {
+          text: "It is the way to do the things no screen offers: a script the game runs, a manifest key nothing asks you about, a record file grouped into sections. Pick a file on the right, or add one of your own."
+        }),
+        h("p", {
+          text: "Unsaved text lives in this window and nowhere else. It survives moving between screens and it does not survive reloading the game, so save a file into the mod before you go anywhere."
+        })
+      )
+    );
+  }
+  const render = (state) => {
+    const current = openDraft(state);
+    if (!current) return;
+    const files = projectFiles(shop.api, current);
+    const unchecked = unread(current);
+    const uncheckedPaths = new Set(unchecked.map((entry) => entry.path));
+    listSection.setCount(`${files.length}`);
+    fillList(
+      list,
+      files.map((file2) => {
+        const held2 = state.buffers[file2.path];
+        const changed2 = held2 !== void 0 && held2.text !== file2.contents;
+        const tags = [];
+        if (changed2) tags.push({ text: "unsaved", tone: "mod" });
+        if (uncheckedPaths.has(file2.path)) tags.push({ text: "partly unread" });
+        if (isCodePath(file2.path)) tags.push({ text: "code" });
+        return listRow({
+          badge: file2.kind === "extra" ? "+" : file2.kind === "manifest" ? "M" : "R",
+          name: file2.path,
+          meta: describe(file2.kind, file2.path),
+          selected: file2.path === path,
+          tags,
+          onClick: () => shop.acts.openFile(file2.path)
+        });
+      }),
+      empty("[ ]", "Nothing yet", "A mod with no changes writes only its manifest.")
+    );
+    const bytes = projectBytes(shop.api, current);
+    setText(
+      size,
+      `${files.length} file${files.length === 1 ? "" : "s"}, ${Math.max(1, Math.round(bytes / 1024))}KB. Unfinished work is kept in a store this install shares with your saves, and the workshop will not use more than ${Math.round(SIZE_CEILING / 1024)}KB of it, so a large file pasted in here is a file to save out as a zip.`
+    );
+    const refusal = sessionRefusal(current);
+    if (path === "") {
+      setText(checkNote, refusal ?? "");
+      return;
+    }
+    const file = files.find((entry) => entry.path === path);
+    const held = state.buffers[path];
+    if (file === void 0 || held === void 0) {
+      setText(title, path);
+      setText(about, "That file is not in the mod any more.");
+      save.disabled = true;
+      overwrite.disabled = true;
+      revert.disabled = true;
+      remove.disabled = true;
+      return;
+    }
+    setText(title, path);
+    const stale = file.contents !== held.from;
+    const changed = held.text !== file.contents;
+    setText(dirty, changed ? "unsaved" : "saved");
+    dirty.dataset["tone"] = changed ? "mod" : "";
+    save.disabled = !changed;
+    revert.disabled = !changed;
+    remove.disabled = classify(shop.api, path) !== "extra";
+    overwrite.style.display = stale ? "" : "none";
+    const notes = [aboutKind(classify(shop.api, path), path)];
+    if (stale) {
+      notes.push(
+        "This file has changed in the mod since it was opened here, so saving normally is refused. Save anyway replaces the whole file with what is in the editor; reloading starts again from what the mod now says."
+      );
+    }
+    const note = pathNote(shop.api, path);
+    if (note !== void 0) notes.push(note);
+    const spare = unchecked.find((entry) => entry.path === path);
+    if (spare !== void 0) {
+      notes.push(
+        `This file carries ${spare.keys.join(", ")}, which the workshop writes through without reading. It ships exactly as typed and nothing on the review screen has checked it.`
+      );
+    }
+    if (refusal !== void 0) notes.push(refusal);
+    setText(about, notes.join(" "));
+    const lang = languageFor(path);
+    const found = editor?.colouring() === false ? [] : problemsIn(lang, held.text);
+    fill(
+      problems,
+      ...found.map((problem) => problemRow(problem, () => editor?.goTo(problem.line, problem.column)))
+    );
+    setText(checkNote, checkedHow(lang, found.length, editor?.colouring() !== false));
+  };
+  render(shop.store.get());
+  editor?.focus();
+  return {
+    el,
+    update(next, prev) {
+      const held = next.buffers[path];
+      if (editor !== void 0 && held !== void 0 && held.text !== editor.text()) editor.setText(held.text);
+      if (next.drafts !== prev.drafts || next.buffers !== prev.buffers || next.openId !== prev.openId) render(next);
+    },
+    keys(event) {
+      return editor?.keys(event) === true;
+    },
+    dispose() {
+      editor?.dispose();
+    }
+  };
+}
+function describe(kind, path) {
+  if (kind === "manifest") return "what the game reads first";
+  if (kind === "records") return `what this mod does to ${path.slice(0, -".json".length)} records`;
+  return "yours, written through as typed";
+}
+function aboutKind(kind, path) {
+  switch (kind) {
+    case "manifest":
+      return "The manifest. Saving it puts the fields the details screen shows back into the mod, and keeps every other key exactly as typed - so capabilities, rules and anything else the game understands survive. The id cannot be changed here, because the game treats a renamed mod as a different mod.";
+    case "records":
+      return `Written from what the mod does to ${path.slice(0, -".json".length)} records. Saving it parses the contributions back into the mod, so the record screens show what you typed here.`;
+    default:
+      return "Yours. It goes into the mod folder exactly as it is here, and nothing rewrites it.";
+  }
+}
+function checkedHow(lang, found, colouring) {
+  if (!colouring) {
+    return "This file is too big to colour in or check, so it is shown as plain text. It still saves and ships exactly as it is.";
+  }
+  if (lang === "json") {
+    return found === 0 ? "Valid JSON, checked with the same parser the game uses." : "The game reads this file with the same parser, so it will not load until this is fixed.";
+  }
+  if (lang === "js") {
+    return "Quotes, comments and brackets only. This is not a syntax check and there is no compiler in a browser: code that passes here can still be wrong, and the game reports a script it cannot import as a mod that is not working. What it cannot see at all is a mistake inside a template's ${ }, a slash that is a pattern where it looks like a division, and anything that is spelled correctly and means nothing.";
+  }
+  return "Nothing here to check.";
 }
 
 // src/ui/screens/kinds.ts
@@ -5034,10 +6541,12 @@ function verdictScreen(shop) {
     const findings = build ? sortFindings(build.findings) : [];
     const counts = countFindings(findings);
     const ok = build?.ok === true;
-    const buildable = ok && current.changes.length > 0;
-    tryIt.disabled = !shop.seams.session.available || !buildable;
+    const anything = current.changes.length > 0 || Object.keys(current.extras ?? {}).length > 0;
+    const buildable = ok && anything;
+    const refusal = sessionRefusal(current);
+    tryIt.disabled = !shop.seams.session.available || !buildable || refusal !== void 0;
     install.disabled = !shop.seams.install.available || !buildable;
-    save.disabled = current.changes.length === 0;
+    save.disabled = !anything;
     headline.replaceChildren(
       h("h2", { text: `${current.name} ${current.version}` }),
       h(
@@ -5053,8 +6562,17 @@ function verdictScreen(shop) {
     );
     const emitted = shop.acts.files();
     filesCard.setNote(`${emitted.length} file${emitted.length === 1 ? "" : "s"}`);
+    const unchecked = unread(current);
     filesHost.replaceChildren(
-      ...emitted.length === 0 ? [empty("[ ]", "Nothing to write yet", "Add or change something first.")] : emitted.map((file) => filePreview(file.path, file.contents))
+      ...emitted.length === 0 ? [empty("[ ]", "Nothing to write yet", "Add or change something first.")] : emitted.map((file) => filePreview(file.path, file.contents)),
+      ...unchecked.length === 0 ? [] : [
+        h(
+          "div",
+          { class: "mb-why" },
+          h("b", { text: "Written through unread. " }),
+          `${unchecked.map((entry) => `${entry.path} carries ${entry.keys.join(", ")}`).join("; ")}. The workshop cannot compose or check those, so nothing above is a verdict on them.`
+        )
+      ]
     );
     findingsSection.setCount(`${findings.length}`);
     findingsNote.textContent = verdict.broke !== void 0 ? `The workshop could not check this: ${verdict.broke}` : verdict.stale || verdict.revision !== state.revision ? "Checking." : findings.length === 0 ? "Nothing to report." : "";
@@ -5094,7 +6612,7 @@ function verdictScreen(shop) {
       )
     );
     const notes = [
-      shop.seams.session.available ? h("p", {
+      refusal !== void 0 ? h("p", null, h("b", { text: "This one cannot be tried for a session. " }), refusal) : shop.seams.session.available ? h("p", {
         text: "Playing it loads the mod for this session only and reloads the game, because composing content always needs a reload. It is not added to your mods and it is gone when you close the game. It is the real mod and not a preview, so play a character you do not mind changing - next time, with the mod gone, the game treats anything it added as belonging to something not installed."
       }) : h("p", { text: shop.seams.session.why ?? "" }),
       shop.seams.install.available ? h("p", { text: "Installing keeps it, and takes effect after a reload, because enabling any mod does." }) : h("p", { text: shop.seams.install.why ?? "" })
@@ -5202,6 +6720,8 @@ function mountApp(deps) {
         return verdictScreen(shop);
       case "test":
         return testScreen(shop);
+      case "files":
+        return filesScreen(shop, route.path);
     }
   };
   const keyOf = (route) => JSON.stringify(route);
@@ -5243,11 +6763,18 @@ function mountApp(deps) {
        * emitted files and the manifest are, and an author who wants to look before
        * they leap still has the button next to this one. What changed is that
        * looking is no longer compulsory in order to try something. */
+      /* THE ONE BUTTON THAT CAN GO AWAY, and it goes away with its reason rather
+       * than going grey. The session door takes content only, so the moment a mod
+       * grows a script it cannot be tried this way - and pressing it would produce
+       * the host's refusal, written for somebody importing a stranger's mod, at the
+       * end of a build the author waited for. `sessionRefusal` is asked here and
+       * again inside the action, from one function, so the two cannot disagree. */
       draft === void 0 ? null : button({
         label: "Try it in the game",
         kind: "primary",
         tiny: true,
-        tip: "Forges the mod, loads it for this session only, and reloads the game so it takes effect - content always needs a reload. It is not added to your mods and it is gone when you close the game. What it does to the character who plays it is not, so play one you do not mind changing.",
+        disabled: sessionRefusal(draft) !== void 0,
+        tip: sessionRefusal(draft) ?? "Forges the mod, loads it for this session only, and reloads the game so it takes effect - content always needs a reload. It is not added to your mods and it is gone when you close the game. What it does to the character who plays it is not, so play one you do not mind changing.",
         onClick: () => void deps.acts.loadForSession()
       }),
       draft === void 0 ? null : button({
@@ -5302,9 +6829,15 @@ function mountApp(deps) {
   render(deps.store.get(), deps.store.get());
   deps.overlay.onKey((event) => {
     const state = deps.store.get();
+    if (current?.keys?.(event) === true) return true;
+    const inCode = event.composedPath()[0]?.dataset?.["code"] === "1";
     if (event.key === "Escape") {
       if (tips.hide()) return true;
       const route = state.route;
+      if (route.at === "files" && route.path !== "") {
+        deps.acts.go({ at: "files", path: "" });
+        return true;
+      }
       if (route.at === "record" && route.path !== "") {
         const up = route.path.split(".").slice(0, -1).join(".");
         deps.acts.go({ at: "record", change: route.change, path: up });
@@ -5323,11 +6856,13 @@ function mountApp(deps) {
     }
     const chord = event.ctrlKey || event.metaKey;
     if (chord && event.key.toLowerCase() === "z") {
+      if (inCode) return false;
       if (event.shiftKey) deps.store.redo();
       else deps.store.undo();
       return true;
     }
     if (chord && event.key.toLowerCase() === "y") {
+      if (inCode) return false;
       deps.store.redo();
       return true;
     }
@@ -5378,6 +6913,8 @@ function leafName(route) {
       return "Review";
     case "test":
       return "Test";
+    case "files":
+      return route.path === "" ? "Files" : route.path;
     default:
       return void 0;
   }
@@ -6173,6 +7710,152 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   margin-bottom: 4px;
 }
 
+/* ---------------------------------------------------------------- *
+ * The file editor                                                   *
+ * ---------------------------------------------------------------- *
+ *
+ * TWO LAYERS THAT MUST AGREE ON EVERY CHARACTER'S POSITION, so every property
+ * that can move one is written twice and identically: the family, the size, the
+ * line height IN PIXELS, the padding, the tab size and the white-space rule.
+ * A ratio line height is rounded per line and the picture drifts down a long
+ * file; a token span that changed weight or slant would change how wide its
+ * characters are. So the token classes below set a colour and nothing else, and
+ * the numbers here are the same numbers editor.ts does its arithmetic with.
+ */
+
+.mb-ed {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--edge);
+  border-radius: var(--r-sm);
+  background: var(--stone);
+  overflow: hidden;
+}
+.mb-ed-body { display: flex; min-height: 0; height: 52vh; }
+
+.mb-ed-gutter {
+  position: relative;
+  overflow: hidden;
+  flex: none;
+  width: 46px;
+  border-right: 1px solid var(--edge);
+  background: color-mix(in srgb, var(--stone) 60%, var(--surface));
+}
+.mb-ed-nums {
+  position: absolute;
+  top: 0;
+  right: 6px;
+  margin: 0;
+  padding: 8px 0;
+  text-align: right;
+  white-space: pre;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--ink-faint);
+  user-select: none;
+}
+
+.mb-ed-box { position: relative; flex: 1; min-width: 0; overflow: hidden; }
+
+.mb-ed-hl,
+.mb-ed-area {
+  margin: 0;
+  padding: 8px;
+  border: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: pre;
+  tab-size: 2;
+  letter-spacing: 0;
+  word-spacing: 0;
+}
+
+.mb-ed-hl {
+  position: absolute;
+  top: 0;
+  left: 0;
+  min-width: 100%;
+  color: var(--ink-dim);
+  pointer-events: none;
+  overflow: visible;
+}
+
+.mb-ed-area {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  resize: none;
+  overflow: auto;
+  background: transparent;
+  /* The text is drawn by the layer behind. The caret is not, so it stays visible
+   * and stays the reader's own colour. */
+  color: transparent;
+  caret-color: var(--gold-bright);
+  outline: none;
+}
+.mb-ed-area::selection { background: color-mix(in srgb, var(--focus) 40%, transparent); }
+.mb-ed-area:focus { outline: none; }
+
+/* Colour, and only colour. See the note at the top of this section. */
+.mb-t-str { color: #9fc98b; }
+.mb-t-num { color: #e0bb64; }
+.mb-t-key { color: #7cc5c8; }
+.mb-t-kw { color: #d79bd0; }
+.mb-t-lit { color: #f0a35e; }
+.mb-t-com { color: var(--ink-faint); }
+.mb-t-punc { color: var(--ink-dim); }
+.mb-t-head { color: var(--gold-bright); }
+.mb-t-code { color: #9fc98b; }
+.mb-t-match { color: var(--stone); background: var(--gold); border-radius: 2px; }
+
+:host(.mb-parchment) .mb-t-str { color: #2f5d34; }
+:host(.mb-parchment) .mb-t-num { color: #7a4d10; }
+:host(.mb-parchment) .mb-t-key { color: #17515a; }
+:host(.mb-parchment) .mb-t-kw { color: #6c2a72; }
+:host(.mb-parchment) .mb-t-lit { color: #8a3a12; }
+:host(.mb-parchment) .mb-t-code { color: #2f5d34; }
+:host(.mb-parchment) .mb-t-match { color: var(--surface-3); background: var(--gold); }
+
+.mb-ed-find {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--edge);
+  background: var(--surface-2);
+}
+.mb-ed-find-box { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 12px; }
+.mb-ed-find-count { font-size: 11px; color: var(--ink-faint); font-family: var(--font-mono); }
+
+.mb-ed-caret { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+
+.mb-ed-new { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
+.mb-ed-new input { flex: 1; min-width: 0; font-size: 12px; }
+
+.mb-ed-problems { display: flex; flex-direction: column; gap: 2px; }
+.mb-ed-problem {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  width: 100%;
+  padding: 4px 8px;
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 9%, transparent);
+  border: 0;
+  border-left: 2px solid var(--danger);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  cursor: pointer;
+}
+.mb-ed-problem:hover { background: color-mix(in srgb, var(--danger) 16%, transparent); }
+.mb-ed-problem-at { font-family: var(--font-mono); color: var(--ink-faint); flex: none; }
+
 .mb-empty {
   display: grid;
   place-items: center;
@@ -6250,7 +7933,9 @@ function mountOverlay(doc2, options) {
   const keyHandlers = [];
   let open = true;
   let composing = false;
-  const insideUs = (target) => {
+  const deepest = (event) => event.composedPath()[0] ?? event.target;
+  const insideUs = (event) => {
+    const target = deepest(event);
     if (!(target instanceof Node)) return false;
     return host.contains(target) || root.contains(target);
   };
@@ -6272,7 +7957,8 @@ function mountOverlay(doc2, options) {
         return;
       }
     }
-    if (!editable(event.target) && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    if (event.key === "Tab") return;
+    if (!editable(deepest(event)) && !event.ctrlKey && !event.metaKey && !event.altKey) {
       event.preventDefault();
     }
   };
@@ -6281,14 +7967,14 @@ function mountOverlay(doc2, options) {
   };
   const onPointerEvent = (event) => {
     if (!open) return;
-    if (insideUs(event.target)) return;
+    if (insideUs(event)) return;
     event.stopPropagation();
     event.stopImmediatePropagation();
     event.preventDefault();
   };
   const onFocusIn = (event) => {
     if (!open) return;
-    if (insideUs(event.target)) return;
+    if (insideUs(event)) return;
     const first = root.querySelector(
       'input:not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])'
     );

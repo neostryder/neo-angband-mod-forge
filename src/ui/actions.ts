@@ -17,6 +17,7 @@ import type { Seams } from "../host/seams.js";
 import type { Change, Draft } from "../model/draft.js";
 import { ID_RE, newDraft } from "../model/draft.js";
 import { buildDraft, emitDraft, manifestFor, zipDraft } from "../model/build.js";
+import { deleteFile, fileText, pathProblem, sessionRefusal, writeFileText } from "../model/files.js";
 import type { DraftWriter } from "../model/persist.js";
 import { opNudge, opScale } from "../model/ops.js";
 import { editValue, recordOp, removeValue, targetFor } from "../model/target.js";
@@ -250,6 +251,148 @@ export class Actions {
   }
 
   /* --------------------------------------------------------------- *
+   * Files, as text                                                  *
+   * --------------------------------------------------------------- */
+
+  /**
+   * Open a file in the editor.
+   *
+   * The buffer remembers the text it was HANDED, which is what makes the check on
+   * the way out mean something.
+   *
+   * A BUFFER WITH NOTHING UNSAVED IN IT IS REFRESHED, and one with unsaved work is
+   * not. That distinction is the whole of this method and it was got wrong first
+   * time in a way no test in a synthetic document could see: keeping every buffer
+   * meant that opening a file, saving it, changing the same record on a wizard
+   * screen and opening the file again showed the text from before the wizard
+   * change. It looked exactly like the two views having come apart, which is the
+   * one thing this feature promises they do not. Found by driving a real browser.
+   *
+   * Unsaved work is still never thrown away for the crime of clicking a name twice:
+   * a dirty buffer is kept as it was, and the stale check on save is what tells the
+   * reader that the mod moved underneath it.
+   */
+  openFile(path: string): void {
+    const draft = openDraft(this.deps.store.get());
+    if (!draft) return;
+    const text = fileText(this.deps.api, draft, path);
+    this.deps.store.view((state) => {
+      const held = state.buffers[path];
+      const dirty = held !== undefined && held.text !== held.from;
+      if (text === undefined || dirty) return { route: { at: "files", path } };
+      return { route: { at: "files", path }, buffers: { ...state.buffers, [path]: { text, from: text } } };
+    });
+  }
+
+  /** The reader typed. Held outside the document until they save it. */
+  editFile(path: string, text: string): void {
+    this.deps.store.view((state) => {
+      const held = state.buffers[path];
+      if (held === undefined) return {};
+      return { buffers: { ...state.buffers, [path]: { ...held, text } } };
+    });
+  }
+
+  /** Throw away what is in the buffer and show the file as the mod has it. */
+  revertFile(path: string): void {
+    const draft = openDraft(this.deps.store.get());
+    if (!draft) return;
+    const text = fileText(this.deps.api, draft, path) ?? "";
+    this.deps.store.view((state) => ({ buffers: { ...state.buffers, [path]: { text, from: text } } }));
+    this.notice(`${path} is back to what the mod says.`, "plain");
+  }
+
+  /**
+   * Save the buffer into the mod.
+   *
+   * ONE STORE EDIT, WHICH IS ONE STEP OF UNDO. A saved record file can be a dozen
+   * changes at once, and undo here is a stack of whole documents rather than a
+   * stack of inverse operations, so the whole save goes back with one press. Putting
+   * each parsed change through the store separately would have been the other
+   * option and it is the wrong one: it would mean pressing undo twelve times to take
+   * back one gesture the reader made once.
+   *
+   * THE STALE CHECK IS ON THE BYTES THE READER WAS SHOWN. A file's text is derived
+   * from the draft, so it moves when the draft does - an undo, or a change made on
+   * another screen. Comparing what the file says NOW against what the buffer was
+   * opened from is what turns "your work was quietly overwritten" into a question
+   * with two answers. It is safe to compare bytes because the derivation is
+   * deterministic: the emitter writes the same keys in the same order for the same
+   * draft, so a difference is a real difference and never formatting.
+   */
+  saveFile(path: string, options: { readonly force?: boolean } = {}): boolean {
+    const state = this.deps.store.get();
+    const draft = openDraft(state);
+    const held = state.buffers[path];
+    if (!draft || held === undefined) return false;
+
+    const now = fileText(this.deps.api, draft, path);
+    if (options.force !== true && now !== undefined && now !== held.from) {
+      this.notice(
+        `${path} has changed in the mod since you opened it here, so saving would write over that change. ` +
+          `Save anyway to keep what is in the editor, or reload the file to start from what the mod says.`,
+        "bad",
+      );
+      return false;
+    }
+
+    const outcome = writeFileText(this.deps.api, draft, path, held.text);
+    if (!outcome.ok) {
+      this.notice(outcome.why, "bad");
+      return false;
+    }
+
+    this.mutate(() => outcome.draft);
+    /* Re-derive rather than assume: saving a record file writes ops back out in the
+     * emitter's own shape, so the text on screen after a save is the text the mod
+     * will ship, which is not always character for character what was typed. */
+    const saved = fileText(this.deps.api, openDraft(this.deps.store.get()) ?? outcome.draft, path) ?? held.text;
+    this.deps.store.view((current) => ({ buffers: { ...current.buffers, [path]: { text: saved, from: saved } } }));
+    this.notice(`Saved ${path}.`, "good");
+    return true;
+  }
+
+  /** Start a new file of the author's own. Refused for a path the game would not take. */
+  createFile(path: string, contents = ""): void {
+    const draft = openDraft(this.deps.store.get());
+    if (!draft) return;
+    const problem = pathProblem(this.deps.api, draft, path);
+    if (problem !== undefined) {
+      this.notice(problem, "bad");
+      return;
+    }
+    const outcome = writeFileText(this.deps.api, draft, path, contents);
+    if (!outcome.ok) {
+      this.notice(outcome.why, "bad");
+      return;
+    }
+    this.mutate(() => outcome.draft);
+    this.deps.store.view((state) => ({
+      route: { at: "files", path },
+      buffers: { ...state.buffers, [path]: { text: contents, from: contents } },
+    }));
+    this.notice(`${path} is in the mod. It is empty until you write something in it.`, "good");
+  }
+
+  /** Take one of the author's own files out of the mod. */
+  deleteFile(path: string): void {
+    const draft = openDraft(this.deps.store.get());
+    if (!draft) return;
+    const outcome = deleteFile(this.deps.api, draft, path);
+    if (!outcome.ok) {
+      this.notice(outcome.why, "bad");
+      return;
+    }
+    this.mutate(() => outcome.draft);
+    this.deps.store.view((state) => {
+      const buffers = { ...state.buffers };
+      delete buffers[path];
+      return { route: { at: "files", path: "" }, buffers };
+    });
+    this.notice(`${path} is out of the mod. Undo brings it back.`, "plain");
+  }
+
+  /* --------------------------------------------------------------- *
    * Building and shipping                                           *
    * --------------------------------------------------------------- */
 
@@ -399,6 +542,16 @@ export class Actions {
   async loadForSession(): Promise<void> {
     const draft = openDraft(this.deps.store.get());
     if (!draft) return;
+    /* ASKED HERE AS WELL AS BY THE BUTTON, from the same function, so a disabled
+     * control and the refusal behind it cannot drift apart. The door takes content
+     * only and this mod may now carry code, so the answer is a real one rather than
+     * a formality - and it is the workshop's own sentence rather than the host's,
+     * because the host's is written for somebody importing a stranger's mod. */
+    const refusal = sessionRefusal(draft);
+    if (refusal !== undefined) {
+      this.notice(refusal, "bad");
+      return;
+    }
     this.deps.writer.flush();
     const files = this.files();
     if (files.length === 0) return;

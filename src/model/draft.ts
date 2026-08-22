@@ -54,9 +54,57 @@ export interface Draft {
   /** Fields the mod coins, in its own namespace. */
   readonly fields: readonly FieldDecl[];
   readonly changes: readonly Change[];
+  /**
+   * Files the mod folder carries that no screen writes, by path, verbatim.
+   *
+   * A script, a nested data file, a README. This is the file editor's half of the
+   * document and it does not bend the rule at the top of this file - it keeps it.
+   * Every entry IS a file in the emitted folder, byte for byte, so a mod can still
+   * be taken away, hand-edited and brought back. What it is not is a project file
+   * of the workshop's own: there is nothing in here the zip does not contain.
+   *
+   * Absent on a draft written before the file editor existed, which is why it is
+   * optional rather than defaulted - a stored draft is read as it was written.
+   */
+  readonly extras?: Readonly<Record<string, string>>;
+  /**
+   * Manifest keys the workshop does not model, kept exactly as they were typed.
+   *
+   * The game's manifest validator passes an unknown key through untouched, so
+   * `capabilities`, `rules`, `optionalDependencies` and anything else an author adds
+   * by hand are real and work. Dropping them on the next save would make the file
+   * editor a viewer with a delete button, so they are kept - and this is also where
+   * a deliberate override of a key the workshop DERIVES lives. See `writeManifest`
+   * for why an override is only recorded when the author actually changed the value.
+   */
+  readonly manifestExtras?: Readonly<Record<string, unknown>>;
+  /**
+   * Record-file keys the draft cannot model, by file stem, kept as they were typed.
+   *
+   * `sections` is the whole of this today: a record file may group its
+   * contributions so that somebody else can switch half a mod off, and `Change` has
+   * no way to say that. The choice was between refusing to save such a file at all
+   * and carrying what it says through to the emitted folder unread. Carrying it
+   * wins, because refusing would mean a file the editor cannot open - and it comes
+   * with the one obligation that makes it honest: the workshop cannot compose or
+   * check anything in here, and it says so wherever the file is shown.
+   */
+  readonly fileExtras?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
   /** When this draft was last written to storage, as an ISO string. */
   readonly touched: string;
 }
+
+/**
+ * The plugin ABI an emitted mod declares when it ships a script.
+ *
+ * WRITTEN AS A CONSTANT BECAUSE THERE IS NO SEAM FOR IT. The host will not import
+ * a `plugin.js` unless the manifest says `modApi`, and it accepts a window of
+ * versions rather than one - but nothing hands a mod the number the running host
+ * implements, so the honest answer is the number this mod itself was built against.
+ * An author who needs another one changes it in `manifest.json` by hand, which is
+ * exactly the sort of thing the file editor is for.
+ */
+export const MOD_API = 1;
 
 /** The manifest's `id` rule, restated so the workshop can check as you type. */
 export const ID_RE = /^[a-z][a-z0-9-]*$/;

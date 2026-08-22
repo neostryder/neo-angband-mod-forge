@@ -100,7 +100,11 @@ export function saveDrafts(
 ): SaveOutcome {
   const stored: Stored = { v: 1, drafts, seenTour };
   const text = JSON.stringify(stored);
-  const bytes = text.length;
+  /* MEASURED IN BYTES, NOT IN CHARACTERS, and the difference stopped being academic
+   * when a draft could hold a file the author pasted in. A quota is a byte count,
+   * every character outside ASCII costs two or three of them, and a monster
+   * description in Japanese would have been counted at a third of what it takes. */
+  const bytes = new TextEncoder().encode(text).length;
 
   if (!prefs) {
     return {

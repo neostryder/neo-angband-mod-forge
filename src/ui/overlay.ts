@@ -95,7 +95,30 @@ export function mountOverlay(doc: Document, options: { readonly label: string })
   let open = true;
   let composing = false;
 
-  const insideUs = (target: EventTarget | null): boolean => {
+  /**
+   * The element the event actually landed on, not the one a window listener is
+   * told about.
+   *
+   * A LISTENER OUTSIDE A SHADOW TREE IS LIED TO, and the lie is the spec's, not a
+   * quirk: `event.target` is RETARGETED to the nearest node in the listener's own
+   * tree, so every one of these listeners - registered on the window - sees the
+   * host `div` for anything that happened inside the workshop. Open or closed makes
+   * no difference. `composedPath()[0]` is the real element, which is the whole
+   * reason that method exists.
+   *
+   * MEASURED, because it was wrong here and looked right. `editable(event.target)`
+   * asked the host div whether it was a text field, got no, and so the fallback at
+   * the bottom of `onKeyEvent` called `preventDefault` on every unmodified
+   * keystroke aimed at a field inside the workshop - which is to say that typing a
+   * mod's name did nothing, and Tab could not move focus. Nothing in the test suite
+   * saw it: the tests set `value` and dispatch an `input` event, which is what a
+   * test does and not what a keyboard does, so the whole class of bug was invisible
+   * to them by construction.
+   */
+  const deepest = (event: Event): EventTarget | null => event.composedPath()[0] ?? event.target;
+
+  const insideUs = (event: Event): boolean => {
+    const target = deepest(event);
     if (!(target instanceof Node)) return false;
     return host.contains(target) || root.contains(target);
   };
@@ -123,8 +146,15 @@ export function mountOverlay(doc: Document, options: { readonly label: string })
       }
     }
     /* Nothing wanted it. Swallow it only if it was aimed at nothing that could
-     * use it and carries no modifier the browser owns. */
-    if (!editable(event.target) && !event.ctrlKey && !event.metaKey && !event.altKey) {
+     * use it and carries no modifier the browser owns.
+     *
+     * TAB IS NEVER SWALLOWED, and it used to be, which meant that a modal covering
+     * the whole screen could not be moved around with the keyboard at all unless
+     * the caret happened to be in a text field already. It is not a game command
+     * and there is nothing to protect the game from: the focus guard below keeps it
+     * inside the workshop, so the worst it can do is visit the next control. */
+    if (event.key === "Tab") return;
+    if (!editable(deepest(event)) && !event.ctrlKey && !event.metaKey && !event.altKey) {
       event.preventDefault();
     }
   };
@@ -138,7 +168,7 @@ export function mountOverlay(doc: Document, options: { readonly label: string })
    * modal has no business reaching the game. */
   const onPointerEvent = (event: Event): void => {
     if (!open) return;
-    if (insideUs(event.target)) return;
+    if (insideUs(event)) return;
     event.stopPropagation();
     event.stopImmediatePropagation();
     event.preventDefault();
@@ -154,7 +184,7 @@ export function mountOverlay(doc: Document, options: { readonly label: string })
    */
   const onFocusIn = (event: Event): void => {
     if (!open) return;
-    if (insideUs(event.target)) return;
+    if (insideUs(event)) return;
     const first = root.querySelector<HTMLElement>(
       'input:not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])',
     );

@@ -32,6 +32,7 @@ import { h } from "../dom.js";
 import type { AuthoringFinding } from "../../host/authoring.js";
 import { countFindings, sortFindings } from "../../model/build.js";
 import { draftFiles, draftSize } from "../../model/draft.js";
+import { sessionRefusal, unread } from "../../model/files.js";
 import type { AppState } from "../store.js";
 import { openDraft } from "../store.js";
 import { asideSection, button, card, empty, filePreview } from "../widgets.js";
@@ -105,10 +106,15 @@ export function verdictScreen(shop: Workshop): View {
     const counts = countFindings(findings);
 
     const ok = build?.ok === true;
-    const buildable = ok && current.changes.length > 0;
-    tryIt.disabled = !shop.seams.session.available || !buildable;
+    /* A mod with no changes but a file of its own is still a mod worth forging: an
+     * author whose whole mod is a hand-written plugin.js has zero changes and a real
+     * pack. Counting emitted files rather than changes is what lets them ship it. */
+    const anything = current.changes.length > 0 || Object.keys(current.extras ?? {}).length > 0;
+    const buildable = ok && anything;
+    const refusal = sessionRefusal(current);
+    tryIt.disabled = !shop.seams.session.available || !buildable || refusal !== undefined;
     install.disabled = !shop.seams.install.available || !buildable;
-    save.disabled = current.changes.length === 0;
+    save.disabled = !anything;
 
     headline.replaceChildren(
       h("h2", { text: `${current.name} ${current.version}` }),
@@ -137,10 +143,29 @@ export function verdictScreen(shop: Workshop): View {
 
     const emitted = shop.acts.files();
     filesCard.setNote(`${emitted.length} file${emitted.length === 1 ? "" : "s"}`);
+
+    /* WHAT THE VERDICT ABOVE DOES NOT COVER, said next to the files rather than
+     * left to be inferred. The composer and the validator run over what the draft
+     * models, so a key an author typed into a record file that the draft cannot
+     * model ships exactly as written and has been checked by nothing. That is a
+     * legitimate thing to allow and not a legitimate thing to leave unsaid. */
+    const unchecked = unread(current);
     filesHost.replaceChildren(
       ...(emitted.length === 0
         ? [empty("[ ]", "Nothing to write yet", "Add or change something first.")]
         : emitted.map((file) => filePreview(file.path, file.contents))),
+      ...(unchecked.length === 0
+        ? []
+        : [
+            h(
+              "div",
+              { class: "mb-why" },
+              h("b", { text: "Written through unread. " }),
+              `${unchecked
+                .map((entry) => `${entry.path} carries ${entry.keys.join(", ")}`)
+                .join("; ")}. The workshop cannot compose or check those, so nothing above is a verdict on them.`,
+            ),
+          ]),
     );
 
     findingsSection.setCount(`${findings.length}`);
@@ -201,7 +226,9 @@ export function verdictScreen(shop: Workshop): View {
      * would push the only sentence that is not already on screen off the bottom.
      */
     const notes: HTMLElement[] = [
-      shop.seams.session.available
+      refusal !== undefined
+        ? h("p", null, h("b", { text: "This one cannot be tried for a session. " }), refusal)
+        : shop.seams.session.available
         ? h("p", {
             text:
               "Playing it loads the mod for this session only and reloads the game, because composing content " +

@@ -120,6 +120,19 @@ export function detailsScreen(shop: Workshop): View {
     { class: "mb-row-actions" },
     button({ label: "Add or change something", kind: "primary", onClick: () => shop.acts.go({ at: "kinds" }) }),
     button({ label: "Review it", onClick: () => shop.acts.go({ at: "verdict" }) }),
+    /* THE WAY OUT OF THE WIZARD, offered next to the way through it rather than
+     * hidden behind a setting. Somebody who wants a script, a manifest key no field
+     * here asks about, or a record file grouped into sections has outgrown these
+     * screens and should not have to guess that there is anywhere else to go. It is
+     * last in the row because it is the advanced door and not the front one. */
+    button({
+      label: "Edit the files directly",
+      tip:
+        "The same mod, as the text files it ships. Everything here is in them, and saving one puts what you " +
+        "wrote back into the mod. It is also the only way to add a script, a manifest key no screen offers, or " +
+        "a record file grouped into sections.",
+      onClick: () => shop.acts.go({ at: "files", path: "" }),
+    }),
     shop.seams.wizard.api !== undefined
       ? button({
           label: "Test it in the game",

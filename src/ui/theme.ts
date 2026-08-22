@@ -819,6 +819,152 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   margin-bottom: 4px;
 }
 
+/* ---------------------------------------------------------------- *
+ * The file editor                                                   *
+ * ---------------------------------------------------------------- *
+ *
+ * TWO LAYERS THAT MUST AGREE ON EVERY CHARACTER'S POSITION, so every property
+ * that can move one is written twice and identically: the family, the size, the
+ * line height IN PIXELS, the padding, the tab size and the white-space rule.
+ * A ratio line height is rounded per line and the picture drifts down a long
+ * file; a token span that changed weight or slant would change how wide its
+ * characters are. So the token classes below set a colour and nothing else, and
+ * the numbers here are the same numbers editor.ts does its arithmetic with.
+ */
+
+.mb-ed {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--edge);
+  border-radius: var(--r-sm);
+  background: var(--stone);
+  overflow: hidden;
+}
+.mb-ed-body { display: flex; min-height: 0; height: 52vh; }
+
+.mb-ed-gutter {
+  position: relative;
+  overflow: hidden;
+  flex: none;
+  width: 46px;
+  border-right: 1px solid var(--edge);
+  background: color-mix(in srgb, var(--stone) 60%, var(--surface));
+}
+.mb-ed-nums {
+  position: absolute;
+  top: 0;
+  right: 6px;
+  margin: 0;
+  padding: 8px 0;
+  text-align: right;
+  white-space: pre;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--ink-faint);
+  user-select: none;
+}
+
+.mb-ed-box { position: relative; flex: 1; min-width: 0; overflow: hidden; }
+
+.mb-ed-hl,
+.mb-ed-area {
+  margin: 0;
+  padding: 8px;
+  border: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: pre;
+  tab-size: 2;
+  letter-spacing: 0;
+  word-spacing: 0;
+}
+
+.mb-ed-hl {
+  position: absolute;
+  top: 0;
+  left: 0;
+  min-width: 100%;
+  color: var(--ink-dim);
+  pointer-events: none;
+  overflow: visible;
+}
+
+.mb-ed-area {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  resize: none;
+  overflow: auto;
+  background: transparent;
+  /* The text is drawn by the layer behind. The caret is not, so it stays visible
+   * and stays the reader's own colour. */
+  color: transparent;
+  caret-color: var(--gold-bright);
+  outline: none;
+}
+.mb-ed-area::selection { background: color-mix(in srgb, var(--focus) 40%, transparent); }
+.mb-ed-area:focus { outline: none; }
+
+/* Colour, and only colour. See the note at the top of this section. */
+.mb-t-str { color: #9fc98b; }
+.mb-t-num { color: #e0bb64; }
+.mb-t-key { color: #7cc5c8; }
+.mb-t-kw { color: #d79bd0; }
+.mb-t-lit { color: #f0a35e; }
+.mb-t-com { color: var(--ink-faint); }
+.mb-t-punc { color: var(--ink-dim); }
+.mb-t-head { color: var(--gold-bright); }
+.mb-t-code { color: #9fc98b; }
+.mb-t-match { color: var(--stone); background: var(--gold); border-radius: 2px; }
+
+:host(.mb-parchment) .mb-t-str { color: #2f5d34; }
+:host(.mb-parchment) .mb-t-num { color: #7a4d10; }
+:host(.mb-parchment) .mb-t-key { color: #17515a; }
+:host(.mb-parchment) .mb-t-kw { color: #6c2a72; }
+:host(.mb-parchment) .mb-t-lit { color: #8a3a12; }
+:host(.mb-parchment) .mb-t-code { color: #2f5d34; }
+:host(.mb-parchment) .mb-t-match { color: var(--surface-3); background: var(--gold); }
+
+.mb-ed-find {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--edge);
+  background: var(--surface-2);
+}
+.mb-ed-find-box { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 12px; }
+.mb-ed-find-count { font-size: 11px; color: var(--ink-faint); font-family: var(--font-mono); }
+
+.mb-ed-caret { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+
+.mb-ed-new { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
+.mb-ed-new input { flex: 1; min-width: 0; font-size: 12px; }
+
+.mb-ed-problems { display: flex; flex-direction: column; gap: 2px; }
+.mb-ed-problem {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  width: 100%;
+  padding: 4px 8px;
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 9%, transparent);
+  border: 0;
+  border-left: 2px solid var(--danger);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  cursor: pointer;
+}
+.mb-ed-problem:hover { background: color-mix(in srgb, var(--danger) 16%, transparent); }
+.mb-ed-problem-at { font-family: var(--font-mono); color: var(--ink-faint); flex: none; }
+
 .mb-empty {
   display: grid;
   place-items: center;

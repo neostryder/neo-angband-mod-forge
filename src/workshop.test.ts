@@ -821,3 +821,332 @@ describe("composition, which is the property an author cannot see", () => {
     expect(manifest.group).toBe("tweaks");
   });
 });
+
+/* ------------------------------------------------------------------ *
+ * The keyboard, which was not working and looked as though it was     *
+ * ------------------------------------------------------------------ */
+
+describe("keys reaching the thing they were aimed at", () => {
+  /**
+   * THE REGRESSION THIS EXISTS FOR was invisible to every other test in this file,
+   * and the reason is worth keeping written down: these tests set `value` and
+   * dispatch an `input` event, which is what a test does and not what a keyboard
+   * does. So a bug that stopped every real keystroke reaching every text field in
+   * the workshop passed the whole suite.
+   *
+   * The bug was that `event.target`, seen from a listener on the WINDOW, is
+   * retargeted to the shadow host - so the overlay's "is this aimed at something
+   * editable" question was being asked of a `div`, answered no, and every
+   * unmodified key was cancelled. `composedPath()[0]` is the real element.
+   */
+  it("does not cancel an ordinary keystroke aimed at a field inside the workshop", () => {
+    open = openWorkshop(ctx(), document);
+    control("Take me to my mods").click();
+    const idBox = shadow().querySelector<HTMLInputElement>('input[type="text"]');
+    if (!idBox) throw new Error("no id box on the mod list");
+    idBox.focus();
+
+    const key = new KeyboardEvent("keydown", { key: "a", bubbles: true, cancelable: true, composed: true });
+    idBox.dispatchEvent(key);
+    expect(key.defaultPrevented).toBe(false);
+  });
+
+  it("still cancels one aimed at nothing, so the game never acts on it", () => {
+    open = openWorkshop(ctx(), document);
+    const key = new KeyboardEvent("keydown", { key: "j", bubbles: true, cancelable: true, composed: true });
+    shadow().querySelector(".mb-frame")?.dispatchEvent(key);
+    expect(key.defaultPrevented).toBe(true);
+  });
+
+  it("lets Tab move focus inside the workshop", () => {
+    open = openWorkshop(ctx(), document);
+    const first = shadow().querySelector<HTMLElement>("button");
+    first?.focus();
+    const key = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true, composed: true });
+    first?.dispatchEvent(key);
+    expect(key.defaultPrevented).toBe(false);
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * The files, as text                                                  *
+ * ------------------------------------------------------------------ */
+
+describe("editing the mod as files", () => {
+  /** Open the workshop and get as far as a named mod with nothing in it. */
+  function walkToAMod(id = "raw-mod"): void {
+    open = openWorkshop(ctx(), document);
+    control("Take me to my mods").click();
+    const idBox = shadow().querySelector<HTMLInputElement>('input[type="text"]');
+    if (!idBox) throw new Error("no id box on the mod list");
+    type(idBox, id);
+    control("Start a new mod").click();
+  }
+
+  function addAMonster(): void {
+    control("Add or change something").click();
+    const creatures = [...shadow().querySelectorAll<HTMLElement>(".mb-kind")].find((el) =>
+      (el.textContent ?? "").includes("Creatures"),
+    );
+    [...(creatures?.querySelectorAll<HTMLButtonElement>("button") ?? [])]
+      .find((b) => (b.textContent ?? "").includes("Make a new one"))
+      ?.click();
+    [...shadow().querySelectorAll<HTMLElement>(".mb-listrow")]
+      .find((row) => (row.textContent ?? "").includes("grey wolf"))
+      ?.click();
+  }
+
+  function openFile(path: string): HTMLTextAreaElement {
+    [...shadow().querySelectorAll<HTMLElement>(".mb-listrow")]
+      .find((row) => (row.querySelector(".mb-listrow-name")?.textContent ?? "") === path)
+      ?.click();
+    const area = shadow().querySelector<HTMLTextAreaElement>("textarea.mb-ed-area");
+    if (!area) throw new Error(`no editor open for ${path}`);
+    return area;
+  }
+
+  function tryItButton(): HTMLButtonElement | undefined {
+    return [...shadow().querySelectorAll<HTMLButtonElement>("button")].find(
+      (b) => (b.textContent ?? "").trim() === "Try it in the game",
+    );
+  }
+
+  it("is reachable from the mod's own screen, as the advanced way rather than the way", () => {
+    walkToAMod();
+    expect(buttonNames()).toContain("Edit the files directly");
+    control("Edit the files directly").click();
+    expect(screenText()).toContain("The mod, as files");
+    expect(screenText()).toContain("manifest.json");
+  });
+
+  it("colours what it opens, in spans built from text and never from markup", () => {
+    walkToAMod();
+    control("Edit the files directly").click();
+    const area = openFile("manifest.json");
+
+    const picture = shadow().querySelector(".mb-ed-hl");
+    const spans = [...(picture?.querySelectorAll("span") ?? [])];
+    expect(spans.length).toBeGreaterThan(3);
+    /* A key and a string at least: this is a manifest. */
+    expect(spans.some((span) => span.className === "mb-t-key")).toBe(true);
+    expect(spans.some((span) => span.className === "mb-t-str")).toBe(true);
+    /* The picture says exactly what the textarea says, or the two have slid apart.
+     * The trailing newline is the sentinel that stops a `pre` swallowing the last
+     * blank line, which is what would make them disagree by one from then on. */
+    expect(picture?.textContent).toBe(area.value + "\n");
+  });
+
+  it("numbers the lines, one for one with the text", () => {
+    walkToAMod();
+    control("Edit the files directly").click();
+    const area = openFile("manifest.json");
+    const numbers = (shadow().querySelector(".mb-ed-nums")?.textContent ?? "").split("\n");
+    expect(numbers).toHaveLength(area.value.split("\n").length);
+    expect(numbers[0]).toBe("1");
+  });
+
+  /**
+   * THE WHOLE POINT, in one test and then again in the other direction: the raw
+   * text and the wizard screens are two views of one mod, not two mods.
+   */
+  it("puts a hand-typed record into the mod, where the other screens see it", () => {
+    walkToAMod();
+    addAMonster();
+    control("Raw Mod").click();
+    control("Edit the files directly").click();
+    const area = openFile("monster.json");
+
+    const body = JSON.parse(area.value) as { records: Record<string, unknown>[] };
+    const first = body.records[0] as Record<string, unknown>;
+    first["name"] = "typed by hand";
+    type(area, JSON.stringify(body, null, 2) + "\n");
+    control("Save into the mod").click();
+    expect(screenText()).toContain("Saved monster.json");
+
+    /* Back to the screen that knows nothing about text, and there it is. */
+    control("Raw Mod").click();
+    expect(screenText()).toContain("typed by hand");
+  });
+
+  it("shows a change made on a wizard screen in the file, without being told", () => {
+    walkToAMod();
+    addAMonster();
+    type(fieldInput("name"), "made by clicking");
+
+    control("Raw Mod").click();
+    control("Edit the files directly").click();
+    const area = openFile("monster.json");
+    expect(area.value).toContain("made by clicking");
+  });
+
+  it("refuses to write over a change that arrived while the file was open", () => {
+    walkToAMod();
+    addAMonster();
+    type(fieldInput("name"), "first");
+
+    /* Start editing the file as text, and leave the edit unsaved. */
+    control("Raw Mod").click();
+    control("Edit the files directly").click();
+    const area = openFile("monster.json");
+    type(area, area.value.replace(/"name": "first"/, '"name": "from the editor"'));
+
+    /* Now change the same record from the screen that knows nothing about text.
+     * The unsaved buffer is still there when the file is opened again, and what it
+     * was opened FROM no longer matches what the mod says. */
+    control("Raw Mod").click();
+    [...shadow().querySelectorAll<HTMLElement>(".mb-listrow")]
+      .find((row) => (row.textContent ?? "").includes("first"))
+      ?.click();
+    type(fieldInput("name"), "second");
+
+    control("Raw Mod").click();
+    control("Edit the files directly").click();
+    const again = openFile("monster.json");
+    expect(again.value).toContain("from the editor");
+
+    control("Save into the mod").click();
+    expect(screenText()).toContain("has changed in the mod since you opened it");
+    /* And the way through is offered rather than left to be worked out. */
+    expect(buttonNames()).toContain("Save anyway");
+
+    /* Taking that way through keeps what the editor holds, wholesale. */
+    control("Save anyway").click();
+    expect(screenText()).toContain("Saved monster.json");
+    control("Raw Mod").click();
+    expect(screenText()).toContain("from the editor");
+  });
+
+  it("writes a script the workshop itself cannot write, and declares it in the manifest", () => {
+    walkToAMod("code-mod");
+    control("Edit the files directly").click();
+    control("Start a plugin.js").click();
+
+    const area = shadow().querySelector<HTMLTextAreaElement>("textarea.mb-ed-area");
+    expect(area?.value).toContain("export default");
+
+    /* The two keys the host needs before it will import a plugin, both written,
+     * because either one alone is a mod that installs and does nothing. */
+    const manifest = JSON.parse(openFile("manifest.json").value) as {
+      facets?: string[];
+      modApi?: number;
+      shape?: string;
+    };
+    expect(manifest.facets).toContain("plugin");
+    expect(manifest.facets).toContain(manifest.shape);
+    expect(manifest.modApi).toBe(1);
+  });
+
+  it("turns off trying it for a session the moment a script exists, and says why", () => {
+    walkToAMod("code-mod-2");
+    expect(tryItButton()?.disabled).toBe(false);
+
+    control("Edit the files directly").click();
+    control("Start a plugin.js").click();
+
+    expect(tryItButton()?.disabled).toBe(true);
+    expect(tryItButton()?.dataset["tip"]).toContain("Import a zip");
+  });
+
+  it("refuses a path the installer would refuse, before the file is made", () => {
+    walkToAMod();
+    control("Edit the files directly").click();
+    const box = shadow().querySelector<HTMLInputElement>(".mb-ed-new input");
+    if (!box) throw new Error("no new-file box");
+    type(box, "../escape.js");
+    expect(screenText()).toContain("cannot use . or ..");
+    const add = [...shadow().querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "Add it");
+    expect(add?.disabled).toBe(true);
+  });
+
+  /**
+   * FOUND BY DRIVING A REAL BROWSER, and it could not have been found here: the
+   * first version of this kept every buffer it had ever opened, so opening a file,
+   * saving it, changing the same record on a wizard screen and opening the file
+   * again showed the text from before that change. Every test in this file opened
+   * each file once, so none of them went near it.
+   */
+  it("shows a wizard change in a file that has already been opened once", () => {
+    walkToAMod();
+    addAMonster();
+    type(fieldInput("name"), "first");
+
+    control("Raw Mod").click();
+    control("Edit the files directly").click();
+    expect(openFile("monster.json").value).toContain("first");
+
+    /* Leave with nothing unsaved, change the record on the screen that knows
+     * nothing about text, and come back. */
+    control("Raw Mod").click();
+    [...shadow().querySelectorAll<HTMLElement>(".mb-listrow")]
+      .find((row) => (row.textContent ?? "").includes("first"))
+      ?.click();
+    type(fieldInput("name"), "second");
+
+    control("Raw Mod").click();
+    control("Edit the files directly").click();
+    expect(openFile("monster.json").value).toContain("second");
+  });
+
+  it("keeps unsaved work when the same file is opened again", () => {
+    walkToAMod();
+    addAMonster();
+    control("Raw Mod").click();
+    control("Edit the files directly").click();
+    const area = openFile("monster.json");
+    type(area, area.value.replace(/"name": "[^"]*"/, '"name": "still typing"'));
+
+    /* Away and back. A dirty buffer is the reader's, and clicking a name twice is
+     * not a reason to throw it away. */
+    control("Raw Mod").click();
+    control("Edit the files directly").click();
+    expect(openFile("monster.json").value).toContain("still typing");
+  });
+
+  /**
+   * The chords, dispatched at the window because that is where the overlay listens
+   * and therefore the only place a key is ever seen. A real browser proved the
+   * browser delivers them there; this proves the shell routes them correctly once
+   * it has them.
+   */
+  it("sends the save chord to the file rather than to the download", () => {
+    walkToAMod();
+    addAMonster();
+    control("Raw Mod").click();
+    control("Edit the files directly").click();
+    const area = openFile("monster.json");
+    area.focus();
+    type(area, area.value.replace(/"name": "[^"]*"/, '"name": "saved with a chord"'));
+
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "s", ctrlKey: true, bubbles: true, cancelable: true, composed: true }),
+    );
+    expect(screenText()).toContain("Saved monster.json");
+  });
+
+  it("leaves the undo chord to the textarea while the caret is in one", () => {
+    walkToAMod();
+    addAMonster();
+    control("Raw Mod").click();
+    control("Edit the files directly").click();
+    const area = openFile("monster.json");
+    area.focus();
+
+    /* Aimed at the editor: unclaimed, so the browser's own history handles it and
+     * the mod is left alone. Aimed anywhere else: the workshop's undo. */
+    const inside = new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true, cancelable: true, composed: true });
+    area.dispatchEvent(inside);
+    expect(inside.defaultPrevented).toBe(false);
+
+    const outside = new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true, cancelable: true, composed: true });
+    shadow().querySelector(".mb-frame")?.dispatchEvent(outside);
+    expect(outside.defaultPrevented).toBe(true);
+  });
+
+  it("says what its check on a script does and does not cover", () => {
+    walkToAMod("honest-mod");
+    control("Edit the files directly").click();
+    control("Start a plugin.js").click();
+    expect(screenText()).toContain("Quotes, comments and brackets only");
+    expect(screenText()).toContain("not a syntax check");
+  });
+});

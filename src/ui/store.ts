@@ -39,7 +39,23 @@ export type Route =
   | { readonly at: "record"; readonly change: number; readonly path: string }
   | { readonly at: "rebalance"; readonly file: string }
   | { readonly at: "verdict" }
-  | { readonly at: "test" };
+  | { readonly at: "test" }
+  /** The file editor. An empty path means the list with nothing open. */
+  | { readonly at: "files"; readonly path: string };
+
+/**
+ * One file open in the editor and not yet saved.
+ *
+ * `from` is the text the editor was HANDED, kept verbatim rather than recomputed.
+ * That is what makes the stale check mean something: on save, the file's text is
+ * derived again from the draft as it now stands and compared against this, so a
+ * change that arrived from somewhere else while the author was typing is seen
+ * instead of being flattened.
+ */
+export interface Buffer {
+  readonly text: string;
+  readonly from: string;
+}
 
 /** The build verdict, and whether it is still the answer to the current draft. */
 export interface Verdict {
@@ -69,6 +85,16 @@ export interface AppState {
   readonly collapsed: Readonly<Record<string, boolean>>;
   /** The field the inspector is describing, as a path inside the open record. */
   readonly focusField?: string | undefined;
+  /**
+   * Files open in the editor with unsaved text in them, by path.
+   *
+   * VIEW STATE, DELIBERATELY. It is not undoable, because undo belongs to the mod
+   * and a textarea has its own; and it is not persisted, because a store of file
+   * text that outlived the session would be the second copy of the project this
+   * whole design exists to avoid. What that costs is real and is said on the screen:
+   * a reload loses whatever has not been saved into the mod.
+   */
+  readonly buffers: Readonly<Record<string, Buffer>>;
   /** A transient line at the foot of the screen. */
   readonly notice?: { readonly text: string; readonly tone: "good" | "bad" | "plain" } | undefined;
   /** True once the player has been told what the demonstration banner means. */
@@ -84,6 +110,7 @@ export function initialState(drafts: Readonly<Record<string, Draft>>, seenTour: 
     showAllFields: false,
     filter: "",
     collapsed: {},
+    buffers: {},
     seenTour,
   };
 }
