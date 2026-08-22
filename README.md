@@ -88,6 +88,32 @@ Tab and Shift-Tab to indent and outdent, `Ctrl+F` to find, `Ctrl+S` to save the
 file, and a line and column readout. `Ctrl+Z` in the editor is the browser's own
 undo over your typing; `Ctrl+Z` anywhere else is the workshop's undo over the mod.
 
+**Brackets and quotes close themselves**, and the rules that stop that being a
+nuisance are worth knowing. A pair only appears where a closer could go - at the
+end of a line, before whitespace, or before something that already closes - so
+typing `(` in front of a word inserts one character and nothing else. Typing the
+closing character when it is already there steps over it instead of doubling it.
+Backspace or Delete between an empty pair takes both. A selection is wrapped rather
+than replaced, so selecting a word and typing `"` quotes it. Enter inside an empty
+pair opens the block with the closer on its own line. JSON pairs the one quote it
+has and not an apostrophe; Markdown and plain text pair nothing at all, because
+prose is full of brackets that never close.
+
+**A record file is checked as you type, by the same checker the record screens
+use.** Not a weaker copy of it: the text is parsed through the same code a save
+goes through, composed on top of the game, and handed to the engine's own record
+checker, so a field whose value is the wrong type, a field name that is spelled
+wrong, a reference to something nothing defines and a record that will never be
+generated all appear under the editor with the line they are on. Click one to go to
+it. Each row says which rule found it.
+
+One rule is the workshop's own and is labelled as such: a value outside the set of
+values the game's own records use for that field. The engine's checker does not say
+this, deliberately, because a mod coining a new value is doing something legal. So
+it is a hint, its rule id is `workshop/vocabulary`, and the line under the pane says
+in words that the game will not repeat it. It catches the case nothing else can: a
+perfectly valid string, of the right type, in a field that exists, spelled wrong.
+
 **Three things are only possible here**, and they are why it exists rather than
 being a viewer:
 
@@ -103,9 +129,14 @@ being a viewer:
   folder exactly as typed.
 
 **What it will not pretend.** The check under a JSON file is the same parser the
-game uses, so a clean file is really clean. The check under a script is quotes,
-comments and brackets, and it says so: it is not a syntax check, there is no
-compiler in a browser tab, and code that passes it can still be wrong. A mod that
+game uses, so a clean file is really clean. The record checks are only as good as
+the checker this game can lend the workshop: where it cannot lend one, a row at the
+top of the pane says so and does not go away, and everything below it is the
+workshop's smaller stand-in rather than the game's. A clean record file is also not
+a clean mod, so the pane counts what the same check found elsewhere and points at
+the review screen. The check under a script is quotes, comments and brackets, and it
+says so: it is not a syntax check, there is no compiler in a browser tab, and code
+that passes it can still be wrong. A mod that
 ships a script also cannot be tried for a session, because that door takes content
 only - save it as a file and add it with `Import a zip`, which is the door that
 runs code and asks you first. The button says which of those you are looking at
@@ -281,10 +312,29 @@ To look at the workshop in a browser with no game at all:
 npm run preview
 ```
 
-That serves the repository and opens a harness page which builds the narrowest
-context the mod actually reads, hands it to the plugin, and taps the tab. Every
-seam is absent there, which is exactly the state a player is in today, so what
-appears is what appears in the game.
+That serves the repository on the loopback interface and opens a harness page which
+builds the narrowest context the mod actually reads, hands it to the plugin, and
+taps the tab. Every seam is absent there, which is exactly the state a player is in
+today, so what appears is what appears in the game. The same `plugin.js` loaded by
+the real game is the one this page loads, so the two are the same mod and not two
+builds of it.
+
+Adding `?authoring=sdk` to that page puts the real mod SDK behind `ctx.authoring`,
+which is the one seam a harness can honestly supply: the SDK is already a
+devDependency here, its `dist` is plain ES modules, and the preview server serves
+the repository. It is not the default, because the default has to be what a player
+gets. It matters for anything that reads a field's measured shape, because the
+stand-in in `src/host/authoring-stub.ts` is a deliberately small subset with no
+field-type rule and none of the companion rules - so a check that passes against
+the stand-in has been shown very little.
+
+`ctx.composedRecords` is still the fixture even with that flag, and there is no way
+around it: the published core package carries the engine's code and not its content
+pack, so the game's own records are not obtainable outside the game. The blueprints
+are real, because they are generated data that ships inside the SDK. Anything that
+reads the whole composed world, such as a dangling reference or the flavour-pressure
+warning, is still measured against a few dozen invented records, and the workshop's
+own banner keeps saying so.
 
 ## Licence
 

@@ -965,6 +965,22 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
 .mb-ed-problem:hover { background: color-mix(in srgb, var(--danger) 16%, transparent); }
 .mb-ed-problem-at { font-family: var(--font-mono); color: var(--ink-faint); flex: none; }
 
+/* A CHECK FINDING IS THE SAME ROW, COLOURED BY WHAT IT COSTS. A syntax fault carries
+   no level and keeps the plain danger colouring above, because a file that is not
+   JSON is not a matter of degree. */
+.mb-ed-problem[data-level] {
+  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 9%, transparent);
+  border-left-color: var(--tone);
+}
+.mb-ed-problem[data-level]:hover { background: color-mix(in srgb, var(--tone) 16%, transparent); }
+.mb-ed-problem[data-still] { cursor: default; }
+.mb-ed-problem[data-level="error"] { --tone: var(--danger); }
+.mb-ed-problem[data-level="warn"] { --tone: var(--warn); }
+.mb-ed-problem[data-level="hint"] { --tone: var(--focus); }
+.mb-ed-problem-text { flex: 1; min-width: 0; }
+.mb-ed-problem-rule { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); flex: none; }
+
 .mb-empty {
   display: grid;
   place-items: center;

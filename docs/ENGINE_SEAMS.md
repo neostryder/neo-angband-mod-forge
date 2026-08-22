@@ -97,6 +97,19 @@ dismiss. It cannot draft against core's real 3279 records, so no suggestion and
 no peer table is evidence about the real game, and `emit` produces files that are
 structurally right and content that is not worth installing.
 
+**One extension this seam would carry, if it lands.** `RecordBlueprint` measures a
+closed set of values for a field where core's data has one, and `checkRecords`
+reads it for nothing: `values` is used to pick a placeholder and never to check
+one. The header in `authoring.ts` explains why, and the reasoning holds - a mod
+coining a new tval or a new slay code is doing something legal, so an unlisted
+value can never be an error. It can be a HINT, and today it is not one, which
+leaves an author who mistyped one of twenty-six colour codes with nothing to read.
+The workshop says it instead, under its own `workshop/` rule id and with the pane
+declaring that the game will not repeat it, which is honest and is not where the
+rule belongs: the same measurement is now read by two consumers that each decide
+for themselves what it means. An advisory `field/vocabulary` rule inside
+`checkRecords` would give the form and the text editor one answer instead of two.
+
 **Rejected alternative, recorded so it is not proposed again.** The mod could
 ship its own copy of the measured statistics, regenerated from the installed SDK
 at release time. That is roughly 300KB of duplicated payload, it drifts from the

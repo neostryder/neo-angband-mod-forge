@@ -50,6 +50,7 @@
  */
 
 import { h } from "./dom.js";
+import type { LintFinding } from "../model/lint.js";
 import type { Language, SyntaxProblem, TokenClass } from "../model/syntax.js";
 import { lineStarts, matchingBrackets, offsetAt, positionAt, tokenize } from "../model/syntax.js";
 
@@ -73,6 +74,61 @@ export const PAD = 8;
 
 /** What one press of Tab inserts. Two spaces, as every emitted file uses. */
 const INDENT = "  ";
+
+/**
+ * The brackets that close themselves, and what closes them.
+ *
+ * AN EARLIER VERSION OF THIS FILE REFUSED TO DO THIS, on the grounds that a tool
+ * which types a character nobody asked for is a tool that has to be fought at the
+ * end of every line. The objection is right about the naive version and wrong about
+ * this one, and the difference is the four rules below. Every one of them exists
+ * because leaving it out is what makes auto-closing something to be fought:
+ *
+ *  1. IT ONLY CLOSES WHERE A CLOSER COULD GO. The pair is inserted when what
+ *     follows the caret is the end of the line, whitespace, or something that
+ *     itself closes or separates. Typing `(` immediately before a word inserts one
+ *     character, because wrapping the word was not what was asked for.
+ *  2. TYPING THE CLOSER STEPS OVER IT. The reader who types `}` when the next
+ *     character is already `}` gets their caret moved past it and no second brace,
+ *     so finishing a block by typing it out works exactly as it did before.
+ *  3. BACKSPACE AND DELETE TAKE BOTH. An empty pair is one thing to the reader, so
+ *     it is one thing to the keyboard, and rejecting an unwanted pair costs the
+ *     same one keystroke that accepting it did.
+ *  4. A SELECTION IS WRAPPED, NOT REPLACED. Which is the only behaviour that turns
+ *     "quote this" into a gesture rather than into losing the selected text.
+ *
+ * Nothing here runs on a paste: a paste is an `input` event and never a `keydown`,
+ * so a pasted `)` cannot grow a partner. Nothing here runs mid-composition either,
+ * because the overlay drops every key while an input method is composing.
+ */
+const PAIRS: Readonly<Record<string, string>> = { "{": "}", "[": "]", "(": ")" };
+
+/**
+ * The quotes that close themselves, PER LANGUAGE, because the answer differs.
+ *
+ * JSON has exactly one string delimiter, so pairing an apostrophe there would be
+ * the editor typing a character that cannot be valid in the file it is in. Markdown
+ * and plain text get nothing at all, brackets included: prose is full of unmatched
+ * parentheses and apostrophes, and an editor that closed them would be wrong on
+ * almost every line.
+ */
+const QUOTES: Readonly<Record<Language, readonly string[]>> = {
+  json: ['"'],
+  js: ['"', "'", "`"],
+  markdown: [],
+  text: [],
+};
+
+/**
+ * What may follow the caret for a pair to be worth closing.
+ *
+ * End of text counts, and is handled by the caller rather than by this expression,
+ * because there is no character to test.
+ */
+const MAY_PRECEDE_CLOSE = /[\s)\]},;:]/;
+
+/** A character a quote will not attach itself to, so an apostrophe stays an apostrophe. */
+const WORDISH = /[\p{L}\p{N}_]/u;
 
 /**
  * Above this many characters, nothing is coloured.
@@ -327,9 +383,14 @@ export function codeEditor(options: CodeEditorOptions): CodeEditor {
    * A new line that starts where the last one did.
    *
    * Plus one more level when the line being left ends in an opening bracket, which
-   * is the whole of the auto-indentation here. Nothing closes a bracket for the
-   * reader: a tool that types a character nobody asked for is a tool that has to be
-   * fought at the end of every line.
+   * is the whole of the auto-indentation here.
+   *
+   * AND THE ONE CASE THE TWO FEATURES SHARE. Pressing Enter with the caret inside
+   * an empty pair opens the block: the closer goes down to its own line at the
+   * outer indent and the caret waits on the line between them. Without that, the
+   * auto-closer and the auto-indenter fight - one has just put a `}` next to the
+   * caret and the other pushes it along to the end of the new line, which leaves
+   * `{` and `}` on separate lines with the wrong one indented.
    */
   const newline = (): void => {
     const text = area.value;
@@ -337,7 +398,112 @@ export function codeEditor(options: CodeEditorOptions): CodeEditor {
     const start = offsetAt(text, positionAt(text, at).line, 1);
     const lead = /^[ \t]*/.exec(text.slice(start, at))?.[0] ?? "";
     const opens = /[{[(]\s*$/.test(text.slice(start, at));
+
+    const before = at > 0 ? text[at - 1] : undefined;
+    const after = text[at];
+    if (at === area.selectionEnd && before !== undefined && PAIRS[before] !== undefined && after === PAIRS[before]) {
+      const inner = `\n${lead}${INDENT}`;
+      replaceRange(at, at, `${inner}\n${lead}`);
+      area.setSelectionRange(at + inner.length, at + inner.length);
+      return;
+    }
+
     replaceRange(at, area.selectionEnd, `\n${lead}${opens ? INDENT : ""}`);
+  };
+
+  /**
+   * Whether an offset is inside a string or a comment, as the colourer sees it.
+   *
+   * Asked before a quote closes itself, so that typing an apostrophe in the middle
+   * of a sentence inside a description does not grow a partner. False for a file too
+   * big to colour, which is the same answer that file gets everywhere else: the
+   * simple rules still apply and the expensive one is skipped.
+   */
+  const inLiteral = (at: number): boolean => {
+    if (!colouring()) return false;
+    for (const token of tokenize(lang, area.value)) {
+      if (token.cls !== "str" && token.cls !== "com") continue;
+      if (at > token.at && at < token.to) return true;
+    }
+    return false;
+  };
+
+  /**
+   * Close a bracket or a quote for the reader, or step over one they typed out.
+   *
+   * True when the key was dealt with here. False leaves it to the browser, which is
+   * how an ordinary character stays an ordinary character.
+   */
+  const autoClose = (ch: string): boolean => {
+    if (lang === "markdown" || lang === "text") return false;
+    const text = area.value;
+    const start = area.selectionStart;
+    const end = area.selectionEnd;
+    const quote = QUOTES[lang].includes(ch);
+    const close = PAIRS[ch];
+
+    if (start !== end) {
+      /* WRAP, NEVER REPLACE. And never double a closer that is already there, so
+       * selecting `foo` and typing `(` gives `(foo)` and selecting `(foo)` and
+       * typing `(` gives `((foo))` rather than something with three of each. */
+      if (close === undefined && !quote) return false;
+      const partner = close ?? ch;
+      const selected = text.slice(start, end);
+      replaceRange(start, end, `${ch}${selected}${partner}`);
+      area.setSelectionRange(start + 1, start + 1 + selected.length);
+      return true;
+    }
+
+    const next = text[start];
+
+    /* Typing the closer that is already sitting there. Selection only, so the
+     * browser's undo stack does not record a caret move as an edit. */
+    if (next === ch && (quote || Object.values(PAIRS).includes(ch))) {
+      area.setSelectionRange(start + 1, start + 1);
+      reportCaret();
+      schedulePaint();
+      return true;
+    }
+
+    if (close === undefined && !quote) return false;
+    if (next !== undefined && !MAY_PRECEDE_CLOSE.test(next)) return false;
+
+    if (quote) {
+      const previous = start > 0 ? text[start - 1] : undefined;
+      /* An apostrophe after a letter is a possessive, a quote after a backslash is
+       * an escape, and a quote inside a string is the reader closing that string by
+       * hand. None of the three wants a partner. */
+      if (previous !== undefined && (WORDISH.test(previous) || previous === "\\" || previous === ch)) return false;
+      if (inLiteral(start)) return false;
+    }
+
+    replaceRange(start, start, `${ch}${close ?? ch}`);
+    area.setSelectionRange(start + 1, start + 1);
+    reportCaret();
+    return true;
+  };
+
+  /**
+   * Take out both halves of an empty pair with one press.
+   *
+   * Bound to Backspace AND to Delete, which do the same thing here because the
+   * caret sits between the two characters and there is exactly one thing in front
+   * of it either way. Both are here because rejecting a pair the editor offered has
+   * to cost the one keystroke that accepting it did, whichever key the reader
+   * reaches for.
+   */
+  const rubOutPair = (): boolean => {
+    if (lang === "markdown" || lang === "text") return false;
+    if (area.selectionStart !== area.selectionEnd) return false;
+    const text = area.value;
+    const at = area.selectionStart;
+    const before = at > 0 ? text[at - 1] : undefined;
+    const after = text[at];
+    if (before === undefined || after === undefined) return false;
+    const paired = PAIRS[before] === after || (QUOTES[lang].includes(before) && before === after);
+    if (!paired) return false;
+    replaceRange(at - 1, at + 1, "");
+    return true;
   };
 
   /* ---------------------------------------------------------------- *
@@ -498,6 +664,10 @@ export function codeEditor(options: CodeEditorOptions): CodeEditor {
         newline();
         return true;
       }
+      if ((key === "Backspace" || key === "Delete") && !chord && !event.altKey && rubOutPair()) return true;
+      /* A bracket or a quote, and nothing else: `key.length === 1` is what tells a
+       * character apart from "ArrowLeft" without a list of every name a key has. */
+      if (key.length === 1 && !chord && !event.altKey && autoClose(key)) return true;
       return false;
     },
     dispose() {
@@ -527,4 +697,30 @@ export function problemRow(problem: SyntaxProblem, onClick: () => void): HTMLEle
     h("span", { class: "mb-ed-problem-at", text: `${problem.line}:${problem.column}` }),
     h("span", { text: problem.message }),
   );
+}
+
+/**
+ * A check finding, as one row.
+ *
+ * A BUTTON WHEN IT HAS A PLACE AND A PARAGRAPH WHEN IT DOES NOT. A finding the
+ * locator could not place in the text is still worth showing and is not worth
+ * clicking, and a control that looks clickable and goes nowhere is the thing that
+ * teaches a reader to stop clicking the ones that do.
+ */
+export function findingRow(finding: LintFinding, onClick: () => void): HTMLElement {
+  const placed = finding.line !== undefined;
+  const where = placed
+    ? `${finding.line}:${finding.column}`
+    : finding.record === undefined
+      ? "this file"
+      : finding.record;
+  const parts = [
+    h("span", { class: "mb-ed-problem-at", text: where }),
+    h("span", { class: "mb-ed-problem-text", text: finding.message }),
+    h("span", { class: "mb-ed-problem-rule", text: finding.rule }),
+  ];
+  const attrs = { class: "mb-ed-problem", data: { level: finding.level } };
+  return placed
+    ? h("button", { ...attrs, type: "button", on: { click: onClick } }, ...parts)
+    : h("div", { ...attrs, data: { level: finding.level, still: "1" } }, ...parts);
 }

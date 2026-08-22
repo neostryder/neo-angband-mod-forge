@@ -476,13 +476,13 @@ function editDistance(a, b) {
 function measureField(values, total) {
   const types = /* @__PURE__ */ new Set();
   const numbers = [];
-  const vocabulary = /* @__PURE__ */ new Set();
+  const vocabulary2 = /* @__PURE__ */ new Set();
   const childValues = /* @__PURE__ */ new Map();
   const itemValues = [];
   for (const value of values) {
     types.add(shapeOf(value));
     if (typeof value === "number") numbers.push(value);
-    if (typeof value === "string" || typeof value === "boolean") vocabulary.add(value);
+    if (typeof value === "string" || typeof value === "boolean") vocabulary2.add(value);
     if (Array.isArray(value)) for (const item of value) itemValues.push(item);
     else if (isRecord(value)) {
       for (const [k, v] of Object.entries(value)) {
@@ -507,8 +507,8 @@ function measureField(values, total) {
     shape.fields = fields;
   }
   if (itemValues.length > 0) shape.items = measureField(itemValues, itemValues.length);
-  if (vocabulary.size > 0 && vocabulary.size <= Math.max(2, Math.floor(total / 2))) {
-    shape.values = [...vocabulary].sort((a, b) => String(a).localeCompare(String(b)));
+  if (vocabulary2.size > 0 && vocabulary2.size <= Math.max(2, Math.floor(total / 2))) {
+    shape.values = [...vocabulary2].sort((a, b) => String(a).localeCompare(String(b)));
   }
   return shape;
 }
@@ -2874,7 +2874,7 @@ function installTooltips(root, doc2) {
     tip.dataset["shown"] = "0";
     return true;
   };
-  const place = (anchor, text) => {
+  const place2 = (anchor, text) => {
     tip.textContent = text;
     tip.dataset["shown"] = "1";
     showing = anchor;
@@ -2909,7 +2909,7 @@ function installTooltips(root, doc2) {
     }
     if (showing === found.el) return;
     if (timer !== void 0) clearTimeout(timer);
-    timer = setTimeout(() => place(found.el, found.text), HOVER_DELAY);
+    timer = setTimeout(() => place2(found.el, found.text), HOVER_DELAY);
   };
   const onOut = () => {
     hide();
@@ -2921,7 +2921,7 @@ function installTooltips(root, doc2) {
       return;
     }
     if (timer !== void 0) clearTimeout(timer);
-    place(found.el, found.text);
+    place2(found.el, found.text);
   };
   const listeners = [
     ["pointerover", onOver],
@@ -4180,6 +4180,15 @@ function jsProblems(text) {
 // src/ui/editor.ts
 var LINE_HEIGHT = 18;
 var INDENT = "  ";
+var PAIRS = { "{": "}", "[": "]", "(": ")" };
+var QUOTES = {
+  json: ['"'],
+  js: ['"', "'", "`"],
+  markdown: [],
+  text: []
+};
+var MAY_PRECEDE_CLOSE = /[\s)\]},;:]/;
+var WORDISH = /[\p{L}\p{N}_]/u;
 var COLOUR_CEILING = 2e5;
 var PROMPT_CEILING = 4e4;
 var REPAINT_DELAY = 140;
@@ -4328,8 +4337,73 @@ function codeEditor(options) {
     const start = offsetAt(text, positionAt(text, at).line, 1);
     const lead = /^[ \t]*/.exec(text.slice(start, at))?.[0] ?? "";
     const opens = /[{[(]\s*$/.test(text.slice(start, at));
+    const before = at > 0 ? text[at - 1] : void 0;
+    const after = text[at];
+    if (at === area.selectionEnd && before !== void 0 && PAIRS[before] !== void 0 && after === PAIRS[before]) {
+      const inner = `
+${lead}${INDENT}`;
+      replaceRange(at, at, `${inner}
+${lead}`);
+      area.setSelectionRange(at + inner.length, at + inner.length);
+      return;
+    }
     replaceRange(at, area.selectionEnd, `
 ${lead}${opens ? INDENT : ""}`);
+  };
+  const inLiteral = (at) => {
+    if (!colouring()) return false;
+    for (const token of tokenize(lang, area.value)) {
+      if (token.cls !== "str" && token.cls !== "com") continue;
+      if (at > token.at && at < token.to) return true;
+    }
+    return false;
+  };
+  const autoClose = (ch) => {
+    if (lang === "markdown" || lang === "text") return false;
+    const text = area.value;
+    const start = area.selectionStart;
+    const end = area.selectionEnd;
+    const quote = QUOTES[lang].includes(ch);
+    const close = PAIRS[ch];
+    if (start !== end) {
+      if (close === void 0 && !quote) return false;
+      const partner = close ?? ch;
+      const selected = text.slice(start, end);
+      replaceRange(start, end, `${ch}${selected}${partner}`);
+      area.setSelectionRange(start + 1, start + 1 + selected.length);
+      return true;
+    }
+    const next = text[start];
+    if (next === ch && (quote || Object.values(PAIRS).includes(ch))) {
+      area.setSelectionRange(start + 1, start + 1);
+      reportCaret();
+      schedulePaint();
+      return true;
+    }
+    if (close === void 0 && !quote) return false;
+    if (next !== void 0 && !MAY_PRECEDE_CLOSE.test(next)) return false;
+    if (quote) {
+      const previous = start > 0 ? text[start - 1] : void 0;
+      if (previous !== void 0 && (WORDISH.test(previous) || previous === "\\" || previous === ch)) return false;
+      if (inLiteral(start)) return false;
+    }
+    replaceRange(start, start, `${ch}${close ?? ch}`);
+    area.setSelectionRange(start + 1, start + 1);
+    reportCaret();
+    return true;
+  };
+  const rubOutPair = () => {
+    if (lang === "markdown" || lang === "text") return false;
+    if (area.selectionStart !== area.selectionEnd) return false;
+    const text = area.value;
+    const at = area.selectionStart;
+    const before = at > 0 ? text[at - 1] : void 0;
+    const after = text[at];
+    if (before === void 0 || after === void 0) return false;
+    const paired = PAIRS[before] === after || QUOTES[lang].includes(before) && before === after;
+    if (!paired) return false;
+    replaceRange(at - 1, at + 1, "");
+    return true;
   };
   const showFind = (on) => {
     findBar.style.display = on ? "" : "none";
@@ -4468,6 +4542,8 @@ ${lead}${opens ? INDENT : ""}`);
         newline();
         return true;
       }
+      if ((key === "Backspace" || key === "Delete") && !chord && !event.altKey && rubOutPair()) return true;
+      if (key.length === 1 && !chord && !event.altKey && autoClose(key)) return true;
       return false;
     },
     dispose() {
@@ -4491,6 +4567,270 @@ function problemRow(problem, onClick) {
     h("span", { class: "mb-ed-problem-at", text: `${problem.line}:${problem.column}` }),
     h("span", { text: problem.message })
   );
+}
+function findingRow(finding, onClick) {
+  const placed = finding.line !== void 0;
+  const where = placed ? `${finding.line}:${finding.column}` : finding.record === void 0 ? "this file" : finding.record;
+  const parts = [
+    h("span", { class: "mb-ed-problem-at", text: where }),
+    h("span", { class: "mb-ed-problem-text", text: finding.message }),
+    h("span", { class: "mb-ed-problem-rule", text: finding.rule })
+  ];
+  const attrs = { class: "mb-ed-problem", data: { level: finding.level } };
+  return placed ? h("button", { ...attrs, type: "button", on: { click: onClick } }, ...parts) : h("div", { ...attrs, data: { level: finding.level, still: "1" } }, ...parts);
+}
+
+// src/model/lint.ts
+var NOTHING = { findings: [], elsewhere: 0, checked: false };
+function lintFile(api, draft, records, path, text) {
+  const kind = classify(api, path);
+  if (kind === "extra") {
+    return { ...NOTHING, why: "This file is yours, so nothing here has an opinion about what is in it." };
+  }
+  if (text.trim() === "" && kind === "manifest") {
+    return { ...NOTHING, why: "There is no manifest here to check." };
+  }
+  let parsed;
+  try {
+    parsed = text.trim() === "" ? {} : JSON.parse(text);
+  } catch {
+    return { ...NOTHING, why: "Not valid JSON yet, so the checks below cannot run." };
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return { ...NOTHING, why: "This file has to be a JSON object, written with { }." };
+  }
+  const candidate = writeFileText(api, draft, path, text);
+  if (!candidate.ok) return { ...NOTHING, why: candidate.why };
+  const index = jsonIndex(text);
+  const body = parsed;
+  const stem = path === MANIFEST ? "manifest" : path.slice(0, -".json".length);
+  let findings;
+  let elsewhere = 0;
+  const refusals = [];
+  try {
+    const build = buildDraft(api, candidate.draft, records);
+    findings = build.findings.filter((finding) => {
+      const mine = finding.file === "-" || finding.file === stem || path === MANIFEST && finding.file === "manifest";
+      if (!mine) elsewhere++;
+      return mine;
+    });
+    if (path === MANIFEST) refusals.push(...build.problems);
+    else elsewhere += build.problems.length;
+  } catch (e) {
+    return { ...NOTHING, why: `The workshop could not check this: ${e instanceof Error ? e.message : String(e)}` };
+  }
+  const out = findings.map((finding) => {
+    const at = place(index, body, finding);
+    const where = at === void 0 ? {} : positionAt(text, at);
+    const row2 = {
+      level: finding.level,
+      rule: finding.rule,
+      message: finding.message,
+      ...finding.file === "-" ? { caveat: true } : {},
+      ...where
+    };
+    return finding.field === void 0 ? { ...row2, record: finding.record } : { ...row2, record: finding.record, field: finding.field };
+  });
+  for (const problem of refusals) {
+    out.push({ level: "error", rule: "project/refused", message: problem });
+  }
+  if (path !== MANIFEST) out.push(...vocabulary(api, stem, body, index, text));
+  return { findings: sortLint(out), elsewhere, checked: true };
+}
+function sortLint(findings) {
+  const order = { error: 0, warn: 1, hint: 2 };
+  return [...findings].sort(
+    (a, b) => Number(b.caveat ?? false) - Number(a.caveat ?? false) || (order[a.level] ?? 3) - (order[b.level] ?? 3) || (a.line ?? Number.MAX_SAFE_INTEGER) - (b.line ?? Number.MAX_SAFE_INTEGER) || (a.column ?? 0) - (b.column ?? 0) || a.rule.localeCompare(b.rule)
+  );
+}
+function keyOf(path) {
+  return path.join("\0");
+}
+function jsonIndex(text) {
+  const tokens = tokenize("json", text);
+  const out = /* @__PURE__ */ new Map();
+  let at = 0;
+  const isPunc = (ch) => {
+    const token = tokens[at];
+    return token !== void 0 && token.cls === "punc" && text.slice(token.at, token.to) === ch;
+  };
+  const value = (path) => {
+    if (tokens[at] === void 0) return;
+    if (isPunc("{")) {
+      object(path);
+      return;
+    }
+    if (isPunc("[")) {
+      array(path);
+      return;
+    }
+    at++;
+  };
+  const object = (path) => {
+    at++;
+    if (isPunc("}")) {
+      at++;
+      return;
+    }
+    for (; ; ) {
+      const name = tokens[at];
+      if (name === void 0 || name.cls !== "key" && name.cls !== "str") return;
+      let key;
+      try {
+        key = JSON.parse(text.slice(name.at, name.to));
+      } catch {
+        return;
+      }
+      at++;
+      if (!isPunc(":")) return;
+      at++;
+      const child = [...path, key];
+      out.set(keyOf(child), name.at);
+      value(child);
+      if (isPunc(",")) {
+        at++;
+        continue;
+      }
+      if (isPunc("}")) at++;
+      return;
+    }
+  };
+  const array = (path) => {
+    at++;
+    if (isPunc("]")) {
+      at++;
+      return;
+    }
+    for (let n = 0; ; n++) {
+      const token = tokens[at];
+      if (token === void 0) return;
+      const child = [...path, n];
+      out.set(keyOf(child), token.at);
+      value(child);
+      if (isPunc(",")) {
+        at++;
+        continue;
+      }
+      if (isPunc("]")) at++;
+      return;
+    }
+  };
+  value([]);
+  if (!out.has(keyOf([]))) out.set(keyOf([]), tokens[0]?.at ?? 0);
+  return out;
+}
+function nearestOffset(index, path, floor) {
+  for (let cut = path.length; cut >= floor; cut--) {
+    const at = index.get(keyOf(path.slice(0, cut)));
+    if (at !== void 0) return at;
+  }
+  return void 0;
+}
+var LABEL_KEYS = ["name", "code", "store", "type"];
+function labelOf2(record) {
+  for (const key of LABEL_KEYS) {
+    const value = record[key];
+    if (typeof value === "string" && value !== "") return value;
+  }
+  return "(unnamed record)";
+}
+function fieldPath(field) {
+  return field.split(".").map((part) => /^\d+$/.test(part) ? Number(part) : part);
+}
+function place(index, body, finding) {
+  const anchor = recordAnchor(body, finding.record);
+  if (anchor === void 0) {
+    return finding.field === void 0 ? void 0 : nearestOffset(index, fieldPath(finding.field), 1);
+  }
+  const path = finding.field === void 0 ? anchor : [...anchor, ...fieldPath(finding.field)];
+  return nearestOffset(index, path, anchor.length);
+}
+function recordAnchor(body, label) {
+  const hits = [];
+  const added = body["records"];
+  if (Array.isArray(added)) {
+    added.forEach((entry, n) => {
+      if (isRecord3(entry) && labelOf2(entry) === label) hits.push(["records", n]);
+    });
+  }
+  for (const key of ["replaces", "fieldPatches"]) {
+    const group = body[key];
+    if (!isRecord3(group)) continue;
+    for (const [ref, entry] of Object.entries(group)) {
+      if (ref === label || isRecord3(entry) && labelOf2(entry) === label) hits.push([key, ref]);
+    }
+  }
+  const removed = body["removes"];
+  if (Array.isArray(removed)) {
+    removed.forEach((ref, n) => {
+      if (ref === label) hits.push(["removes", n]);
+    });
+  }
+  return hits.length === 1 ? hits[0] : void 0;
+}
+function isRecord3(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+var VOCABULARY_RULE = "workshop/vocabulary";
+function vocabulary(api, file, body, index, text) {
+  const blueprint = api.blueprintFor(file);
+  if (blueprint === void 0) return [];
+  const out = [];
+  const visit = (record, at) => {
+    walk(record, blueprint.fields, at, (path, shape, value) => {
+      const allowed = shape.values;
+      if (allowed === void 0 || allowed.length === 0) return;
+      if (typeof value !== "string" && typeof value !== "boolean") return;
+      if (allowed.includes(value)) return;
+      const offset = nearestOffset(index, path, 2);
+      const where = offset === void 0 ? {} : positionAt(text, offset);
+      const shown = allowed.slice(0, 12).map((one) => String(one)).join(", ");
+      out.push({
+        level: "hint",
+        rule: VOCABULARY_RULE,
+        field: String(path[path.length - 1] ?? ""),
+        message: `${JSON.stringify(value)} is not one of the ${allowed.length} values core's own ${file} records use here (${shown}${allowed.length > 12 ? ", and more" : ""}). That is allowed - a mod may coin a new one - and the game's own checker will not mention it, so this is the workshop's word and not the game's.`,
+        ...where
+      });
+    });
+  };
+  const added = body["records"];
+  if (Array.isArray(added)) {
+    added.forEach((entry, n) => {
+      if (isRecord3(entry)) visit(entry, ["records", n]);
+    });
+  }
+  const replaced = body["replaces"];
+  if (isRecord3(replaced)) {
+    for (const [ref, entry] of Object.entries(replaced)) {
+      if (isRecord3(entry)) visit(entry, ["replaces", ref]);
+    }
+  }
+  return out;
+}
+function walk(value, fields, at, found) {
+  if (!isRecord3(value)) return;
+  for (const [key, child] of Object.entries(value)) {
+    const shape = fields[key];
+    if (shape === void 0) continue;
+    const path = [...at, key];
+    descend(child, shape, path, found);
+  }
+}
+function descend(value, shape, path, found) {
+  if (Array.isArray(value)) {
+    const items = shape.items;
+    value.forEach((entry, n) => {
+      if (items === void 0) found([...path, n], shape, entry);
+      else descend(entry, items, [...path, n], found);
+    });
+    return;
+  }
+  if (isRecord3(value)) {
+    if (shape.fields !== void 0) walk(value, shape.fields, path, found);
+    return;
+  }
+  found(path, shape, value);
 }
 
 // src/ui/screens/files.ts
@@ -4587,6 +4927,27 @@ function filesScreen(shop, path) {
   const checkNote = h("div", { class: "mb-why" });
   let editor;
   const host = h("div");
+  const LINT_DELAY = 250;
+  let lint;
+  let lintKey = "";
+  let lintTimer;
+  const keyFor = (state) => `${state.revision}\0${state.buffers[path]?.text ?? ""}`;
+  const scheduleLint = (state) => {
+    if (path === "" || editor?.colouring() === false) return;
+    const wanted = keyFor(state);
+    if (wanted === lintKey) return;
+    if (lintTimer !== void 0) clearTimeout(lintTimer);
+    lintTimer = setTimeout(() => {
+      lintTimer = void 0;
+      const now = shop.store.get();
+      const current = openDraft(now);
+      const held = now.buffers[path];
+      if (!current || held === void 0) return;
+      lintKey = keyFor(now);
+      lint = lintFile(shop.api, current, shop.records, path, held.text);
+      render(now);
+    }, LINT_DELAY);
+  };
   if (path !== "") {
     const opened = shop.store.get().buffers[path];
     editor = codeEditor({
@@ -4692,11 +5053,17 @@ function filesScreen(shop, path) {
     setText(about, notes.join(" "));
     const lang = languageFor(path);
     const found = editor?.colouring() === false ? [] : problemsIn(lang, held.text);
+    scheduleLint(state);
+    const settled = lintKey === keyFor(state);
+    const checks = lint?.findings ?? [];
     fill(
       problems,
-      ...found.map((problem) => problemRow(problem, () => editor?.goTo(problem.line, problem.column)))
+      ...found.map((problem) => problemRow(problem, () => editor?.goTo(problem.line, problem.column))),
+      ...checks.map(
+        (finding) => findingRow(finding, () => editor?.goTo(finding.line ?? 1, finding.column ?? 1))
+      )
     );
-    setText(checkNote, checkedHow(lang, found.length, editor?.colouring() !== false));
+    setText(checkNote, checkedHow(lang, found.length, editor?.colouring() !== false, lint, settled));
   };
   render(shop.store.get());
   editor?.focus();
@@ -4711,6 +5078,7 @@ function filesScreen(shop, path) {
       return editor?.keys(event) === true;
     },
     dispose() {
+      if (lintTimer !== void 0) clearTimeout(lintTimer);
       editor?.dispose();
     }
   };
@@ -4730,17 +5098,43 @@ function aboutKind(kind, path) {
       return "Yours. It goes into the mod folder exactly as it is here, and nothing rewrites it.";
   }
 }
-function checkedHow(lang, found, colouring) {
+function checkedHow(lang, found, colouring, lint, settled) {
   if (!colouring) {
     return "This file is too big to colour in or check, so it is shown as plain text. It still saves and ships exactly as it is.";
   }
   if (lang === "json") {
-    return found === 0 ? "Valid JSON, checked with the same parser the game uses." : "The game reads this file with the same parser, so it will not load until this is fixed.";
+    const parser = found === 0 ? "Valid JSON, checked with the same parser the game uses." : "The game reads this file with the same parser, so it will not load until this is fixed.";
+    return `${parser} ${checkedFurther(lint, settled)}`.trim();
   }
   if (lang === "js") {
     return "Quotes, comments and brackets only. This is not a syntax check and there is no compiler in a browser: code that passes here can still be wrong, and the game reports a script it cannot import as a mod that is not working. What it cannot see at all is a mistake inside a template's ${ }, a slash that is a pattern where it looks like a division, and anything that is spelled correctly and means nothing.";
   }
   return "Nothing here to check.";
+}
+function checkedFurther(lint, settled) {
+  if (lint === void 0) return "The record checks have not run over this yet.";
+  if (!lint.checked) return lint.why ?? "";
+  const parts = [];
+  const about = lint.findings.filter((finding) => finding.caveat !== true);
+  const ours = about.filter((finding) => finding.rule.startsWith("workshop/")).length;
+  const theirs = about.length - ours;
+  const standIn = lint.findings.some((finding) => finding.caveat === true);
+  const whose = standIn ? "the record checks" : "the game's own record checker";
+  parts.push(
+    theirs === 0 ? `${standIn ? "The record checks have" : "The game's own record checker has"} nothing to say about this file.` : `${theirs} thing${theirs === 1 ? "" : "s"} ${whose} found here, which is the same checking the record screens show. Click one to go to it.`
+  );
+  if (ours > 0) {
+    parts.push(
+      `${ours} more ${ours === 1 ? "is" : "are"} the workshop's own: a value outside the set core's records use for that field. That is legal, and the game will not mention it.`
+    );
+  }
+  if (!settled) parts.push("Checking what you have just typed.");
+  if (lint.elsewhere > 0) {
+    parts.push(
+      `${lint.elsewhere} finding${lint.elsewhere === 1 ? "" : "s"} elsewhere in this mod, on the review screen.`
+    );
+  }
+  return parts.join(" ");
 }
 
 // src/ui/screens/kinds.ts
@@ -6724,7 +7118,7 @@ function mountApp(deps) {
         return filesScreen(shop, route.path);
     }
   };
-  const keyOf = (route) => JSON.stringify(route);
+  const keyOf2 = (route) => JSON.stringify(route);
   const renderChrome = (state) => {
     const draft = openDraft(state);
     setText(subtitle, subtitleFor(state, draft?.name));
@@ -6814,7 +7208,7 @@ function mountApp(deps) {
   };
   const render = (next, prev) => {
     renderChrome(next);
-    const key = keyOf(next.route);
+    const key = keyOf2(next.route);
     if (key !== currentKey || current === void 0) {
       current?.dispose();
       currentKey = key;
@@ -7855,6 +8249,22 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
 }
 .mb-ed-problem:hover { background: color-mix(in srgb, var(--danger) 16%, transparent); }
 .mb-ed-problem-at { font-family: var(--font-mono); color: var(--ink-faint); flex: none; }
+
+/* A CHECK FINDING IS THE SAME ROW, COLOURED BY WHAT IT COSTS. A syntax fault carries
+   no level and keeps the plain danger colouring above, because a file that is not
+   JSON is not a matter of degree. */
+.mb-ed-problem[data-level] {
+  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 9%, transparent);
+  border-left-color: var(--tone);
+}
+.mb-ed-problem[data-level]:hover { background: color-mix(in srgb, var(--tone) 16%, transparent); }
+.mb-ed-problem[data-still] { cursor: default; }
+.mb-ed-problem[data-level="error"] { --tone: var(--danger); }
+.mb-ed-problem[data-level="warn"] { --tone: var(--warn); }
+.mb-ed-problem[data-level="hint"] { --tone: var(--focus); }
+.mb-ed-problem-text { flex: 1; min-width: 0; }
+.mb-ed-problem-rule { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); flex: none; }
 
 .mb-empty {
   display: grid;

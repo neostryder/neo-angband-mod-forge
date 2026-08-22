@@ -31,8 +31,10 @@
  */
 
 import { fill, h, setText } from "../dom.js";
-import { codeEditor, problemRow } from "../editor.js";
+import { codeEditor, findingRow, problemRow } from "../editor.js";
 import type { CodeEditor } from "../editor.js";
+import { lintFile } from "../../model/lint.js";
+import type { FileLint } from "../../model/lint.js";
 import {
   classify,
   isCodePath,
@@ -168,6 +170,45 @@ export function filesScreen(shop: Workshop, path: string): View {
   let editor: CodeEditor | undefined;
   const host = h("div");
 
+  /* ---------------------------------------------------------------- *
+   * The checks                                                       *
+   * ---------------------------------------------------------------- */
+
+  /**
+   * The same checks the record screens run, over the text in the editor.
+   *
+   * ON A DELAY AND KEYED TO WHAT IT ANSWERED, for the same two reasons the review
+   * screen's own verdict is. The check composes the whole mod on top of the game,
+   * which is not work to do between two keystrokes; and an answer that arrives after
+   * the text has moved on is an answer to a question nobody is asking any more, so
+   * it is discarded rather than shown. `key` is the text AND the document revision,
+   * because a change made on another screen moves what this file composes against
+   * without touching a character of it.
+   */
+  const LINT_DELAY = 250;
+  let lint: FileLint | undefined;
+  let lintKey = "";
+  let lintTimer: ReturnType<typeof setTimeout> | undefined;
+
+  const keyFor = (state: AppState): string => `${state.revision}\u0000${state.buffers[path]?.text ?? ""}`;
+
+  const scheduleLint = (state: AppState): void => {
+    if (path === "" || editor?.colouring() === false) return;
+    const wanted = keyFor(state);
+    if (wanted === lintKey) return;
+    if (lintTimer !== undefined) clearTimeout(lintTimer);
+    lintTimer = setTimeout(() => {
+      lintTimer = undefined;
+      const now = shop.store.get();
+      const current = openDraft(now);
+      const held = now.buffers[path];
+      if (!current || held === undefined) return;
+      lintKey = keyFor(now);
+      lint = lintFile(shop.api, current, shop.records, path, held.text);
+      render(now);
+    }, LINT_DELAY);
+  };
+
   if (path !== "") {
     const opened = shop.store.get().buffers[path];
     editor = codeEditor({
@@ -301,11 +342,23 @@ export function filesScreen(shop: Workshop, path: string): View {
      * is the only version of the question worth answering while somebody is typing. */
     const lang = languageFor(path);
     const found: readonly SyntaxProblem[] = editor?.colouring() === false ? [] : problemsIn(lang, held.text);
+
+    scheduleLint(state);
+    /* A finding computed for text that has since changed is shown, and labelled,
+     * rather than cleared: a pane that empties on every keystroke is a pane nobody
+     * reads, and the same argument is why the review screen's verdict goes stale
+     * instead of blank. */
+    const settled = lintKey === keyFor(state);
+    const checks = lint?.findings ?? [];
+
     fill(
       problems,
       ...found.map((problem) => problemRow(problem, () => editor?.goTo(problem.line, problem.column))),
+      ...checks.map((finding) =>
+        findingRow(finding, () => editor?.goTo(finding.line ?? 1, finding.column ?? 1)),
+      ),
     );
-    setText(checkNote, checkedHow(lang, found.length, editor?.colouring() !== false));
+    setText(checkNote, checkedHow(lang, found.length, editor?.colouring() !== false, lint, settled));
   };
 
   render(shop.store.get());
@@ -328,6 +381,7 @@ export function filesScreen(shop: Workshop, path: string): View {
       return editor?.keys(event) === true;
     },
     dispose() {
+      if (lintTimer !== undefined) clearTimeout(lintTimer);
       editor?.dispose();
     },
   };
@@ -366,14 +420,16 @@ function aboutKind(kind: string, path: string): string {
  * JavaScript is not parsed at all, so nothing means the quotes and the brackets
  * line up and says as much.
  */
-function checkedHow(lang: string, found: number, colouring: boolean): string {
+function checkedHow(lang: string, found: number, colouring: boolean, lint: FileLint | undefined, settled: boolean): string {
   if (!colouring) {
     return "This file is too big to colour in or check, so it is shown as plain text. It still saves and ships exactly as it is.";
   }
   if (lang === "json") {
-    return found === 0
-      ? "Valid JSON, checked with the same parser the game uses."
-      : "The game reads this file with the same parser, so it will not load until this is fixed.";
+    const parser =
+      found === 0
+        ? "Valid JSON, checked with the same parser the game uses."
+        : "The game reads this file with the same parser, so it will not load until this is fixed.";
+    return `${parser} ${checkedFurther(lint, settled)}`.trim();
   }
   if (lang === "js") {
     return (
@@ -384,4 +440,52 @@ function checkedHow(lang: string, found: number, colouring: boolean): string {
     );
   }
   return "Nothing here to check.";
+}
+
+/**
+ * What the record checks did, said whether or not they found anything.
+ *
+ * SILENCE MUST NEVER READ AS APPROVAL, which is the same rule the sentence above
+ * follows and matters more here, because these checks have a boundary and the
+ * boundary is not obvious. Three things are said every time: that the checks are the
+ * ones the record screens run rather than a weaker copy, that one of the rules is the
+ * workshop's own and the game will not repeat it, and how many findings the rest of
+ * the mod has - so a clean file is never mistaken for a clean mod.
+ */
+function checkedFurther(lint: FileLint | undefined, settled: boolean): string {
+  if (lint === undefined) return "The record checks have not run over this yet.";
+  if (!lint.checked) return lint.why ?? "";
+
+  const parts: string[] = [];
+  const about = lint.findings.filter((finding) => finding.caveat !== true);
+  const ours = about.filter((finding) => finding.rule.startsWith("workshop/")).length;
+  const theirs = about.length - ours;
+
+  /* WHOSE CHECKER RAN IS NOT DECIDED HERE, and must not be claimed here either. The
+   * checker says so itself, in a finding filed under no file, which is what a caveat
+   * row is. Calling it the game's own while that row is on screen saying it is not
+   * would be the pane contradicting itself in the reader's favour, which is the one
+   * direction it may never get wrong. */
+  const standIn = lint.findings.some((finding) => finding.caveat === true);
+  const whose = standIn ? "the record checks" : "the game's own record checker";
+
+  parts.push(
+    theirs === 0
+      ? `${standIn ? "The record checks have" : "The game's own record checker has"} nothing to say about this file.`
+      : `${theirs} thing${theirs === 1 ? "" : "s"} ${whose} found here, which is the same checking the record ` +
+        `screens show. Click one to go to it.`,
+  );
+  if (ours > 0) {
+    parts.push(
+      `${ours} more ${ours === 1 ? "is" : "are"} the workshop's own: a value outside the set core's records use ` +
+        `for that field. That is legal, and the game will not mention it.`,
+    );
+  }
+  if (!settled) parts.push("Checking what you have just typed.");
+  if (lint.elsewhere > 0) {
+    parts.push(
+      `${lint.elsewhere} finding${lint.elsewhere === 1 ? "" : "s"} elsewhere in this mod, on the review screen.`,
+    );
+  }
+  return parts.join(" ");
 }

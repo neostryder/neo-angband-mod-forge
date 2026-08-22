@@ -304,6 +304,25 @@ nothing and offers nothing here; a path ending in `.png` can be created and will
 hold whatever text is typed into it, which is not a picture. Recorded beside the
 emit seam above rather than as a separate ask.
 
+### The closed-vocabulary check belongs in the SDK - NEEDS A SEAM
+
+`RECORD_BLUEPRINTS` measures a closed set of values for a field where the game's
+own records have one, and two places in the workshop read it: the record screen
+offers those values as a dropdown, and the file editor now names a value that is
+outside the set. Nothing in the ENGINE reads it. Its own checker takes `values` for
+a placeholder and never for a check, which is the right call on its own terms - a
+mod coining a new tval or a new slay code is doing something legal - but it leaves
+an author who mistyped one of twenty-six colour codes with no word from anybody.
+
+So the rule lives here, as a hint, under a `workshop/` rule id, with the pane saying
+the game will not repeat it. That is the honest arrangement and it is not the right
+one. Two consumers of one measurement, each deciding for itself what it means, is
+how they come apart: the dropdown and the hint can already disagree about the same
+field, and only one of them is on screen at a time. The seam is an advisory rule in
+`checkRecords` itself, at hint level, which both the form and the text editor would
+then get from one place and neither would have to name. Recorded in
+`docs/ENGINE_SEAMS.md` beside the authoring seam it extends.
+
 ### Searching across files, and a diff - NOT BUILT
 
 Find works inside the file that is open. There is no search across the folder and

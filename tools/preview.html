@@ -40,15 +40,49 @@
        * A harness for looking at the workshop in a real browser, with no game.
        *
        * It builds the narrowest context the mod actually reads, hands it to the
-       * plugin's own `regions` factory, and taps the tab. Every seam is absent,
-       * which is exactly the state a player is in on the engine this was built
-       * against, so what appears here is what appears there.
+       * plugin's own `regions` factory, and taps the tab. By default every seam is
+       * absent, which is exactly the state a player is in on the engine this was
+       * built against, so what appears here is what appears there.
        *
        * `npm run preview` serves the repository root and opens this page. The
        * server exists because a module script cannot import a relative file over
        * file://, which is the browser's rule and not this mod's.
+       *
+       * ----------------------------------------------------------------
+       * ?authoring=sdk - THE ONE SEAM THIS HARNESS CAN ACTUALLY SUPPLY
+       * ----------------------------------------------------------------
+       *
+       * WHY IT IS NOT THE DEFAULT. The default has to be what a player gets, and a
+       * player today gets no `ctx.authoring` at all. A preview that quietly ran on
+       * the real SDK would be a preview of a game nobody is running.
+       *
+       * WHY IT EXISTS ANYWAY. Without it the field checks cannot be judged here at
+       * all, and worse, they LOOK judged. The stand-in in `authoring-stub.ts` is a
+       * deliberately small subset of the engine's checker: no field-type rule, none
+       * of the fourteen companion rules, and it measures a dozen invented monsters
+       * rather than core's 3,279 records. A guardrail that passes against that
+       * fixture has been shown nothing. The SDK is already in this repository as a
+       * devDependency, its `dist` is plain ES modules with only relative imports,
+       * and the preview server serves the repository, so the real thing loads over
+       * the same loopback port with no build step.
+       *
+       * WHAT IS STILL A STAND-IN WITH THIS ON, said plainly because it decides what
+       * a green result here is worth: `ctx.composedRecords`. The published core
+       * package carries the engine's CODE and not its content pack, so the game's
+       * own records are not obtainable outside the game. The blueprints are real -
+       * they are generated data that ships inside the SDK - so every check that
+       * reads a field's measured type, range or vocabulary is the real one. Every
+       * check that reads the whole composed world is not: a dangling reference and
+       * the flavour-pressure warning are still measured against the fixture, and
+       * the workshop's own banner still says the content is a demonstration.
        */
       import plugin from "../plugin.js";
+
+      const wanted = new URL(location.href).searchParams.get("authoring");
+      let authoring;
+      if (wanted === "sdk") {
+        authoring = await import("../node_modules/@rpgm-tools/neo-angband-mod-sdk/dist/index.js");
+      }
 
       /* Something to look at behind the overlay. */
       const rows = [];
@@ -79,7 +113,13 @@
         core: {},
         prefs,
         log: (msg) => console.log(`[builder] ${msg}`),
+        ...(authoring === undefined ? {} : { authoring }),
       };
+
+      document.querySelector(".note").textContent =
+        authoring === undefined
+          ? "Stand-in for the game. The workshop opens over it. Add ?authoring=sdk for the real checker."
+          : "Stand-in for the game, with the real mod SDK behind ctx.authoring. Its records are still the fixture.";
 
       const regions = plugin.regions(ctx);
       const workshop = regions[0];

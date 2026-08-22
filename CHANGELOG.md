@@ -100,6 +100,15 @@ it against; what follows is what it does.
   colouring for JSON and JavaScript, bracket matching, Tab and Shift-Tab to indent
   and outdent, find, a line and column readout, and a save chord.
 
+  **Brackets and quotes close themselves**, under four rules that are the whole
+  difference between the feature and a nuisance. A pair appears only where a closer
+  could go, so typing `(` in front of a word inserts one character. Typing a closer
+  that is already there steps over it. Backspace or Delete between an empty pair
+  takes both. A selection is wrapped rather than replaced. Enter inside an empty
+  pair opens the block with the closer on its own line, so the auto-indent and the
+  auto-close do not fight. JSON pairs the one quote it has; Markdown and plain text
+  pair nothing, because prose is full of brackets that never close.
+
   **It is the same mod, printed, and not a second copy of it.** A monster added on
   the record screen is in `monster.json` there; a number changed there is what the
   record screen shows next time. Saving a file parses the text back into the same
@@ -116,12 +125,32 @@ it against; what follows is what it does.
   among them, kept exactly as typed through every later save. And a record file
   grouped into sections, or anything else a record file can carry.
 
+  **A record file is checked against the same constraints the record screens
+  enforce**, as it is typed, with the finding on the line that caused it. The text
+  is parsed through the same code a save goes through, composed on top of the game
+  and handed to the engine's own record checker, so a value of the wrong type for a
+  known field, a field name spelled wrong, a reference to something nothing defines
+  and a record that will never be generated are all named here and not only at
+  review time. A finding whose record cannot be identified beyond doubt is shown
+  without a line rather than pointed at a guess.
+
+  One rule is the workshop's own and is labelled so: a value outside the closed set
+  the game's own records use for that field. The engine's checker will not say this,
+  deliberately, because a mod coining a new value is doing something legal - so it
+  is a hint, its rule id is namespaced `workshop/`, and the pane says the game will
+  not repeat it. It catches the one mistake nothing else can see, which is a
+  perfectly good string of the right type in a field that exists, spelled wrong.
+
   **What it does not claim.** A JSON file is checked by the same parser the game
-  uses, so a clean answer is a real one. A script is checked for quotes, comments
-  and brackets, and the pane says in as many words that this is not a syntax check
-  and that code passing it can still be wrong. Anything in a record file the
-  workshop cannot model is written through unread, and both the file editor and the
-  review screen name the file and the keys and say the verdict does not cover them.
+  uses, so a clean answer is a real one. Where this game cannot lend the workshop
+  its own record checker, a row at the top of the pane says so and cannot be
+  dismissed, and the rows below it come from the workshop's smaller stand-in. A
+  clean file is not a clean mod, so the pane also counts what the same check found
+  elsewhere. A script is checked for quotes, comments and brackets, and the pane
+  says in as many words that this is not a syntax check and that code passing it can
+  still be wrong. Anything in a record file the workshop cannot model is written
+  through unread, and both the file editor and the review screen name the file and
+  the keys and say the verdict does not cover them.
 - **A guide covering the four things people usually make**, each card naming the
   game's own written tutorial for the same idea, plus a card for everything the
   workshop cannot reach and where to read about it.
