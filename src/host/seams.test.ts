@@ -139,6 +139,54 @@ describe("reloading", () => {
     seams.session.reload();
     expect(reloaded).toBe(1);
   });
+
+  it("prefers the real engine sequence over the sync test override", async () => {
+    /* ctx.reloadGame is the engine's own save-and-reload sequence, gated by
+     * mod:session as of the 0.28.0 host - it protects the character, so it wins
+     * over ctx.reload whenever both are offered. */
+    let gameReloaded = 0;
+    let handReloaded = 0;
+    const seams = resolveSeams(
+      ctxWith({
+        loadModForSession: async () => ({ ok: true, id: "x", version: "1.0.0", survivesReload: true }),
+        reloadGame: async () => {
+          gameReloaded += 1;
+        },
+        reload: () => {
+          handReloaded += 1;
+        },
+      }),
+    );
+    expect(seams.session.reloadByHand).toBe(false);
+    await seams.session.reload();
+    expect(gameReloaded).toBe(1);
+    expect(handReloaded).toBe(0);
+  });
+
+  it("falls back to the sync test override when there is no engine sequence", async () => {
+    let handReloaded = 0;
+    const seams = resolveSeams(
+      ctxWith({
+        loadModForSession: async () => ({ ok: true, id: "x", version: "1.0.0", survivesReload: true }),
+        reload: () => {
+          handReloaded += 1;
+        },
+      }),
+    );
+    await seams.session.reload();
+    expect(handReloaded).toBe(1);
+  });
+
+  it("is by hand only when the session seam has none of reloadGame, reload, or location", () => {
+    const seams = resolveSeams(
+      ctxWith({
+        loadModForSession: async () => ({ ok: true, id: "x", version: "1.0.0", survivesReload: true }),
+      }),
+    );
+    /* This file runs outside jsdom, so `globalThis.location` is absent too - the
+     * same "front end with none of the three" case the workshop treats as by hand. */
+    expect(seams.session.reloadByHand).toBe(true);
+  });
 });
 
 describe("every seam", () => {

@@ -15,14 +15,21 @@ accessors and are still absent, which is what the fallbacks are for.
 The seams are ordered by how much they cost to leave out. Seam 1 is the only one
 whose absence makes the workshop a demonstration rather than a tool.
 
-**Reloading was never one of these, and pretending it was cost the try-it loop
-three steps.** Composing content takes a reload, so a mod loaded for the session
-does not take effect until the page comes back. The workshop used to say so and
-leave the player to press Ctrl-R, while holding a `reload` it never called - which
-was reporting a restriction that does not exist. A plugin's code runs in the page
-and can reach `location` with or without anybody's permission, exactly as it can
-reach the document. So it is not a seam, it is not a capability, and the workshop
-does it.
+**Reloading was not one of these when this was first written, and pretending it
+was cost the try-it loop three steps.** Composing content takes a reload, so a mod
+loaded for the session does not take effect until the page comes back. The
+workshop used to say so and leave the player to press Ctrl-R, while holding a
+`reload` it never called - which was reporting a restriction that did not exist. A
+plugin's code runs in the page and can reach `location` with or without anybody's
+permission, exactly as it can reach the document.
+
+**It is a seam now, for the session case.** `ctx.reloadGame` (seam 3) is gated by
+`mod:install` or `mod:session`, not `mod:install` alone, and the session seam
+(seam 5) prefers it over `location.reload()`: it is the engine's own
+save-and-reload sequence - plugin teardown, autoplayer keyboard handback,
+character write, session resume - rather than a bare page navigation that skips
+the write and can drop the player at title/character-select instead of back into
+play. `location.reload()` remains the fallback for a host with neither seam.
 
 Two rules apply to all five:
 
@@ -186,11 +193,12 @@ export type InstallModResult =
   | { readonly ok: false; readonly problem: string; readonly lines: readonly string[] };
 
 /**
- * Save the game and reload, so a mod installed this session takes effect.
+ * Save the game and reload, so a mod installed or staged this session takes effect.
  *
- * Gated by the same capability: installing without being able to reload leaves
- * the player holding a mod the running process will never load, and reloading
- * without installing is not something a mod has any business doing.
+ * Gated by `mod:install` or `mod:session`, not `mod:install` alone: a mod that
+ * stages content with seam 5 needs to follow it with a reload exactly as one that
+ * installs does, and reloading without either is not something a mod has any
+ * business doing.
  */
 readonly reloadGame?: () => Promise<void>;
 ```

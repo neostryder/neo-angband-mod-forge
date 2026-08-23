@@ -67,7 +67,13 @@ export interface WizardSeam extends SeamState {
 
 export interface SessionSeam extends SeamState {
   load(bytes: Uint8Array): Promise<SessionModResult>;
-  reload(): void;
+  /**
+   * Async because the preferred source, `ctx.reloadGame`, is: it runs the engine's
+   * real save-and-reload sequence rather than a page navigation. A sync source
+   * (`ctx.reload`, `location.reload`) still fits the signature - a synchronous
+   * function is a valid `() => void | Promise<void>`.
+   */
+  reload(): void | Promise<void>;
   /** True when reloading has to be done by hand because nothing here can do it. */
   readonly reloadByHand: boolean;
 }
@@ -140,13 +146,17 @@ export function resolveSeams(ctx: BuilderCtx): Seams {
       };
 
   /**
-   * RELOADING IS NOT A SEAM AND NEVER WAS, which is why this no longer waits for
-   * one. A plugin's code runs in the page and can reach `location` with or without
-   * anybody's permission, so `reloadByHand: true` was reporting a restriction that
-   * did not exist, and the workshop was asking the player to press Ctrl-R for a
-   * thing it could have done itself. `ctx.reload` is honoured first so a test or a
-   * headless host can supply its own; `location.reload` otherwise; and only a front
-   * end with neither is genuinely by hand.
+   * RELOADING IS A SEAM NOW, for the session case, and the preference order below is
+   * the point. `ctx.reloadGame` goes first when this game hands it over: it is the
+   * engine's own sequence, not a page navigation - plugin teardown, autoplayer
+   * keyboard handback, the character written down, and the session marked to resume,
+   * in that order - and a mod staged with `loadModForSession` needs exactly that
+   * before it reloads, because a bare page reload skips the write and can drop the
+   * player at title/character-select instead of back into the game. `ctx.reload` is
+   * next, a sync override for a test or a headless host that never gets the real
+   * seam. `location.reload` is last, for a front end with neither: a plugin's code
+   * runs in the page and can reach `location` with or without anybody's permission,
+   * so `reloadByHand: true` still only means a front end with none of the three.
    */
   const reload = resolveReload(ctx);
 
@@ -195,8 +205,13 @@ function resolveWizard(ctx: BuilderCtx): WizardSeam {
   return { available: true, api: ctx.wizard };
 }
 
-/** Whatever this front end can reload with, or null when it has nothing. */
-function resolveReload(ctx: BuilderCtx): (() => void) | null {
+/**
+ * Whatever this front end can reload with, in preference order, or null when it has
+ * nothing: `ctx.reloadGame` (the real engine sequence) first, `ctx.reload` (a sync
+ * test override) next, `location.reload` last.
+ */
+function resolveReload(ctx: BuilderCtx): (() => void | Promise<void>) | null {
+  if (ctx.reloadGame !== undefined) return ctx.reloadGame;
   if (ctx.reload !== undefined) return ctx.reload;
   const loc = (globalThis as { location?: { reload?: () => void } }).location;
   if (typeof loc?.reload === "function") return () => loc.reload?.();

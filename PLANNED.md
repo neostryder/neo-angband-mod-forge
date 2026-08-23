@@ -101,9 +101,11 @@ manager's existing `Import a zip` accepts exactly those bytes. Two extra actions
 and the player ends up holding a file they can read, keep, hand-edit and push to a
 repository.
 
-`ctx.reloadGame`, which was asked for alongside it, is not a seam either and never
-was: reloading is not a capability anybody grants, because a plugin's code runs in
-the page and can reach `location` regardless. The workshop reloads itself.
+`ctx.reloadGame` is a real seam, gated by `mod:install` or `mod:session` rather than
+`mod:install` alone, so the `mod:session` capability this mod already declares gets
+it too. The session seam prefers it over a bare `location.reload()`: it is the
+engine's own save-and-reload sequence - plugin teardown, autoplayer keyboard
+handback, character write, session resume - which a page reload on its own skips.
 
 **The objection carried, and this seam is now DECLINED rather than open.** A
 cross-check argued it should not be requested at all: a mod that can put another

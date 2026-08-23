@@ -1160,6 +1160,7 @@ function resolveWizard(ctx) {
   return { available: true, api: ctx.wizard };
 }
 function resolveReload(ctx) {
+  if (ctx.reloadGame !== void 0) return ctx.reloadGame;
   if (ctx.reload !== void 0) return ctx.reload;
   const loc = globalThis.location;
   if (typeof loc?.reload === "function") return () => loc.reload?.();
@@ -2714,7 +2715,7 @@ var Actions = class {
       return;
     }
     this.notice(`${outcome.id} ${outcome.version} is forged. Reloading to play it...`, "good");
-    this.deps.seams.session.reload();
+    await this.deps.seams.session.reload();
   }
   /** The manifest as it will ship, for the review screen. */
   manifestText() {

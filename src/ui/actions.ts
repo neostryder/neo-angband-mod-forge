@@ -586,7 +586,11 @@ export class Actions {
       return;
     }
     this.notice(`${outcome.id} ${outcome.version} is forged. Reloading to play it...`, "good");
-    this.deps.seams.session.reload();
+    /* Awaited, not fired and forgotten: the preferred source is `ctx.reloadGame`
+     * now, the engine's real save-and-reload sequence, and letting it run to
+     * completion (or reject) here is what keeps this function's own promise
+     * meaningful rather than dropping the reload's outcome on the floor. */
+    await this.deps.seams.session.reload();
   }
 
   /** The manifest as it will ship, for the review screen. */

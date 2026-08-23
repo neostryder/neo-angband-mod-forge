@@ -193,7 +193,13 @@ export interface BuilderCtx {
   readonly composedRecords?: Readonly<Record<string, readonly JsonRecord[]>>;
   /** Seam 3. Install a mod from the bytes of a zip. Gated by `mod:install`. */
   readonly installMod?: (bytes: Uint8Array) => Promise<InstallModResult>;
-  /** Seam 3. Save and reload, so an install takes effect. Gated by `mod:install`. */
+  /**
+   * Seam 3. Save and reload, so a staged mod takes effect: plugin teardown, autoplayer
+   * keyboard handback, character write, session resume. Gated by either `mod:install`
+   * or `mod:session` - this mod holds the latter, so a session it staged with
+   * `loadModForSession` can be followed by a real reload rather than a bare
+   * `location.reload()`.
+   */
   readonly reloadGame?: () => Promise<void>;
   /**
    * Seam 5. Load a mod for THIS SESSION only. Gated by `mod:session`.
