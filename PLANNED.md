@@ -33,18 +33,19 @@ The fourth exit is the difference between this file and the game's own
 cannot reach something has not failed to do the work; it has run out of surface,
 and saying which surface is the whole of the useful information.
 
-Last reviewed: 2026-08-21.
+Last reviewed: 2026-08-23.
 
 ---
 
 ## Release
 
-### A first tagged release, and a documentation and screenshots pass - NOT BUILT
+### A screenshots pass - NOT BUILT
 
-`manifest.json` and `CHANGELOG.md` both carry version 0.1.0, but there is no git
-tag for it and no screenshots pass anywhere in the documentation. Held for after
-the authoring seams land, since a release cut against the fixture stub would
-ship a mod whose authoring surface is a demonstration rather than a tool.
+Tagged releases now exist (`manifest.json` and `CHANGELOG.md` track them the
+same way every other first-party mod does), but no screenshots pass exists
+anywhere in the documentation. Held for after the authoring seams land, since a
+screenshots pass against the fixture stub would document a mod whose authoring
+surface is a demonstration rather than a tool.
 Tracked as neo-angband#44, dependent on neo-angband#41.
 
 ---

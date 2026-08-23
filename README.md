@@ -20,8 +20,8 @@ What it is not yet is connected to the game's own content: four of the five engi
 seams it wants do not exist, so the numbers on screen come from the workshop's own
 demonstration content rather than from the 3279 records the game actually runs on.
 The workshop says so in a banner it will not let you dismiss, and
-`docs/ENGINE_SEAMS.md` specifies all five precisely. `PLANNED.md` records which of
-them blocks what.
+[docs/ENGINE_SEAMS.md](docs/ENGINE_SEAMS.md) specifies all five precisely.
+[PLANNED.md](PLANNED.md) records which of them blocks what.
 
 It needs Neo Angband 0.26.0 or newer, because the capability behind the session
 load arrived there and a mod declaring one the running game does not know is
@@ -181,7 +181,7 @@ tiles works, it just looks like Angband did for thirty years.
 
 Install it the way you install any mod: the Mods screen, then `Install a
 mod...`, then this repository's address
-(`https://github.com/neostryder/neo-angband-mod-forge`). See `CHANGELOG.md` for
+(`https://github.com/neostryder/neo-angband-mod-forge`). See [CHANGELOG.md](CHANGELOG.md) for
 what each released version changed.
 
 ## Using it
@@ -246,7 +246,8 @@ steps in the same order on purpose: an author who finishes the tour and then ope
 tutorial 3 has to find the same ideas under the same names.
 
 If you would rather have a text editor open, that path is real and it is not
-second class. A mod is a folder with a text file in it, and it will always be:
+second class. A mod is a folder with a text file in it, and it will always be.
+These four live in the game's own repository, not this one:
 
 - `docs/modding/tutorials/` builds seven mods from nothing, in a text editor.
 - `docs/modding/PLUGINS.md` is how a mod runs code.
@@ -341,6 +342,25 @@ own banner keeps saying so.
 Asking about AI use in this project? [AI_USAGE_POLICY.md](AI_USAGE_POLICY.md) is
 the complete answer.
 
+## Questions, or something wrong
+
+[**The RPGM Tools Discord**](https://discord.gg/YegtwbHTBQ) is the fastest way
+to ask anything - whether a screen is doing what it should, how to get the
+workshop running, or what to try next. No GitHub account needed.
+
+[Open an issue here](../../issues/new/choose) for a bug in **this mod**. A mod
+this workshop built behaving wrongly once loaded into the game belongs against
+the game instead - the workshop's job ends at the file it writes.
+
+For anything that should not be public, including a security report:
+**strider-angband (at) rpgm.tools**. See
+[SECURITY.md](https://github.com/neostryder/neo-angband/blob/master/SECURITY.md).
+
 ## Licence
 
-GPL-2.0-only, or the Angband licence. See `LICENSE.md`.
+GPL-2.0-only, or the Angband licence. See [LICENSE.md](LICENSE.md).
+
+## Credits
+
+Built by neostryder / RPGM Tools as part of Neo Angband. Angband is the work of
+Ben Harrison, James E. Wilson, Robert A. Koeneke and the Angband contributors.
