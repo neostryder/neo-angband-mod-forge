@@ -149,14 +149,24 @@ anybody, because it costs the character its place on the high score list forever
 Detaching the session first is a smaller thing to spend and is spent in the open,
 so the mark now lands on a character that has stopped being written down.
 
-### The overlay's held-key state - NEEDS A SEAM, and a small one
+### The overlay's held-key state - LANDED, and still not the whole of it
 
-Closing the workshop with a key held down can still deliver that key to the game
-and move the character one square, since a mod cannot reach the host's
-key-repeat and pointer-button state. A whole `ui:dom.overlay` capability is
-deliberately not asked for over this, per `docs/ENGINE_SEAMS.md`; the honest
-shape of the ask is narrower: clear held input state on overlay acquire and
-release. Tracked as neo-angband#49.
+The narrower ask recorded here was to clear held input state on overlay
+acquire and release, rather than the whole `ui:dom.overlay` capability
+`docs/ENGINE_SEAMS.md` declines to request. That ask is now built: the overlay
+tracks every key and pointer button it has seen go down without a matching
+release while it owns input, and sends the game an honest keyup or mouseup for
+one the moment it discovers an already-repeating key or gives up ownership of
+one, in `src/ui/overlay.ts`. Tracked as neo-angband#49.
+
+What it does not do is stop the browser's own hardware auto-repeat from
+generating another keydown for a key that is still physically held the instant
+after the overlay's listeners come off - that repeat is not driven by anything
+in this mod's script, and no amount of listener bookkeeping reaches it. The
+correction here keeps the game from believing a key is held that it can no
+longer hear the release of; it does not, and cannot, guarantee that a single
+further move is impossible in every timing. That residual gap is what a real
+`ui:dom.overlay` seam would still be for, and it remains not requested.
 
 ---
 

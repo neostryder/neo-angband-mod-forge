@@ -136,6 +136,84 @@ describe("opening the workshop", () => {
     open = undefined;
   });
 
+  /**
+   * neo-angband#49. A key or a pointer button the game can never hear the
+   * release of, because the overlay swallowed it, must not be left looking held
+   * once nothing is watching for that release any more.
+   */
+  describe("held-key and pointer-button state, on acquire and release", () => {
+    it("does not move the character after closing with a key still held", () => {
+      let moves = 0;
+      window.addEventListener("keydown", () => {
+        moves += 1;
+      });
+      let releases = 0;
+      window.addEventListener("keyup", () => {
+        releases += 1;
+      });
+
+      /* The key is already down, and the game has already reacted to the real
+       * press, before the workshop opens. */
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "j", bubbles: true, cancelable: true }));
+      expect(moves).toBe(1);
+
+      open = openWorkshop(ctx(), document);
+
+      /* The browser's own auto-repeat keeps firing keydowns for the still-held
+       * key while the workshop is up - swallowed, which is the tested half above
+       * - and the overlay corrects the game's belief the moment it sees one, since
+       * the real keyup for this key will never reach the game while the workshop
+       * owns input. */
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "j", repeat: true, bubbles: true, cancelable: true }),
+      );
+      expect(moves).toBe(1);
+      expect(releases).toBe(1);
+
+      /* Still physically held when the workshop closes. */
+      open?.close();
+      expect(moves).toBe(1);
+    });
+
+    it("clears a key it saw go down but never up, the moment it closes", () => {
+      open = openWorkshop(ctx(), document);
+      let releases = 0;
+      window.addEventListener("keyup", () => {
+        releases += 1;
+      });
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "j", bubbles: true, cancelable: true }));
+      expect(releases).toBe(0);
+      open?.close();
+      expect(releases).toBe(1);
+    });
+
+    it("clears a held pointer button the same way", () => {
+      open = openWorkshop(ctx(), document);
+      let releases = 0;
+      window.addEventListener("mouseup", () => {
+        releases += 1;
+      });
+      window.dispatchEvent(new MouseEvent("mousedown", { button: 0, bubbles: true, cancelable: true }));
+      expect(releases).toBe(0);
+      open?.close();
+      expect(releases).toBe(1);
+    });
+
+    it("does not carry a held key over into the next time it opens", () => {
+      open = openWorkshop(ctx(), document);
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "j", bubbles: true, cancelable: true }));
+      open?.close();
+
+      let releases = 0;
+      window.addEventListener("keyup", () => {
+        releases += 1;
+      });
+      open = openWorkshop(ctx(), document);
+      open?.close();
+      expect(releases).toBe(0);
+    });
+  });
+
   it("says, undismissably, that its numbers are a demonstration when they are", () => {
     open = openWorkshop(ctx(), document);
     expect(screenText()).toContain("Demonstration content");

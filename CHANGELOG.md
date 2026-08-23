@@ -12,6 +12,21 @@ Anything planned, deferred or merely intended goes in `PLANNED.md` instead, and
 never here: a reader who did not write the entry cannot tell an intention from a
 feature, so they go looking for the feature.
 
+## 0.1.1
+
+### Fixed
+
+- **A key or pointer button still held when the workshop closes no longer risks
+  a stray move.** The overlay's capture-phase listeners already stopped the game
+  hearing any keystroke while the workshop was open; what they could not do is
+  tell the game a key was released once the workshop stopped listening for it.
+  The overlay now tracks what it has seen go down without a matching release,
+  and dispatches an honest keyup or mouseup for it the moment it discovers an
+  already-repeating key or gives up ownership of one - on acquiring input and on
+  releasing it. `docs/ENGINE_SEAMS.md` records what this narrows and what it
+  does not: the browser's own hardware auto-repeat is still not something a mod
+  can reach.
+
 ## 0.1.0
 
 The first version. Nothing here has been released, so there is nothing to compare

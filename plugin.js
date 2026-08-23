@@ -8344,6 +8344,23 @@ function mountOverlay(doc2, options) {
   const keyHandlers = [];
   let open = true;
   let composing = false;
+  const win = doc2.defaultView;
+  const heldKeys = /* @__PURE__ */ new Set();
+  const heldButtons = /* @__PURE__ */ new Set();
+  const SYNTHETIC = /* @__PURE__ */ Symbol("mb-synthetic-release");
+  const markSynthetic = (event) => {
+    event[SYNTHETIC] = true;
+    return event;
+  };
+  const isSynthetic = (event) => event[SYNTHETIC] === true;
+  const releaseKey = (key) => {
+    heldKeys.delete(key);
+    win?.dispatchEvent(markSynthetic(new KeyboardEvent("keyup", { key, bubbles: true, cancelable: true })));
+  };
+  const releaseButton = (button2) => {
+    heldButtons.delete(button2);
+    win?.dispatchEvent(markSynthetic(new MouseEvent("mouseup", { button: button2, bubbles: true, cancelable: true })));
+  };
   const deepest = (event) => event.composedPath()[0] ?? event.target;
   const insideUs = (event) => {
     const target = deepest(event);
@@ -8357,9 +8374,17 @@ function mountOverlay(doc2, options) {
     return target instanceof HTMLElement && target.isContentEditable;
   };
   const onKeyEvent = (event) => {
-    if (!open || !(event instanceof KeyboardEvent)) return;
+    if (!(event instanceof KeyboardEvent) || isSynthetic(event)) return;
+    if (!open) return;
     event.stopPropagation();
     event.stopImmediatePropagation();
+    if (event.type === "keyup") {
+      heldKeys.delete(event.key);
+    } else if (event.type === "keydown") {
+      const alreadyTracked = heldKeys.has(event.key);
+      heldKeys.add(event.key);
+      if (!alreadyTracked && event.repeat) releaseKey(event.key);
+    }
     if (event.type !== "keydown") return;
     if (composing || event.isComposing) return;
     for (const handler of keyHandlers) {
@@ -8377,8 +8402,14 @@ function mountOverlay(doc2, options) {
     composing = event.type === "compositionstart";
   };
   const onPointerEvent = (event) => {
+    if (isSynthetic(event)) return;
     if (!open) return;
-    if (insideUs(event)) return;
+    const outside = !insideUs(event);
+    if (outside && event instanceof MouseEvent) {
+      if (event.type === "mousedown") heldButtons.add(event.button);
+      else if (event.type === "mouseup") heldButtons.delete(event.button);
+    }
+    if (!outside) return;
     event.stopPropagation();
     event.stopImmediatePropagation();
     event.preventDefault();
@@ -8392,7 +8423,6 @@ function mountOverlay(doc2, options) {
     if (first) first.focus();
     else host.focus();
   };
-  const win = doc2.defaultView;
   const listeners = [
     ["keydown", onKeyEvent, true],
     ["keyup", onKeyEvent, true],
@@ -8429,6 +8459,8 @@ function mountOverlay(doc2, options) {
       for (const [type, listener, capture] of listeners) {
         win?.removeEventListener(type, listener, capture);
       }
+      for (const key of [...heldKeys]) releaseKey(key);
+      for (const button2 of [...heldButtons]) releaseButton(button2);
       host.remove();
       for (const handler of [...closeHandlers]) handler();
     }

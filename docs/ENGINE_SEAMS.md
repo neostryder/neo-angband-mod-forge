@@ -395,8 +395,15 @@ What the seam would genuinely buy is one thing the mod cannot do properly for
 itself: the host clearing held-key and pointer-button state as the overlay takes
 and releases input, so that closing the workshop with a key held does not move
 the character. The mod's own capture-phase listeners get most of the way there
-and cannot get that far. Recorded in `PLANNED.md` as a known rough edge with its
-mechanism, not as a request.
+and cannot get that far, since the browser's own hardware auto-repeat for a
+still-held key is not something any amount of listener bookkeeping in this
+mod's script can reach. What the listeners CAN do, and now do, is set right the
+one thing that is honestly theirs to fix: `src/ui/overlay.ts` tracks a key or
+pointer button it has seen go down without a matching release while it owns
+input, and sends the game an honest keyup or mouseup for one on acquire and on
+release, so the game is never left believing something is held that it can no
+longer hear the release of. That narrows the edge case; it does not close it.
+Recorded in `PLANNED.md` under the same heading, LANDED, with what still is not.
 
 **A menu-row dispatch seam.** Not needed. The way in is a region the mod paints
 and taps, declared with `ui:region.create`, which exists.
