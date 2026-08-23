@@ -179,8 +179,10 @@ tiles works, it just looks like Angband did for thirty years.
 
 ## Getting it
 
-There is no release yet. When there is, install it the way you install any mod:
-the Mods screen, then the mod's repository.
+Install it the way you install any mod: the Mods screen, then `Install a
+mod...`, then this repository's address
+(`https://github.com/neostryder/neo-angband-mod-forge`). See `CHANGELOG.md` for
+what each released version changed.
 
 ## Using it
 

@@ -12,6 +12,14 @@ Anything planned, deferred or merely intended goes in `PLANNED.md` instead, and
 never here: a reader who did not write the entry cannot tell an intention from a
 feature, so they go looking for the feature.
 
+## 0.1.2
+
+### Fixed
+
+- **The README no longer says there is no release yet.** It named an install
+  address and pointed at this changelog instead, now that 0.1.0 and 0.1.1 are
+  both actually out.
+
 ## 0.1.1
 
 ### Fixed
