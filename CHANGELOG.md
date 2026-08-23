@@ -12,6 +12,28 @@ Anything planned, deferred or merely intended goes in `PLANNED.md` instead, and
 never here: a reader who did not write the entry cannot tell an intention from a
 feature, so they go looking for the feature.
 
+## 0.1.3
+
+### Fixed
+
+- **A player-authored patch path could pollute `Object.prototype`.** A dotted
+  field-op path such as `__proto__.polluted` walked the demonstration patch
+  composer's ordinary property lookup, which resolves an inherited
+  `Object.prototype` property the same as an own one. The path segments
+  `__proto__`, `prototype`, and `constructor` are now rejected outright, and
+  the raw record-file parser requires an operation's `path` to be a string
+  before it reaches that composer.
+- **The development preview server's path containment used a string prefix.**
+  `file.startsWith(ROOT)` accepts a prefix-matching sibling directory (a
+  request for a repository named `neo-angband-mod-forge-secret`, for
+  example), not only a path actually inside the repository. Containment is
+  now checked with a path-aware `relative()` comparison, and a malformed
+  percent-encoded request path now returns 400 instead of throwing.
+
+Added a repository-specific `SECURITY.md` alongside the core policy, covering
+the boundaries this repository owns: draft persistence, path validation, ZIP
+construction, DOM rendering, session-test refusal, and the preview server.
+
 ## 0.1.2
 
 ### Fixed

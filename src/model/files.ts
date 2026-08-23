@@ -445,7 +445,13 @@ function writeRecordFile(draft: Draft, file: string, text: string): WriteOutcome
       for (const [ref, ops] of Object.entries(patches)) {
         if (!Array.isArray(ops)) return { ok: false, why: `The operations for ${ref} have to be a list.` };
         for (const op of ops) {
-          if (typeof op !== "object" || op === null || Array.isArray(op) || typeof (op as JsonRecord)["op"] !== "string") {
+          if (
+            typeof op !== "object" ||
+            op === null ||
+            Array.isArray(op) ||
+            typeof (op as JsonRecord)["op"] !== "string" ||
+            typeof (op as JsonRecord)["path"] !== "string"
+          ) {
             return { ok: false, why: `Every operation for ${ref} needs an "op" and a "path".` };
           }
         }

@@ -14,7 +14,7 @@
 
 import { createReadStream, statSync } from "node:fs";
 import { createServer } from "node:http";
-import { extname, join, normalize, resolve } from "node:path";
+import { extname, isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(fileURLToPath(new URL("../", import.meta.url)));
@@ -31,13 +31,21 @@ const TYPES = {
 
 const server = createServer((request, response) => {
   const url = new URL(request.url ?? "/", "http://localhost");
-  const wanted = url.pathname === "/" ? "/tools/preview.html" : decodeURIComponent(url.pathname);
+  let wanted;
+  try {
+    wanted = url.pathname === "/" ? "/tools/preview.html" : decodeURIComponent(url.pathname);
+  } catch {
+    response.writeHead(400).end("malformed request path");
+    return;
+  }
 
-  /* Refuse anything that climbs out of the repository. The path is normalised
-   * first and then checked against the root, because a check before
-   * normalisation is a check a "%2e%2e" gets past. */
+  /* Refuse anything that climbs out of the repository. A string-prefix check
+   * (`file.startsWith(ROOT)`) accepts a prefix-matching SIBLING directory, e.g.
+   * "C:\repo-secret" starts with "C:\repo". `relative()` is path-aware: it only
+   * comes back with a leading ".." when `file` actually falls outside `ROOT`. */
   const file = normalize(join(ROOT, wanted));
-  if (!file.startsWith(ROOT)) {
+  const rel = relative(ROOT, file);
+  if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
     response.writeHead(403).end("outside the repository");
     return;
   }

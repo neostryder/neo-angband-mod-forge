@@ -319,10 +319,22 @@ function clone<T extends JsonValue>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+/* A path segment naming an inherited Object.prototype property. "at[seg]" for
+ * one of these resolves through the prototype chain rather than an own
+ * property, so an unguarded read-then-write pollutes every object on the page.
+ * Rejected outright rather than merely skipped, so a player-authored path
+ * cannot silently target the wrong thing. */
+const UNSAFE_PATH_SEGMENTS = new Set(["__proto__", "prototype", "constructor"]);
+
 function setAtPath(record: JsonRecord, path: string, mutate: (current: unknown) => JsonValue): void {
   const segments = path.split(".");
   const last = segments.pop();
   if (last === undefined) throw new StubPatchError("an empty path addresses nothing");
+  for (const seg of [...segments, last]) {
+    if (UNSAFE_PATH_SEGMENTS.has(seg)) {
+      throw new StubPatchError(`"${seg}" is not an allowed path segment in "${path}"`);
+    }
+  }
   let at: JsonRecord | JsonValue[] = record;
   for (const seg of segments) {
     const isIndex = /^(?:0|[1-9][0-9]*)$/.test(seg);
@@ -336,7 +348,7 @@ function setAtPath(record: JsonRecord, path: string, mutate: (current: unknown) 
       at = next;
       continue;
     }
-    let next: JsonValue | undefined = at[seg];
+    let next: JsonValue | undefined = Object.hasOwn(at, seg) ? at[seg] : undefined;
     if (next === undefined) {
       next = isIndex ? [] : {};
       at[seg] = next;
@@ -351,7 +363,7 @@ function setAtPath(record: JsonRecord, path: string, mutate: (current: unknown) 
     at[Number(last)] = mutate(at[Number(last)]);
     return;
   }
-  at[last] = mutate(at[last]);
+  at[last] = mutate(Object.hasOwn(at, last) ? at[last] : undefined);
 }
 
 function applyOp(record: JsonRecord, op: FieldOp): void {

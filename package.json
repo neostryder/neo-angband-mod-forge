@@ -1,6 +1,6 @@
 {
   "name": "neo-angband-mod-forge",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "private": true,
   "description": "ModForge: author a Neo Angband mod from inside the game, without a text editor",
   "license": "GPL-2.0-only",

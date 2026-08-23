@@ -353,8 +353,8 @@ this workshop built behaving wrongly once loaded into the game belongs against
 the game instead - the workshop's job ends at the file it writes.
 
 For anything that should not be public, including a security report:
-**strider-angband (at) rpgm.tools**. See
-[SECURITY.md](https://github.com/neostryder/neo-angband/blob/master/SECURITY.md).
+**strider-angband (at) rpgm.tools**. See [SECURITY.md](SECURITY.md), which also
+links to the core policy for anything owned by the engine rather than this mod.
 
 ## Licence
 
