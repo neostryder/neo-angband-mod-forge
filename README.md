@@ -338,6 +338,9 @@ reads the whole composed world, such as a dangling reference or the flavour-pres
 warning, is still measured against a few dozen invented records, and the workshop's
 own banner keeps saying so.
 
+Asking about AI use in this project? [AI_USAGE_POLICY.md](AI_USAGE_POLICY.md) is
+the complete answer.
+
 ## Licence
 
 GPL-2.0-only, or the Angband licence. See `LICENSE.md`.
