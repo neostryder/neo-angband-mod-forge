@@ -1,6 +1,6 @@
 {
-  "id": "builder",
-  "name": "Mod Builder",
+  "id": "forge",
+  "name": "ModForge",
   "version": "0.1.0",
   "shape": "plugin",
   "facets": [
@@ -25,7 +25,7 @@
     {
       "flag": "builder.showTab",
       "title": "Show the workshop tab",
-      "description": "Puts a small tab in the corner of the main screen. Tapping it opens the workshop. On by default, because the tab is the only way in and a mod builder you cannot open is not one.",
+      "description": "Puts a small tab in the corner of the main screen. Tapping it opens the workshop. On by default, because the tab is the only way in, and a workshop you cannot open is not one.",
       "default": true
     },
     {
@@ -41,5 +41,5 @@
       "default": false
     }
   ],
-  "repository": "https://github.com/neostryder/neo-angband-mod-builder"
+  "repository": "https://github.com/neostryder/neo-angband-mod-forge"
 }

@@ -1,5 +1,5 @@
 /**
- * Mod Builder: make your own mod from inside the game.
+ * ModForge: make your own mod from inside the game.
  *
  * ------------------------------------------------------------------
  * ENTRY POINT CONTRACT - one shape, for every mod and every front end

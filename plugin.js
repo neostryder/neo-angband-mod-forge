@@ -1,4 +1,4 @@
-// builder - generated from plugin.ts by neo-angband-mod-build
+// forge - generated from plugin.ts by neo-angband-mod-build
 // (@rpgm-tools/neo-angband-mod-sdk). Edit the TypeScript source, not this file.
 
 // src/host/context.ts
@@ -7043,7 +7043,7 @@ function mountApp(deps) {
     ...deps.registries === void 0 ? {} : { registries: deps.registries }
   };
   const illum = h("div", { class: "mb-illum", text: "M" });
-  const title = h("h1", { class: "mb-title", text: "Mod Builder" });
+  const title = h("h1", { class: "mb-title", text: "ModForge" });
   const subtitle = h("p", { class: "mb-subtitle" });
   const parchment = h("input", { type: "checkbox" });
   parchment.addEventListener("change", () => deps.overlay.setParchment(parchment.checked));
@@ -8319,7 +8319,7 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
 `;
 
 // src/ui/overlay.ts
-var HOST_ID = "neo-angband-mod-builder";
+var HOST_ID = "neo-angband-mod-forge";
 var Z = 2e3;
 function mountOverlay(doc2, options) {
   const existing = doc2.getElementById(HOST_ID);
@@ -8448,7 +8448,7 @@ function openWorkshop(ctx, doc2) {
     store.view(() => ({ notice: { text: outcome.why, tone: "bad" } }));
     log(`draft storage refused ${outcome.bytes} bytes: ${outcome.why}`);
   });
-  const overlay = mountOverlay(doc2, { label: "Mod Builder" });
+  const overlay = mountOverlay(doc2, { label: "ModForge" });
   let closed = false;
   const handle = {
     get open() {

@@ -57,7 +57,7 @@ export function openWorkshop(ctx: BuilderCtx, doc: Document | undefined): Worksh
     log(`draft storage refused ${outcome.bytes} bytes: ${outcome.why}`);
   });
 
-  const overlay = mountOverlay(doc, { label: "Mod Builder" });
+  const overlay = mountOverlay(doc, { label: "ModForge" });
 
   let closed = false;
   const handle: WorkshopHandle = {

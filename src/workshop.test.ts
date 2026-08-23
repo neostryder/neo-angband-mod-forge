@@ -52,7 +52,7 @@ function ctx(extra: Partial<BuilderCtx> = {}): BuilderCtx {
 }
 
 function shadow(): ShadowRoot {
-  const host = document.getElementById("neo-angband-mod-builder");
+  const host = document.getElementById("neo-angband-mod-forge");
   if (!host?.shadowRoot) throw new Error("the workshop did not mount");
   return host.shadowRoot;
 }
@@ -104,7 +104,7 @@ describe("opening the workshop", () => {
 
   it("mounts one overlay, above everything, and owns the keyboard while it is up", () => {
     open = openWorkshop(ctx(), document);
-    const host = document.getElementById("neo-angband-mod-builder");
+    const host = document.getElementById("neo-angband-mod-forge");
     expect(host).not.toBeNull();
     expect(host?.getAttribute("aria-modal")).toBe("true");
     expect(host?.style.position).toBe("fixed");
@@ -125,7 +125,7 @@ describe("opening the workshop", () => {
   it("takes its element and its listeners away again on close", () => {
     open = openWorkshop(ctx(), document);
     open?.close();
-    expect(document.getElementById("neo-angband-mod-builder")).toBeNull();
+    expect(document.getElementById("neo-angband-mod-forge")).toBeNull();
 
     let reachedTheGame = false;
     window.addEventListener("keydown", () => {

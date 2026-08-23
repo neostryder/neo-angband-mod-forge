@@ -63,7 +63,7 @@ const server = createServer((request, response) => {
 });
 
 server.listen(PORT, "127.0.0.1", () => {
-  console.log(`Mod Builder preview: http://127.0.0.1:${PORT}/`);
+  console.log(`ModForge preview: http://127.0.0.1:${PORT}/`);
   console.log("Every engine seam is absent here, which is what a player sees today.");
   console.log("Ctrl-C to stop.");
 });

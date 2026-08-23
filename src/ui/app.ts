@@ -81,7 +81,7 @@ export function mountApp(deps: AppDeps): App {
    * ---------------------------------------------------------------- */
 
   const illum = h("div", { class: "mb-illum", text: "M" });
-  const title = h("h1", { class: "mb-title", text: "Mod Builder" });
+  const title = h("h1", { class: "mb-title", text: "ModForge" });
   const subtitle = h("p", { class: "mb-subtitle" });
 
   const parchment = h("input", { type: "checkbox" });

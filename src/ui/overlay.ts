@@ -54,7 +54,7 @@ export interface Overlay {
   close(): void;
 }
 
-const HOST_ID = "neo-angband-mod-builder";
+const HOST_ID = "neo-angband-mod-forge";
 
 /**
  * Above the game and above the samples, and low enough to leave room.

@@ -1,4 +1,4 @@
-# Mod Builder
+# ModForge
 
 Make your own Neo Angband mod from inside the game.
 

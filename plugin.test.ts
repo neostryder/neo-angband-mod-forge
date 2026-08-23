@@ -15,7 +15,7 @@ import plugin from "./plugin.js";
 import type { BuilderCtx } from "./src/host/context.js";
 
 afterEach(() => {
-  document.getElementById("neo-angband-mod-builder")?.remove();
+  document.getElementById("neo-angband-mod-forge")?.remove();
   document.body.replaceChildren();
 });
 
@@ -132,7 +132,7 @@ describe("tapping the tab", () => {
     const region = plugin.regions(ctx({ "builder.showTab": true }))[0];
     if (!region?.input) throw new Error("the region takes no input");
     region.input({ col: 0, row: 0, kind: "tap" });
-    expect(document.getElementById("neo-angband-mod-builder")).not.toBeNull();
+    expect(document.getElementById("neo-angband-mod-forge")).not.toBeNull();
   });
 
   it("opens it once, however many times it is tapped", () => {
@@ -142,13 +142,13 @@ describe("tapping the tab", () => {
     if (!region?.input) throw new Error("the region takes no input");
     region.input({ col: 0, row: 0, kind: "tap" });
     region.input({ col: 0, row: 0, kind: "tap" });
-    expect(document.querySelectorAll("#neo-angband-mod-builder")).toHaveLength(1);
+    expect(document.querySelectorAll("#neo-angband-mod-forge")).toHaveLength(1);
   });
 
   it("ignores anything that is not a tap", () => {
     const region = plugin.regions(ctx({ "builder.showTab": true }))[0];
     if (!region?.input) throw new Error("the region takes no input");
     region.input({ col: 0, row: 0, kind: "context" });
-    expect(document.getElementById("neo-angband-mod-builder")).toBeNull();
+    expect(document.getElementById("neo-angband-mod-forge")).toBeNull();
   });
 });

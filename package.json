@@ -1,11 +1,11 @@
 {
-  "name": "neo-angband-mod-builder",
+  "name": "neo-angband-mod-forge",
   "version": "0.1.0",
   "private": true,
-  "description": "Mod Builder: author a Neo Angband mod from inside the game, without a text editor",
+  "description": "ModForge: author a Neo Angband mod from inside the game, without a text editor",
   "license": "GPL-2.0-only",
   "author": "neostryder (RPGM Tools)",
-  "homepage": "https://github.com/neostryder/neo-angband-mod-builder",
+  "homepage": "https://github.com/neostryder/neo-angband-mod-forge",
   "type": "module",
   "//private": [
     "Not published to npm, and not intended to be. A mod is distributed as a FOLDER the",
@@ -16,7 +16,7 @@
   "//dependencies": [
     "The engine is a devDependency, never a dependency. plugin.js receives it as",
     "ctx.core at load time; a runtime dependency would mean a second copy of the",
-    "engine's module state living inside the mod, which the builder refuses outright.",
+    "engine's module state living inside the mod, which this mod refuses outright.",
     "So it is here for TYPES and for the tests.",
     "The mod SDK is different here than in every other mod in this family: this mod",
     "CALLS it at runtime rather than only building against it. It still is not a runtime",
