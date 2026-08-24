@@ -12,6 +12,18 @@ Anything planned, deferred or merely intended goes in `PLANNED.md` instead, and
 never here: a reader who did not write the entry cannot tell an intention from a
 feature, so they go looking for the feature.
 
+## 0.1.6
+
+### Added
+
+- **Emitted files can now carry real binary content.** `EmittedFile.contents`
+  (and the project builder's emit path, the file editor, and the persisted
+  draft cache) accept `Uint8Array` alongside the existing string content, so
+  a PNG, a font or a sound can actually be built rather than holding whatever
+  text was typed into a `.png`-named file. The file editor shows a byte-count
+  panel with a "load from disk" control for a binary file instead of feeding
+  raw bytes into the text editor. Existing string-based emits are unaffected.
+
 ## 0.1.5
 
 ### Fixed
