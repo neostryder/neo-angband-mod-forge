@@ -12,6 +12,12 @@ Anything planned, deferred or merely intended goes in `PLANNED.md` instead, and
 never here: a reader who did not write the entry cannot tell an intention from a
 feature, so they go looking for the feature.
 
+## 0.1.4
+
+Rebuilt the committed `plugin.js` to match its current source. Added a
+Terms of Use and a shared Code of Conduct alongside the existing LICENSE
+policy, and a README screenshot of the workshop.
+
 ## 0.1.3
 
 ### Fixed
