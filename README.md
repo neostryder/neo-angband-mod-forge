@@ -12,6 +12,8 @@ It never asks you what JSON is. It also never hides it: every screen can show yo
 the exact file it is about to write, and a mod it built can be taken away,
 hand-edited and brought back.
 
+![The ModForge workshop landing screen, reached from the town's "Build a mod" tab](docs/img/modforge-workshop.jpg)
+
 ## Status
 
 **Early. The workshop opens, every screen works, the mod it emits is a real mod,
