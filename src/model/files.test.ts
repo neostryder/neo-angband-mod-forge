@@ -16,19 +16,29 @@ import { newDraft } from "./draft.js";
 import {
   classify,
   deleteFile,
+  fileContents,
   fileText,
+  isBinary,
   isCodePath,
   MANIFEST,
   pathProblem,
   pathShapeProblem,
+  projectBytes,
   projectFiles,
   scriptFiles,
   sessionRefusal,
   unread,
+  writeFileBytes,
   writeFileText,
 } from "./files.js";
 
 const api = STUB_AUTHORING;
+
+/** Every file this suite writes back is text; this narrows the type for it. */
+function asText(contents: string | Uint8Array | undefined): string {
+  if (typeof contents !== "string") throw new Error("expected text contents");
+  return contents;
+}
 
 function draft(): Draft {
   return {
@@ -60,7 +70,7 @@ function byShape(a: Draft["changes"][number], b: Draft["changes"][number]): numb
 function rewriteEverything(source: Draft): Draft {
   let current = source;
   for (const file of projectFiles(api, source)) {
-    const outcome = writeFileText(api, current, file.path, file.contents);
+    const outcome = writeFileText(api, current, file.path, asText(file.contents));
     if (!outcome.ok) throw new Error(`${file.path} would not write back: ${outcome.why}`);
     current = outcome.draft;
   }
@@ -216,7 +226,7 @@ describe("editing a record file as text", () => {
     expect(unread(outcome.draft)).toEqual([{ path: "monster.json", keys: ["sections"] }]);
 
     const written = emitDraft(api, outcome.draft).find((file) => file.path === "monster.json");
-    const body = JSON.parse(written?.contents ?? "{}") as Record<string, unknown>;
+    const body = JSON.parse(asText(written?.contents ?? "{}")) as Record<string, unknown>;
     expect(body["sections"]).toEqual({ extras: { records: [] } });
     expect(body["records"]).toHaveLength(1);
   });
@@ -396,5 +406,85 @@ describe("taking a file out", () => {
   it("refuses to remove one the mod writes for itself", () => {
     const outcome = deleteFile(api, busy(), "monster.json");
     expect(outcome.ok).toBe(false);
+  });
+});
+
+/**
+ * A tile, a font, a sound: bytes with no text form at all. The whole property
+ * this suite checks elsewhere - read a file, write it straight back, nothing
+ * about the folder moves - has to hold for these too, and it is asserted
+ * separately here because a binary file cannot go through `writeFileText`
+ * without corrupting itself, which is the bug this capability exists to fix.
+ */
+describe("a binary extra - a tile, a font, a sound", () => {
+  /* The PNG signature, which is not valid UTF-8 on its own (0x89), so a codec
+   * anywhere in the path that quietly treated this as text would corrupt it
+   * rather than merely mangling something still readable. */
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+  it("is written and read back as the exact same bytes", () => {
+    const outcome = writeFileBytes(api, draft(), "tiles/hero.png", PNG);
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+
+    const contents = fileContents(api, outcome.draft, "tiles/hero.png");
+    expect(contents).toBeInstanceOf(Uint8Array);
+    expect([...((contents as Uint8Array) ?? [])]).toEqual([...PNG]);
+
+    /* Never presented as text: decoding a picture as UTF-8 is not a smaller
+     * version of reading it, it is a different and wrong answer. */
+    expect(fileText(api, outcome.draft, "tiles/hero.png")).toBeUndefined();
+  });
+
+  it("is refused for the manifest and for a record file, exactly as text is", () => {
+    const manifest = writeFileBytes(api, draft(), MANIFEST, PNG);
+    expect(manifest.ok).toBe(false);
+    const record = writeFileBytes(api, draft(), "monster.json", PNG);
+    expect(record.ok).toBe(false);
+  });
+
+  it("is checked on the way in on the same path terms as text", () => {
+    const outcome = writeFileBytes(api, draft(), "../escape.png", PNG);
+    expect(outcome.ok).toBe(false);
+  });
+
+  it("counts its real length, not the length of some text encoding of it", () => {
+    const outcome = writeFileBytes(api, draft(), "tiles/hero.png", PNG);
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    const before = projectBytes(api, draft());
+    const after = projectBytes(api, outcome.draft);
+    expect(after - before).toBe(PNG.length);
+  });
+
+  it("is what `isBinary` says it is, for a binary file and a text one alike", () => {
+    const outcome = writeFileBytes(api, draft(), "tiles/hero.png", PNG);
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    const files = projectFiles(api, outcome.draft);
+    expect(isBinary(files.find((f) => f.path === "tiles/hero.png")?.contents ?? "")).toBe(true);
+    expect(isBinary(files.find((f) => f.path === MANIFEST)?.contents ?? "")).toBe(false);
+  });
+
+  it("can be replaced with a fresh set of bytes and take those on exactly", () => {
+    const first = writeFileBytes(api, draft(), "tiles/hero.png", PNG);
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    const other = new Uint8Array([1, 2, 3, 4]);
+    const second = writeFileBytes(api, first.draft, "tiles/hero.png", other);
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    const contents = fileContents(api, second.draft, "tiles/hero.png");
+    expect([...((contents as Uint8Array) ?? [])]).toEqual([...other]);
+  });
+
+  it("is taken out of the mod exactly as a text extra is", () => {
+    const added = writeFileBytes(api, draft(), "tiles/hero.png", PNG);
+    expect(added.ok).toBe(true);
+    if (!added.ok) return;
+    const gone = deleteFile(api, added.draft, "tiles/hero.png");
+    expect(gone.ok).toBe(true);
+    if (!gone.ok) return;
+    expect(fileContents(api, gone.draft, "tiles/hero.png")).toBeUndefined();
   });
 });

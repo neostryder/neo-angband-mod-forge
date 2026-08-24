@@ -1173,8 +1173,64 @@ function resolveReload(ctx) {
   return null;
 }
 
+// src/model/base64.ts
+var CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+function bytesToBase64(bytes) {
+  let out = "";
+  for (let i = 0; i < bytes.length; i += 3) {
+    const b0 = bytes[i] ?? 0;
+    const b1 = bytes[i + 1];
+    const b2 = bytes[i + 2];
+    out += CHARS[b0 >> 2];
+    out += CHARS[(b0 & 3) << 4 | (b1 ?? 0) >> 4];
+    out += b1 === void 0 ? "=" : CHARS[(b1 & 15) << 2 | (b2 ?? 0) >> 6];
+    out += b2 === void 0 ? "=" : CHARS[b2 & 63];
+  }
+  return out;
+}
+function base64ToBytes(text) {
+  const out = [];
+  let buffer = 0;
+  let bits = 0;
+  for (const ch of text) {
+    if (ch === "=") break;
+    const value = CHARS.indexOf(ch);
+    if (value < 0) continue;
+    buffer = buffer << 6 | value;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      out.push(buffer >> bits & 255);
+    }
+  }
+  return new Uint8Array(out);
+}
+
 // src/model/persist.ts
 var SIZE_CEILING = 512 * 1024;
+function isBytesMarker(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value) && typeof value["$bytes"] === "string" && Object.keys(value).length === 1;
+}
+function encodeBytes(value) {
+  if (value instanceof Uint8Array) return { $bytes: bytesToBase64(value) };
+  if (Array.isArray(value)) return value.map(encodeBytes);
+  if (typeof value === "object" && value !== null) {
+    const out = {};
+    for (const [key, inner] of Object.entries(value)) out[key] = encodeBytes(inner);
+    return out;
+  }
+  return value;
+}
+function decodeBytes(value) {
+  if (isBytesMarker(value)) return base64ToBytes(value.$bytes);
+  if (Array.isArray(value)) return value.map(decodeBytes);
+  if (typeof value === "object" && value !== null) {
+    const out = {};
+    for (const [key, inner] of Object.entries(value)) out[key] = decodeBytes(inner);
+    return out;
+  }
+  return value;
+}
 function loadDrafts(prefs) {
   if (!prefs) return { drafts: {}, seenTour: false };
   let raw;
@@ -1184,7 +1240,7 @@ function loadDrafts(prefs) {
     return { drafts: {}, seenTour: false };
   }
   if (typeof raw !== "object" || raw === null) return { drafts: {}, seenTour: false };
-  const stored = raw;
+  const stored = decodeBytes(raw);
   if (stored.v !== 1) return { drafts: {}, seenTour: false };
   const drafts = {};
   for (const [id, draft] of Object.entries(stored.drafts ?? {})) {
@@ -1199,7 +1255,8 @@ function looksLikeDraft(value) {
 }
 function saveDrafts(prefs, drafts, seenTour) {
   const stored = { v: 1, drafts, seenTour };
-  const text = JSON.stringify(stored);
+  const encoded = encodeBytes(stored);
+  const text = JSON.stringify(encoded);
   const bytes = new TextEncoder().encode(text).length;
   if (!prefs) {
     return {
@@ -1216,7 +1273,7 @@ function saveDrafts(prefs, drafts, seenTour) {
     };
   }
   try {
-    prefs.set(stored);
+    prefs.set(encoded);
   } catch (e) {
     return { ok: false, why: `Keeping this failed: ${String(e)}`, bytes };
   }
@@ -1440,7 +1497,7 @@ function zipStored(entries) {
   const directory = [];
   for (const entry of entries) {
     const name = encoder.encode(entry.path);
-    const data = encoder.encode(entry.contents);
+    const data = typeof entry.contents === "string" ? encoder.encode(entry.contents) : entry.contents;
     const crc = crc32(data);
     const offset = body.at;
     body.u32(67324752);
@@ -1611,7 +1668,9 @@ function withHandWritten(generated, draft) {
   const out = generated.map((file) => {
     const stem = file.path.endsWith(".json") ? file.path.slice(0, -".json".length) : "";
     const spare = fileExtras[stem];
-    if (file.path === "manifest.json" || spare === void 0 || Object.keys(spare).length === 0) return file;
+    if (file.path === "manifest.json" || spare === void 0 || Object.keys(spare).length === 0 || typeof file.contents !== "string") {
+      return file;
+    }
     let body;
     try {
       body = JSON.parse(file.contents);
@@ -1657,6 +1716,9 @@ function countFindings(findings) {
 }
 
 // src/model/files.ts
+function isBinary(contents) {
+  return typeof contents !== "string";
+}
 var MANIFEST = "manifest.json";
 var CODE_EXTENSIONS = [".js", ".mjs", ".cjs", ".ts", ".wasm"];
 var PLUGIN = "plugin.js";
@@ -1691,8 +1753,12 @@ function classify(api, path) {
 function projectFiles(api, draft) {
   return emitDraft(api, draft).map((file) => ({ path: file.path, kind: classify(api, file.path), contents: file.contents })).sort((a, b) => a.path === MANIFEST ? -1 : b.path === MANIFEST ? 1 : a.path.localeCompare(b.path));
 }
-function fileText(api, draft, path) {
+function fileContents(api, draft, path) {
   return projectFiles(api, draft).find((file) => file.path === path)?.contents;
+}
+function fileText(api, draft, path) {
+  const contents = fileContents(api, draft, path);
+  return typeof contents === "string" ? contents : void 0;
 }
 var DEVICE_NAMES = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i;
 function pathShapeProblem(path) {
@@ -1744,6 +1810,18 @@ function writeFileText(api, draft, path, text) {
       return { ok: true, draft: { ...draft, extras: { ...draft.extras ?? {}, [path]: text } } };
   }
 }
+function writeFileBytes(api, draft, path, bytes) {
+  const shape = pathShapeProblem(path);
+  if (shape !== void 0) return { ok: false, why: shape };
+  const kind = classify(api, path);
+  if (kind !== "extra") {
+    return {
+      ok: false,
+      why: `${path} is written from what the mod does, as text the workshop generates or parses, so it cannot hold raw bytes.`
+    };
+  }
+  return { ok: true, draft: { ...draft, extras: { ...draft.extras ?? {}, [path]: bytes } } };
+}
 function deleteFile(api, draft, path) {
   if (classify(api, path) !== "extra") {
     return {
@@ -1758,7 +1836,9 @@ function deleteFile(api, draft, path) {
 function projectBytes(api, draft) {
   const encoder = new TextEncoder();
   let total = 0;
-  for (const file of projectFiles(api, draft)) total += encoder.encode(file.contents).length;
+  for (const file of projectFiles(api, draft)) {
+    total += typeof file.contents === "string" ? encoder.encode(file.contents).length : file.contents.length;
+  }
   return total;
 }
 function parseObject(text, what) {
@@ -2534,6 +2614,41 @@ var Actions = class {
     }));
     this.notice(`${path} is in the mod. It is empty until you write something in it.`, "good");
   }
+  /**
+   * Start a new file, or replace an existing one of the author's own, with real
+   * bytes read from disk - a tile, a font, a sound. `replace` skips the new-path
+   * check, because the path is not new.
+   *
+   * NO TEXT BUFFER IS OPENED. The editor's buffer is a string a textarea can hold,
+   * and decoding a PNG's bytes into one would show mojibake and, worse, would let
+   * "Save into the mod" re-encode that mojibake as UTF-8 and quietly replace the
+   * picture with a different and wrong set of bytes. So the buffer for this path
+   * is cleared instead, and the screen reads the file's bytes straight from the
+   * draft, the same way it always has for anything it did not open into an editor.
+   */
+  importFileBytes(path, bytes, options = {}) {
+    const draft = openDraft(this.deps.store.get());
+    if (!draft) return;
+    if (options.replace !== true) {
+      const problem = pathProblem(this.deps.api, draft, path);
+      if (problem !== void 0) {
+        this.notice(problem, "bad");
+        return;
+      }
+    }
+    const outcome = writeFileBytes(this.deps.api, draft, path, bytes);
+    if (!outcome.ok) {
+      this.notice(outcome.why, "bad");
+      return;
+    }
+    this.mutate(() => outcome.draft);
+    this.deps.store.view((state) => {
+      const buffers = { ...state.buffers };
+      delete buffers[path];
+      return { route: { at: "files", path }, buffers };
+    });
+    this.notice(`${path} now holds ${bytes.length} byte${bytes.length === 1 ? "" : "s"} loaded from disk.`, "good");
+  }
   /** Take one of the author's own files out of the mod. */
   deleteFile(path) {
     const draft = openDraft(this.deps.store.get());
@@ -3108,12 +3223,8 @@ function asideSection(title, count) {
   };
 }
 function filePreview(name, contents) {
-  return h(
-    "div",
-    null,
-    h("div", { class: "mb-filename", text: name }),
-    h("pre", { class: "mb-code", text: contents })
-  );
+  const body = typeof contents === "string" ? h("pre", { class: "mb-code", text: contents }) : h("div", { class: "mb-why", text: `Binary, ${contents.length} byte${contents.length === 1 ? "" : "s"}.` });
+  return h("div", null, h("div", { class: "mb-filename", text: name }), body);
 }
 function fillList(container, rows, nothing) {
   if (rows.length === 0) fill(container, nothing);
@@ -4886,11 +4997,30 @@ function filesScreen(shop, path) {
     tip: "Writes a working entry point with nothing in it, so a mod that runs code is one file away. The manifest grows the plugin facet and the ABI number to match, because a mod that ships code without declaring both installs and then does nothing.",
     onClick: () => shop.acts.createFile(PLUGIN, PLUGIN_TEMPLATE)
   });
+  const loadFile = h("input", { type: "file" });
+  loadFile.addEventListener("change", () => {
+    const picked = loadFile.files?.[0];
+    if (!picked) return;
+    const wanted = newName.value.trim() || picked.name;
+    void picked.arrayBuffer().then((buffer) => {
+      shop.acts.importFileBytes(wanted, new Uint8Array(buffer));
+      loadFile.value = "";
+      newName.value = "";
+      newName.dispatchEvent(new Event("input"));
+    });
+  });
+  const loadRow = h(
+    "label",
+    { class: "mb-why" },
+    "Or load one from disk, real bytes and all: ",
+    loadFile
+  );
   listSection.body.append(
     list,
     h("div", { class: "mb-ed-new" }, newName, add),
     newProblem,
     h("div", { class: "mb-row-actions" }, plugin),
+    loadRow,
     size
   );
   aside.appendChild(listSection.el);
@@ -4934,6 +5064,25 @@ function filesScreen(shop, path) {
   const checkNote = h("div", { class: "mb-why" });
   let editor;
   const host = h("div");
+  const binaryInfo = h("div", { class: "mb-why" });
+  const binaryReplace = h("input", { type: "file" });
+  binaryReplace.addEventListener("change", () => {
+    const picked = binaryReplace.files?.[0];
+    if (!picked) return;
+    void picked.arrayBuffer().then((buffer) => {
+      shop.acts.importFileBytes(path, new Uint8Array(buffer), { replace: true });
+      binaryReplace.value = "";
+    });
+  });
+  const binaryPanel = h(
+    "div",
+    { class: "mb-prose" },
+    h("p", {
+      text: "This file holds raw bytes, not text, so there is nothing here to type or colour in. Replacing it swaps the whole file for whatever the picked file contains."
+    }),
+    binaryInfo,
+    h("label", { class: "mb-why" }, "Replace with a file from disk: ", binaryReplace)
+  );
   const LINT_DELAY = 250;
   let lint;
   let lintKey = "";
@@ -4966,7 +5115,7 @@ function filesScreen(shop, path) {
       onCaret: (line, column) => setText(caret, `line ${line}, column ${column}`)
     });
     host.appendChild(editor.el);
-    main.append(title, about, bar, host, problems, checkNote);
+    main.append(title, about, bar, host, binaryPanel, problems, checkNote);
   } else {
     main.append(
       h(
@@ -4996,7 +5145,7 @@ function filesScreen(shop, path) {
       list,
       files.map((file2) => {
         const held2 = state.buffers[file2.path];
-        const changed2 = held2 !== void 0 && held2.text !== file2.contents;
+        const changed2 = held2 !== void 0 && !isBinary(file2.contents) && held2.text !== file2.contents;
         const tags = [];
         if (changed2) tags.push({ text: "unsaved", tone: "mod" });
         if (uncheckedPaths.has(file2.path)) tags.push({ text: "partly unread" });
@@ -5023,6 +5172,28 @@ function filesScreen(shop, path) {
       return;
     }
     const file = files.find((entry) => entry.path === path);
+    if (file !== void 0 && isBinary(file.contents)) {
+      host.style.display = "none";
+      binaryPanel.style.display = "";
+      problems.style.display = "none";
+      setText(title, path);
+      setText(binaryInfo, `${file.contents.length} byte${file.contents.length === 1 ? "" : "s"} loaded from disk.`);
+      const notes2 = ["Yours. It goes into the mod folder exactly as it is here, byte for byte, and nothing rewrites it."];
+      if (refusal !== void 0) notes2.push(refusal);
+      setText(about, notes2.join(" "));
+      setText(dirty, "saved");
+      dirty.dataset["tone"] = "";
+      save.disabled = true;
+      revert.disabled = true;
+      overwrite.disabled = true;
+      overwrite.style.display = "none";
+      remove.disabled = classify(shop.api, path) !== "extra";
+      setText(checkNote, "This is not text, so there is nothing here for the record checks to read.");
+      return;
+    }
+    host.style.display = "";
+    binaryPanel.style.display = "none";
+    problems.style.display = "";
     const held = state.buffers[path];
     if (file === void 0 || held === void 0) {
       setText(title, path);
@@ -5073,7 +5244,8 @@ function filesScreen(shop, path) {
     setText(checkNote, checkedHow(lang, found.length, editor?.colouring() !== false, lint, settled));
   };
   render(shop.store.get());
-  editor?.focus();
+  const openedFile = path === "" ? void 0 : projectFiles(shop.api, draft).find((entry) => entry.path === path);
+  if (openedFile === void 0 || !isBinary(openedFile.contents)) editor?.focus();
   return {
     el,
     update(next, prev) {

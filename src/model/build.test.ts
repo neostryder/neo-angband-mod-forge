@@ -12,6 +12,12 @@ import type { Draft } from "./draft.js";
 
 const api = STUB_AUTHORING;
 
+/** Every file the stub composer emits is JSON text; this narrows the type for it. */
+function asText(contents: string | Uint8Array | undefined): string {
+  if (typeof contents !== "string") throw new Error("expected text contents");
+  return contents;
+}
+
 function draftWith(changes: Draft["changes"]): Draft {
   return {
     ...newDraft("my-mod", "0.25.0", "2026-08-21T00:00:00.000Z"),
@@ -47,12 +53,12 @@ describe("emitDraft", () => {
       ]),
     );
     expect(files.map((f) => f.path)).toEqual(["manifest.json", "monster.json", "object.json"]);
-    for (const file of files) expect(file.contents.endsWith("\n")).toBe(true);
+    for (const file of files) expect(asText(file.contents).endsWith("\n")).toBe(true);
 
-    const monster = JSON.parse(files[1]?.contents ?? "{}") as { records?: unknown[] };
+    const monster = JSON.parse(asText(files[1]?.contents ?? "{}")) as { records?: unknown[] };
     expect(monster.records).toHaveLength(1);
 
-    const object = JSON.parse(files[2]?.contents ?? "{}") as { fieldPatches?: Record<string, unknown[]> };
+    const object = JSON.parse(asText(files[2]?.contents ?? "{}")) as { fieldPatches?: Record<string, unknown[]> };
     expect(object.fieldPatches?.["core:sword--dagger"]).toEqual([{ op: "mul", path: "cost", value: 10 }]);
   });
 
@@ -60,6 +66,36 @@ describe("emitDraft", () => {
     const files = emitDraft(api, draftWith([{ kind: "add", file: "monster", record: { name: "x", base: "ant", depth: 1 } }]));
     const out = unzipSync(zipDraft(files));
     expect(Object.keys(out).sort()).toEqual(["manifest.json", "monster.json"]);
+  });
+
+  it("carries a binary extra - a tile, in this case - through untouched, next to ordinary text files", () => {
+    /* Not a whole valid PNG, just its signature plus a few bytes that are not
+     * valid UTF-8 on their own (0x89), so a codec that quietly treated this as
+     * text anywhere along the way would corrupt it rather than merely mangling
+     * something readable. */
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+    const source: Draft = {
+      ...draftWith([{ kind: "add", file: "monster", record: { name: "x", base: "ant", depth: 1 } }]),
+      extras: { "tiles/hero.png": png },
+    };
+
+    const files = emitDraft(api, source);
+    expect(files.map((f) => f.path)).toEqual(["manifest.json", "monster.json", "tiles/hero.png"]);
+
+    const tile = files.find((f) => f.path === "tiles/hero.png");
+    expect(tile?.contents).toBeInstanceOf(Uint8Array);
+    expect([...((tile?.contents as Uint8Array) ?? [])]).toEqual([...png]);
+
+    /* The text files next to it are unaffected: still strings, still JSON. */
+    const monster = files.find((f) => f.path === "monster.json");
+    expect(typeof monster?.contents).toBe("string");
+    expect(() => JSON.parse(asText(monster?.contents))).not.toThrow();
+
+    /* And the zip carries the bytes exactly, which is the round trip that matters:
+     * this is what the mod manager's own reader will unzip on install. */
+    const out = unzipSync(zipDraft(files));
+    expect(Object.keys(out).sort()).toEqual(["manifest.json", "monster.json", "tiles/hero.png"]);
+    expect([...(out["tiles/hero.png"] ?? [])]).toEqual([...png]);
   });
 });
 

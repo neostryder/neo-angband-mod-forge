@@ -46,6 +46,22 @@ describe("zipStored", () => {
     expect(Object.keys(out)).toEqual([]);
   });
 
+  it("carries a binary entry through as exact bytes, alongside text entries unchanged", () => {
+    /* The PNG signature plus an IHDR chunk header - not a whole valid image, just
+     * enough non-ASCII, non-UTF-8-safe bytes (0x89, 0x00) that a codec silently
+     * treating them as text would corrupt them. */
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
+    const out = unzipSync(
+      zipStored([
+        { path: "manifest.json", contents: '{\n  "id": "my-mod"\n}\n' },
+        { path: "tiles/hero.png", contents: png },
+      ]),
+    );
+    expect(Object.keys(out).sort()).toEqual(["manifest.json", "tiles/hero.png"]);
+    expect(decoder.decode(out["manifest.json"])).toBe('{\n  "id": "my-mod"\n}\n');
+    expect([...(out["tiles/hero.png"] ?? [])]).toEqual([...png]);
+  });
+
   it("computes the CRC-32 the format asks for", () => {
     /* The known answer for "123456789" under the standard polynomial. Pinned
      * because a wrong CRC produces an archive that unzips on a lenient reader and

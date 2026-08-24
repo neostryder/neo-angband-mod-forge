@@ -37,6 +37,7 @@ import { lintFile } from "../../model/lint.js";
 import type { FileLint } from "../../model/lint.js";
 import {
   classify,
+  isBinary,
   isCodePath,
   MANIFEST,
   pathNote,
@@ -111,11 +112,40 @@ export function filesScreen(shop: Workshop, path: string): View {
       "installs and then does nothing.",
     onClick: () => shop.acts.createFile(PLUGIN, PLUGIN_TEMPLATE),
   });
+
+  /**
+   * A tile, a font, a sound: a file whose bytes are not text at all, so there is
+   * nothing to type. `newName` names it when it says something; the picked
+   * file's own name is what is left otherwise.
+   */
+  const loadFile = h("input", { type: "file" });
+  loadFile.addEventListener("change", () => {
+    const picked = loadFile.files?.[0];
+    if (!picked) return;
+    const wanted = newName.value.trim() || picked.name;
+    void picked.arrayBuffer().then((buffer) => {
+      shop.acts.importFileBytes(wanted, new Uint8Array(buffer));
+      loadFile.value = "";
+      newName.value = "";
+      /* Dispatched rather than left implicit: setting `.value` in script does not
+       * fire "input", and without this the name field's own note and the "Add it"
+       * button would keep showing the verdict for whatever was typed before. */
+      newName.dispatchEvent(new Event("input"));
+    });
+  });
+  const loadRow = h(
+    "label",
+    { class: "mb-why" },
+    "Or load one from disk, real bytes and all: ",
+    loadFile,
+  );
+
   listSection.body.append(
     list,
     h("div", { class: "mb-ed-new" }, newName, add),
     newProblem,
     h("div", { class: "mb-row-actions" }, plugin),
+    loadRow,
     size,
   );
   aside.appendChild(listSection.el);
@@ -169,6 +199,34 @@ export function filesScreen(shop: Workshop, path: string): View {
 
   let editor: CodeEditor | undefined;
   const host = h("div");
+
+  /**
+   * What shows in place of the text editor for a binary file - a tile, a font, a
+   * sound. There is no text to put in a textarea, so there is nothing to type or
+   * colour, and the panel says so rather than showing an empty editor that looks
+   * like a file with nothing in it.
+   */
+  const binaryInfo = h("div", { class: "mb-why" });
+  const binaryReplace = h("input", { type: "file" });
+  binaryReplace.addEventListener("change", () => {
+    const picked = binaryReplace.files?.[0];
+    if (!picked) return;
+    void picked.arrayBuffer().then((buffer) => {
+      shop.acts.importFileBytes(path, new Uint8Array(buffer), { replace: true });
+      binaryReplace.value = "";
+    });
+  });
+  const binaryPanel = h(
+    "div",
+    { class: "mb-prose" },
+    h("p", {
+      text:
+        "This file holds raw bytes, not text, so there is nothing here to type or colour in. Replacing it swaps " +
+        "the whole file for whatever the picked file contains.",
+    }),
+    binaryInfo,
+    h("label", { class: "mb-why" }, "Replace with a file from disk: ", binaryReplace),
+  );
 
   /* ---------------------------------------------------------------- *
    * The checks                                                       *
@@ -226,7 +284,7 @@ export function filesScreen(shop: Workshop, path: string): View {
       onCaret: (line, column) => setText(caret, `line ${line}, column ${column}`),
     });
     host.appendChild(editor.el);
-    main.append(title, about, bar, host, problems, checkNote);
+    main.append(title, about, bar, host, binaryPanel, problems, checkNote);
   } else {
     main.append(
       h(
@@ -270,7 +328,7 @@ export function filesScreen(shop: Workshop, path: string): View {
       list,
       files.map((file) => {
         const held = state.buffers[file.path];
-        const changed = held !== undefined && held.text !== file.contents;
+        const changed = held !== undefined && !isBinary(file.contents) && held.text !== file.contents;
         const tags: { text: string; tone?: string }[] = [];
         if (changed) tags.push({ text: "unsaved", tone: "mod" });
         if (uncheckedPaths.has(file.path)) tags.push({ text: "partly unread" });
@@ -302,6 +360,35 @@ export function filesScreen(shop: Workshop, path: string): View {
     }
 
     const file = files.find((entry) => entry.path === path);
+
+    /* A BINARY FILE HAS NO TEXT BUFFER, BY DESIGN - see `importFileBytes`. So the
+     * check below for "no buffer means the file is gone" would be wrong for one:
+     * this has to be decided first, on the file alone. */
+    if (file !== undefined && isBinary(file.contents)) {
+      host.style.display = "none";
+      binaryPanel.style.display = "";
+      problems.style.display = "none";
+
+      setText(title, path);
+      setText(binaryInfo, `${file.contents.length} byte${file.contents.length === 1 ? "" : "s"} loaded from disk.`);
+      const notes = ["Yours. It goes into the mod folder exactly as it is here, byte for byte, and nothing rewrites it."];
+      if (refusal !== undefined) notes.push(refusal);
+      setText(about, notes.join(" "));
+
+      setText(dirty, "saved");
+      dirty.dataset["tone"] = "";
+      save.disabled = true;
+      revert.disabled = true;
+      overwrite.disabled = true;
+      overwrite.style.display = "none";
+      remove.disabled = classify(shop.api, path) !== "extra";
+      setText(checkNote, "This is not text, so there is nothing here for the record checks to read.");
+      return;
+    }
+    host.style.display = "";
+    binaryPanel.style.display = "none";
+    problems.style.display = "";
+
     const held = state.buffers[path];
     if (file === undefined || held === undefined) {
       setText(title, path);
@@ -368,7 +455,11 @@ export function filesScreen(shop: Workshop, path: string): View {
   };
 
   render(shop.store.get());
-  editor?.focus();
+  /* Not focused for a binary file: the editor underneath it is empty and hidden,
+   * and putting the caret in a control nobody can see is worse than leaving focus
+   * where it was. */
+  const openedFile = path === "" ? undefined : projectFiles(shop.api, draft).find((entry) => entry.path === path);
+  if (openedFile === undefined || !isBinary(openedFile.contents)) editor?.focus();
 
   return {
     el,

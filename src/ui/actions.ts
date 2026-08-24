@@ -17,7 +17,7 @@ import type { Seams } from "../host/seams.js";
 import type { Change, Draft } from "../model/draft.js";
 import { ID_RE, newDraft } from "../model/draft.js";
 import { buildDraft, emitDraft, manifestFor, zipDraft } from "../model/build.js";
-import { deleteFile, fileText, pathProblem, sessionRefusal, writeFileText } from "../model/files.js";
+import { deleteFile, fileText, pathProblem, sessionRefusal, writeFileBytes, writeFileText } from "../model/files.js";
 import type { DraftWriter } from "../model/persist.js";
 import { opNudge, opScale } from "../model/ops.js";
 import { editValue, recordOp, removeValue, targetFor } from "../model/target.js";
@@ -372,6 +372,42 @@ export class Actions {
       buffers: { ...state.buffers, [path]: { text: contents, from: contents } },
     }));
     this.notice(`${path} is in the mod. It is empty until you write something in it.`, "good");
+  }
+
+  /**
+   * Start a new file, or replace an existing one of the author's own, with real
+   * bytes read from disk - a tile, a font, a sound. `replace` skips the new-path
+   * check, because the path is not new.
+   *
+   * NO TEXT BUFFER IS OPENED. The editor's buffer is a string a textarea can hold,
+   * and decoding a PNG's bytes into one would show mojibake and, worse, would let
+   * "Save into the mod" re-encode that mojibake as UTF-8 and quietly replace the
+   * picture with a different and wrong set of bytes. So the buffer for this path
+   * is cleared instead, and the screen reads the file's bytes straight from the
+   * draft, the same way it always has for anything it did not open into an editor.
+   */
+  importFileBytes(path: string, bytes: Uint8Array, options: { readonly replace?: boolean } = {}): void {
+    const draft = openDraft(this.deps.store.get());
+    if (!draft) return;
+    if (options.replace !== true) {
+      const problem = pathProblem(this.deps.api, draft, path);
+      if (problem !== undefined) {
+        this.notice(problem, "bad");
+        return;
+      }
+    }
+    const outcome = writeFileBytes(this.deps.api, draft, path, bytes);
+    if (!outcome.ok) {
+      this.notice(outcome.why, "bad");
+      return;
+    }
+    this.mutate(() => outcome.draft);
+    this.deps.store.view((state) => {
+      const buffers = { ...state.buffers };
+      delete buffers[path];
+      return { route: { at: "files", path }, buffers };
+    });
+    this.notice(`${path} now holds ${bytes.length} byte${bytes.length === 1 ? "" : "s"} loaded from disk.`, "good");
   }
 
   /** Take one of the author's own files out of the mod. */

@@ -232,14 +232,20 @@ export function asideSection(title: string, count?: string): { el: HTMLElement; 
   };
 }
 
-/** A monospace preview of one emitted file. */
-export function filePreview(name: string, contents: string): HTMLElement {
-  return h(
-    "div",
-    null,
-    h("div", { class: "mb-filename", text: name }),
-    h("pre", { class: "mb-code", text: contents }),
-  );
+/**
+ * A monospace preview of one emitted file.
+ *
+ * `contents` is bytes for a binary extra - a tile, a font, a sound - and there is
+ * no text to preview, only a size worth saying. Showing a `Uint8Array` here as
+ * `String(...)` would print its numbers as a decimal-comma list, which reads as a
+ * corrupted file rather than the byte count it actually is.
+ */
+export function filePreview(name: string, contents: string | Uint8Array): HTMLElement {
+  const body =
+    typeof contents === "string"
+      ? h("pre", { class: "mb-code", text: contents })
+      : h("div", { class: "mb-why", text: `Binary, ${contents.length} byte${contents.length === 1 ? "" : "s"}.` });
+  return h("div", null, h("div", { class: "mb-filename", text: name }), body);
 }
 
 /** Replace a container's contents with rows, or with an empty state. */

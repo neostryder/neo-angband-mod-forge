@@ -20,10 +20,15 @@
  * ones.
  */
 
-/** One file to put in the archive. */
+/**
+ * One file to put in the archive.
+ *
+ * `contents` is a `string`, encoded as UTF-8, or a `Uint8Array` written exactly
+ * as given - a tile pack, a font, a sound. Neither is converted into the other.
+ */
 export interface ZipEntry {
   readonly path: string;
-  readonly contents: string;
+  readonly contents: string | Uint8Array;
 }
 
 /**
@@ -98,7 +103,7 @@ export function zipStored(entries: readonly ZipEntry[]): Uint8Array {
 
   for (const entry of entries) {
     const name = encoder.encode(entry.path);
-    const data = encoder.encode(entry.contents);
+    const data = typeof entry.contents === "string" ? encoder.encode(entry.contents) : entry.contents;
     const crc = crc32(data);
     const offset = body.at;
 
