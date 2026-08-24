@@ -12,6 +12,20 @@ Anything planned, deferred or merely intended goes in `PLANNED.md` instead, and
 never here: a reader who did not write the entry cannot tell an intention from a
 feature, so they go looking for the feature.
 
+## 0.1.5
+
+### Fixed
+
+- **Enabling ModForge permanently marked a save non-scoring, even when nothing
+  it did touched gameplay.** The manifest declared `affectsGameplay: true` for
+  the mod itself, so the save-scoring ratchet flipped the moment the mod was
+  turned on - before the workshop tab was ever opened, before a draft was
+  built, and even with the in-game test panel left at its default (off). A mod
+  ModForge actually builds still declares `affectsGameplay: true` on itself,
+  correctly, since a shipped content mod is exactly the kind of change the
+  ratchet exists to catch; the workshop tool that builds it is not that change
+  by merely existing on the mod list.
+
 ## 0.1.4
 
 Rebuilt the committed `plugin.js` to match its current source. Added a

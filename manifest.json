@@ -1,14 +1,13 @@
 {
   "id": "forge",
   "name": "ModForge",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "shape": "plugin",
   "facets": [
     "plugin"
   ],
   "modApi": 1,
   "group": "interface",
-  "affectsGameplay": true,
   "engine": ">=0.26.0",
   "dependencies": {
     "core": "*"
