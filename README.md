@@ -356,6 +356,11 @@ For anything that should not be public, including a security report:
 **strider-angband (at) rpgm.tools**. See [SECURITY.md](SECURITY.md), which also
 links to the core policy for anything owned by the engine rather than this mod.
 
+[TERMS.md](TERMS.md) covers use of this mod. The core repository's
+[PRIVACY.md](https://github.com/neostryder/neo-angband/blob/master/PRIVACY.md)
+covers what is stored and what network requests the game makes. Project
+participation is subject to the shared [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+
 ## Licence
 
 GPL-2.0-only, or the Angband licence. See [LICENSE.md](LICENSE.md).
