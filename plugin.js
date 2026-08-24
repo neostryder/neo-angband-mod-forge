@@ -530,10 +530,16 @@ var StubPatchError = class extends Error {
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
+var UNSAFE_PATH_SEGMENTS = /* @__PURE__ */ new Set(["__proto__", "prototype", "constructor"]);
 function setAtPath(record, path, mutate) {
   const segments2 = path.split(".");
   const last = segments2.pop();
   if (last === void 0) throw new StubPatchError("an empty path addresses nothing");
+  for (const seg of [...segments2, last]) {
+    if (UNSAFE_PATH_SEGMENTS.has(seg)) {
+      throw new StubPatchError(`"${seg}" is not an allowed path segment in "${path}"`);
+    }
+  }
   let at = record;
   for (const seg of segments2) {
     const isIndex2 = /^(?:0|[1-9][0-9]*)$/.test(seg);
@@ -547,7 +553,7 @@ function setAtPath(record, path, mutate) {
       at = next2;
       continue;
     }
-    let next = at[seg];
+    let next = Object.hasOwn(at, seg) ? at[seg] : void 0;
     if (next === void 0) {
       next = isIndex2 ? [] : {};
       at[seg] = next;
@@ -562,7 +568,7 @@ function setAtPath(record, path, mutate) {
     at[Number(last)] = mutate(at[Number(last)]);
     return;
   }
-  at[last] = mutate(at[last]);
+  at[last] = mutate(Object.hasOwn(at, last) ? at[last] : void 0);
 }
 function applyOp(record, op) {
   switch (op.op) {
@@ -1857,7 +1863,7 @@ function writeRecordFile(draft, file, text) {
       for (const [ref, ops] of Object.entries(patches)) {
         if (!Array.isArray(ops)) return { ok: false, why: `The operations for ${ref} have to be a list.` };
         for (const op of ops) {
-          if (typeof op !== "object" || op === null || Array.isArray(op) || typeof op["op"] !== "string") {
+          if (typeof op !== "object" || op === null || Array.isArray(op) || typeof op["op"] !== "string" || typeof op["path"] !== "string") {
             return { ok: false, why: `Every operation for ${ref} needs an "op" and a "path".` };
           }
         }
