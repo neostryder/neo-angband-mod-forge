@@ -213,7 +213,13 @@ function withHandWritten(generated: readonly EmittedFile[], draft: Draft): reado
   const out = generated.map((file) => {
     const stem = file.path.endsWith(".json") ? file.path.slice(0, -".json".length) : "";
     const spare = fileExtras[stem];
-    if (file.path === "manifest.json" || spare === undefined || Object.keys(spare).length === 0) return file;
+    /* Every file the composer itself emits is JSON text - the manifest and every
+     * record file - so `typeof file.contents !== "string"` never actually happens
+     * here today. It is checked anyway because this function's contract is about
+     * `EmittedFile` in general, not about what one implementation happens to emit. */
+    if (file.path === "manifest.json" || spare === undefined || Object.keys(spare).length === 0 || typeof file.contents !== "string") {
+      return file;
+    }
     let body: Record<string, unknown>;
     try {
       body = JSON.parse(file.contents) as Record<string, unknown>;

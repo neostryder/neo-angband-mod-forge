@@ -29,6 +29,7 @@
  * before it installs anything.
  */
 
+import { base64ToBytes, bytesToBase64 } from "./base64.js";
 import type { Draft } from "./draft.js";
 
 /** What one write did. */
@@ -53,6 +54,53 @@ interface Stored {
   readonly seenTour: boolean;
 }
 
+/** How a `Uint8Array` is spelled once it has gone through `encodeBytes`. */
+interface BytesMarker {
+  readonly $bytes: string;
+}
+
+function isBytesMarker(value: unknown): value is BytesMarker {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    typeof (value as Record<string, unknown>)["$bytes"] === "string" &&
+    Object.keys(value).length === 1
+  );
+}
+
+/**
+ * Replace every `Uint8Array` with a marker object `JSON.stringify` can carry.
+ *
+ * `ctx.prefs` is declared as one JSON value, and `JSON.stringify` does not know
+ * what a `Uint8Array` is: left alone it serialises to `{"0":137,"1":80,...}`, and
+ * reading that back is a plain object with no way to tell it was ever bytes. A
+ * binary file the file editor holds would survive being written and come back
+ * silently wrong. This walk runs before every write so that never happens.
+ */
+function encodeBytes(value: unknown): unknown {
+  if (value instanceof Uint8Array) return { $bytes: bytesToBase64(value) };
+  if (Array.isArray(value)) return value.map(encodeBytes);
+  if (typeof value === "object" && value !== null) {
+    const out: Record<string, unknown> = {};
+    for (const [key, inner] of Object.entries(value)) out[key] = encodeBytes(inner);
+    return out;
+  }
+  return value;
+}
+
+/** The inverse of `encodeBytes`, run on whatever `prefs.get()` hands back. */
+function decodeBytes(value: unknown): unknown {
+  if (isBytesMarker(value)) return base64ToBytes(value.$bytes);
+  if (Array.isArray(value)) return value.map(decodeBytes);
+  if (typeof value === "object" && value !== null) {
+    const out: Record<string, unknown> = {};
+    for (const [key, inner] of Object.entries(value)) out[key] = decodeBytes(inner);
+    return out;
+  }
+  return value;
+}
+
 interface PrefsLike {
   get(): unknown;
   set(value: unknown): void;
@@ -68,7 +116,7 @@ export function loadDrafts(prefs: PrefsLike | undefined): { drafts: Record<strin
     return { drafts: {}, seenTour: false };
   }
   if (typeof raw !== "object" || raw === null) return { drafts: {}, seenTour: false };
-  const stored = raw as Partial<Stored>;
+  const stored = decodeBytes(raw) as Partial<Stored>;
   /* An unknown version is IGNORED, not guessed at. This is the only version
    * there has ever been; the field exists so that the day there is a second one,
    * the first is not read as if it were. */
@@ -99,7 +147,13 @@ export function saveDrafts(
   seenTour: boolean,
 ): SaveOutcome {
   const stored: Stored = { v: 1, drafts, seenTour };
-  const text = JSON.stringify(stored);
+  /* ENCODED BEFORE `JSON.stringify` EVER SEES IT, and not after: a `Uint8Array` a
+   * binary extra carries has no meaning to JSON on its own, so it is turned into a
+   * marker object first and the marker is what gets measured, written and read
+   * back - never the raw bytes travelling through a layer that would silently
+   * misspell them as `{"0":137,"1":80,...}`. */
+  const encoded = encodeBytes(stored);
+  const text = JSON.stringify(encoded);
   /* MEASURED IN BYTES, NOT IN CHARACTERS, and the difference stopped being academic
    * when a draft could hold a file the author pasted in. A quota is a byte count,
    * every character outside ASCII costs two or three of them, and a monster
@@ -124,7 +178,7 @@ export function saveDrafts(
   }
 
   try {
-    prefs.set(stored);
+    prefs.set(encoded);
   } catch (e) {
     return { ok: false, why: `Keeping this failed: ${String(e)}`, bytes };
   }

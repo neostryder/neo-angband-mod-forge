@@ -411,6 +411,12 @@ and taps, declared with `ui:region.create`, which exists.
 **A live content-preview seam.** Considered and rejected; the reasoning is under
 seam 4.
 
-**Binary emit.** `EmittedFile.contents` is a `string`, so the emitter cannot
-produce a PNG, a font or a sound. That bounds what version one can build rather
-than blocking it, and the bound is written down in `PLANNED.md`.
+**Binary emit.** Not an engine seam at all, in the end: `EmittedFile.contents` is
+now `string | Uint8Array` rather than only `string`, which is a change entirely
+on this repository's side of the boundary and asks the engine for nothing new.
+A tile, a font or a sound is a hand-carried extra whose bytes are held exactly
+as given, through the file editor, the project builder's emit path and the zip
+writer alike; a record file and the manifest stay text, unaffected. See
+`PLANNED.md` under the same heading for what still is not covered - loading a
+shipped binary asset back into the running game is a question about that
+engine seam, not about whether the workshop can emit the bytes.

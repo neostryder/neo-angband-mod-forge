@@ -49,6 +49,23 @@ describe("saveDrafts", () => {
     if (!outcome.ok) expect(outcome.why).toContain("limit");
   });
 
+  it("carries a binary extra through as exact bytes, not as `{\"0\":...}`", () => {
+    /* `JSON.stringify` does not know what a `Uint8Array` is - left alone it turns
+     * one into an object keyed by index, and reading that back is a plain object
+     * with no way to tell it was ever bytes. That would be a silent corruption of
+     * exactly the content binary emit exists to carry, so it is asserted here
+     * rather than trusted. */
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const withTile = { ...DRAFT, extras: { "tiles/hero.png": png } };
+    const prefs = honestStore();
+    const outcome = saveDrafts(prefs, { "my-mod": withTile }, false);
+    expect(outcome.ok).toBe(true);
+
+    const back = loadDrafts(prefs).drafts["my-mod"]?.extras?.["tiles/hero.png"];
+    expect(back).toBeInstanceOf(Uint8Array);
+    expect([...((back as Uint8Array) ?? [])]).toEqual([...png]);
+  });
+
   it("says plainly that nothing will be kept when there is nowhere to keep it", () => {
     const outcome = saveDrafts(undefined, { "my-mod": DRAFT }, false);
     expect(outcome.ok).toBe(false);

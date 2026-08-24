@@ -33,7 +33,7 @@ The fourth exit is the difference between this file and the game's own
 cannot reach something has not failed to do the work; it has run out of surface,
 and saying which surface is the whole of the useful information.
 
-Last reviewed: 2026-08-23.
+Last reviewed: 2026-08-24.
 
 ---
 
@@ -220,13 +220,19 @@ quotes, comments and brackets and is not a syntax check.
 The written path is still real and still the place to learn:
 `docs/modding/tutorials/05-hook-behaviour.md` runs code in ten lines.
 
-### Tile packs, sounds, fonts and other binary resources - NEEDS A SEAM
+### Tile packs, sounds, fonts and other binary resources
 
-`EmittedFile.contents` is a `string`, so the project builder cannot produce a PNG,
-a font or a sound however the workshop asks it to. Meanwhile a new monster or
-object with no tile falls back to its letter, and `neo-linoleum` derives a tile
-for mod-added content from its kin, named in prose rather than as a dependency.
-Tracked as neo-angband#46, which also covers the same gap in the file editor below.
+Not an engine seam after all: `EmittedFile.contents` is now `string | Uint8Array`,
+so the project builder's emit path and the file editor can both carry a tile, a
+font or a sound as its exact bytes rather than as whatever text was typed at a
+path that happens to end in `.png`. A record file and the manifest are unaffected
+and stay text. In the tree; pending write-up in `CHANGELOG.md` at the next release.
+Tracked as neo-angband#46.
+
+A new monster or object with no tile still falls back to its letter, and
+`neo-linoleum` still derives a tile for mod-added content from its kin - that is
+about what the running game does with a shipped asset, not about whether this
+workshop can emit one, and is unaffected by the above.
 
 ### A tile filler of the workshop's own - DECLINED
 

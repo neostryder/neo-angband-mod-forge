@@ -48,7 +48,18 @@ export type FileKind = "manifest" | "records" | "extra";
 export interface ProjectFile {
   readonly path: string;
   readonly kind: FileKind;
-  readonly contents: string;
+  /**
+   * `string` for the manifest, a record file, or a hand-written text extra.
+   * `Uint8Array` for a hand-written extra carrying real bytes - a tile, a font, a
+   * sound. Only an "extra" file is ever the second shape: the manifest and every
+   * record file are JSON the workshop itself composes, and stay text.
+   */
+  readonly contents: string | Uint8Array;
+}
+
+/** Whether a file's contents are raw bytes rather than text. */
+export function isBinary(contents: string | Uint8Array): contents is Uint8Array {
+  return typeof contents !== "string";
 }
 
 /** The one path the manifest lives at. */
@@ -161,9 +172,23 @@ export function projectFiles(api: AuthoringApi, draft: Draft): readonly ProjectF
     .sort((a, b) => (a.path === MANIFEST ? -1 : b.path === MANIFEST ? 1 : a.path.localeCompare(b.path)));
 }
 
-/** The text of one file as it stands, or undefined when there is no such file. */
-export function fileText(api: AuthoringApi, draft: Draft, path: string): string | undefined {
+/**
+ * The contents of one file as it stands, or undefined when there is no such file.
+ *
+ * Text or bytes, whichever the file actually holds. `fileText` below is the
+ * narrower accessor every text-editing path already expects, and it is
+ * undefined for a binary file rather than a decoded guess at what the bytes
+ * might say as text - decoding a PNG as UTF-8 is not a smaller version of
+ * reading it, it is a different and wrong answer.
+ */
+export function fileContents(api: AuthoringApi, draft: Draft, path: string): string | Uint8Array | undefined {
   return projectFiles(api, draft).find((file) => file.path === path)?.contents;
+}
+
+/** The text of one file, or undefined when there is no such file or it is binary. */
+export function fileText(api: AuthoringApi, draft: Draft, path: string): string | undefined {
+  const contents = fileContents(api, draft, path);
+  return typeof contents === "string" ? contents : undefined;
 }
 
 /* ------------------------------------------------------------------ *
@@ -267,6 +292,26 @@ export function writeFileText(api: AuthoringApi, draft: Draft, path: string, tex
   }
 }
 
+/**
+ * Save raw bytes into an extra file - a tile, a font, a sound.
+ *
+ * Refused for the manifest and for a record file for the same reason
+ * `writeFileText` refuses them for text: both are JSON the workshop itself
+ * composes, and there is no gesture that turns bytes into that.
+ */
+export function writeFileBytes(api: AuthoringApi, draft: Draft, path: string, bytes: Uint8Array): WriteOutcome {
+  const shape = pathShapeProblem(path);
+  if (shape !== undefined) return { ok: false, why: shape };
+  const kind = classify(api, path);
+  if (kind !== "extra") {
+    return {
+      ok: false,
+      why: `${path} is written from what the mod does, as text the workshop generates or parses, so it cannot hold raw bytes.`,
+    };
+  }
+  return { ok: true, draft: { ...draft, extras: { ...(draft.extras ?? {}), [path]: bytes } } };
+}
+
 /** Take a file out of the mod. Only a hand-written one can go; the rest are derived. */
 export function deleteFile(api: AuthoringApi, draft: Draft, path: string): WriteOutcome {
   if (classify(api, path) !== "extra") {
@@ -284,7 +329,9 @@ export function deleteFile(api: AuthoringApi, draft: Draft, path: string): Write
 export function projectBytes(api: AuthoringApi, draft: Draft): number {
   const encoder = new TextEncoder();
   let total = 0;
-  for (const file of projectFiles(api, draft)) total += encoder.encode(file.contents).length;
+  for (const file of projectFiles(api, draft)) {
+    total += typeof file.contents === "string" ? encoder.encode(file.contents).length : file.contents.length;
+  }
   return total;
 }
 

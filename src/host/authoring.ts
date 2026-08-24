@@ -202,10 +202,20 @@ export interface PackManifest {
   repository?: string;
 }
 
-/** One file the project will write, and its exact bytes as text. */
+/**
+ * One file the project will write.
+ *
+ * `contents` is a `string` for every file the composer itself produces - the
+ * manifest and every record file are JSON text, and stay that way. It is
+ * `Uint8Array` for a hand-carried file whose bytes are not text at all: a tile
+ * pack, a font, a sound. Neither the composer nor the zip writer cares which
+ * one a given entry is; both read the string branch as UTF-8 text and the
+ * `Uint8Array` branch as the exact bytes to write, with no conversion between
+ * the two in either direction. See `docs/ENGINE_SEAMS.md`, "Binary emit."
+ */
 export interface EmittedFile {
   readonly path: string;
-  readonly contents: string;
+  readonly contents: string | Uint8Array;
 }
 
 /** The verdict on a whole project. `ok` is false if any finding is an error. */

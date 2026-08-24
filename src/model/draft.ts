@@ -57,16 +57,19 @@ export interface Draft {
   /**
    * Files the mod folder carries that no screen writes, by path, verbatim.
    *
-   * A script, a nested data file, a README. This is the file editor's half of the
-   * document and it does not bend the rule at the top of this file - it keeps it.
-   * Every entry IS a file in the emitted folder, byte for byte, so a mod can still
-   * be taken away, hand-edited and brought back. What it is not is a project file
-   * of the workshop's own: there is nothing in here the zip does not contain.
+   * A script, a nested data file, a README - or, since binary emit landed, a
+   * tile, a font, a sound: anything the game reads as bytes rather than text.
+   * A `string` entry is UTF-8 text; a `Uint8Array` entry is exact bytes with no
+   * text form. This is the file editor's half of the document and it does not
+   * bend the rule at the top of this file - it keeps it. Every entry IS a file
+   * in the emitted folder, byte for byte, so a mod can still be taken away,
+   * hand-edited and brought back. What it is not is a project file of the
+   * workshop's own: there is nothing in here the zip does not contain.
    *
    * Absent on a draft written before the file editor existed, which is why it is
    * optional rather than defaulted - a stored draft is read as it was written.
    */
-  readonly extras?: Readonly<Record<string, string>>;
+  readonly extras?: Readonly<Record<string, string | Uint8Array>>;
   /**
    * Manifest keys the workshop does not model, kept exactly as they were typed.
    *

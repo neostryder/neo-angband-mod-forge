@@ -129,6 +129,10 @@ being a viewer:
   model straight through, so these work, and they survive every later save.
 - **Sections and anything else a record file can carry.** Written through to the
   folder exactly as typed.
+- **A tile, a font or a sound.** Loaded from disk and carried as its exact bytes
+  rather than as text - there is nothing to type or colour in, so the panel that
+  takes the place of the editor says so, and offers to replace the file with
+  another one from disk instead.
 
 **What it will not pretend.** The check under a JSON file is the same parser the
 game uses, so a clean file is really clean. The record checks are only as good as
@@ -160,9 +164,11 @@ shop, an artifact - is content and needs no build step at all.
 does run code, and `docs/modding/tutorials/05-hook-behaviour.md` is ten lines of
 it.
 
-**It does not ship pictures, sounds or fonts.** The emitter produces text. A file
-whose name ends in `.png` can be made in the file editor and will hold whatever
-text is typed into it, which is not a picture.
+**It does not preview or validate a picture, a sound or a font.** A tile, a font
+or a sound can be loaded from disk in the file editor and is carried in the
+emitted mod as its exact bytes, but the workshop never looks inside one: nothing
+here shows what an image looks like, plays a sound, or checks that the bytes are
+actually a valid file of the kind the name suggests.
 
 **It does not open a mod you already have.** The editor edits the mod in the
 workshop. A finished mod is a folder with a text editor and a repository behind
