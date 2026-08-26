@@ -263,6 +263,10 @@ These four live in the game's own repository, not this one:
 - `docs/modding/AUTHORING.md` is the library this workshop itself calls.
 - `docs/modding/MOD_COMPATIBILITY.md` is what surviving a game update takes.
 
+This checkout also has [`docs/PLUGIN_TESTING.md`](docs/PLUGIN_TESTING.md), which
+shows how a third-party author tests the committed `plugin.js` against real
+composed records and a real engine transition from their own repository.
+
 A mod the workshop wrote is an ordinary folder of ordinary files. Take it out,
 edit it in anything, and bring it back. Nothing in it belongs to the workshop -
 that rule is what keeps this a helper rather than a format owner, and it is the
