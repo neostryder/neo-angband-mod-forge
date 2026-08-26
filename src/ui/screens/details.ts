@@ -28,7 +28,14 @@ export function detailsScreen(shop: Workshop): View {
   const el = h("div", { class: "mb-main" });
   const draft = openDraft(shop.store.get());
   if (!draft) {
-    el.appendChild(empty("?", "No mod is open", "Pick one on the My mods screen."));
+    el.appendChild(
+      empty(
+        "?",
+        "No mod is open",
+        "Every screen after this one is about one mod, so the list is where to start.",
+        button({ label: "Go to my mods", kind: "primary", onClick: () => shop.acts.go({ at: "mods" }) }),
+      ),
+    );
     return { el, update: () => undefined, dispose: () => undefined };
   }
 
@@ -232,7 +239,16 @@ export function detailsScreen(shop: Workshop): View {
     fillList(
       changesList,
       rows,
-      empty("...", "Nothing in it yet", "Add or change something, and it will appear here."),
+      empty(
+        "...",
+        "Nothing in it yet",
+        "The manifest above is real, and a mod that changes nothing changes nothing.",
+        button({
+          label: "Add or change something",
+          kind: "primary",
+          onClick: () => shop.acts.go({ at: "kinds" }),
+        }),
+      ),
     );
   };
 

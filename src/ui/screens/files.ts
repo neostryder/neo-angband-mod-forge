@@ -81,7 +81,14 @@ export function filesScreen(shop: Workshop, path: string): View {
 
   const draft = openDraft(shop.store.get());
   if (!draft) {
-    main.appendChild(empty("?", "No mod is open", "Pick one on the My mods screen."));
+    main.appendChild(
+      empty(
+        "?",
+        "No mod is open",
+        "This screen shows one mod's files, so there is nothing to print yet.",
+        button({ label: "Go to my mods", kind: "primary", onClick: () => shop.acts.go({ at: "mods" }) }),
+      ),
+    );
     return { el, update: () => undefined, dispose: () => undefined };
   }
 
@@ -191,6 +198,21 @@ export function filesScreen(shop: Workshop, path: string): View {
     tip: "Takes this file out of the mod. Undo brings it back.",
     onClick: () => shop.acts.deleteFile(path),
   });
+  /**
+   * Delete, and the reason it is off when it is off.
+   *
+   * A GREY CONTROL WITH NO REASON IS THE THING THIS WHOLE SEAM PATTERN EXISTS TO
+   * AVOID, and this one had the same tooltip whether it worked or not. Two of the
+   * three kinds of file here can never be deleted from this screen, and saying
+   * which and why costs one sentence.
+   */
+  const setDeletable = (allowed: boolean): void => {
+    remove.disabled = !allowed;
+    remove.dataset["tip"] = allowed
+      ? "Takes this file out of the mod. Undo brings it back."
+      : "Only a file of your own can be deleted here. The manifest and a record file are written from what the " +
+        "mod contains, so the way to empty one is to drop the changes behind it.";
+  };
 
   const bar = h("div", { class: "mb-row-actions" }, save, overwrite, revert, h("span", { class: "mb-spacer" }), caret, dirty, remove);
 
@@ -199,6 +221,18 @@ export function filesScreen(shop: Workshop, path: string): View {
 
   let editor: CodeEditor | undefined;
   const host = h("div");
+
+  /** The way back when the open file has stopped existing. Hidden until then. */
+  const goneRow = h(
+    "div",
+    { class: "mb-row-actions" },
+    button({
+      label: "Back to the file list",
+      kind: "primary",
+      onClick: () => shop.acts.go({ at: "files", path: "" }),
+    }),
+  );
+  goneRow.style.display = "none";
 
   /**
    * What shows in place of the text editor for a binary file - a tile, a font, a
@@ -284,7 +318,7 @@ export function filesScreen(shop: Workshop, path: string): View {
       onCaret: (line, column) => setText(caret, `line ${line}, column ${column}`),
     });
     host.appendChild(editor.el);
-    main.append(title, about, bar, host, binaryPanel, problems, checkNote);
+    main.append(title, about, goneRow, bar, host, binaryPanel, problems, checkNote);
   } else {
     main.append(
       h(
@@ -381,7 +415,7 @@ export function filesScreen(shop: Workshop, path: string): View {
       revert.disabled = true;
       overwrite.disabled = true;
       overwrite.style.display = "none";
-      remove.disabled = classify(shop.api, path) !== "extra";
+      setDeletable(classify(shop.api, path) === "extra");
       setText(checkNote, "This is not text, so there is nothing here for the record checks to read.");
       return;
     }
@@ -391,14 +425,25 @@ export function filesScreen(shop: Workshop, path: string): View {
 
     const held = state.buffers[path];
     if (file === undefined || held === undefined) {
+      /* THE ONE STATE ON THIS SCREEN THAT USED TO DEAD-END. The file was deleted
+       * or renamed somewhere else, so every control in the bar is off and the
+       * editor below is showing text that belongs to nothing. One sentence and
+       * one way back is the whole fix. */
       setText(title, path);
-      setText(about, "That file is not in the mod any more.");
+      setText(about, "That file is not in the mod any more, so there is nothing here to edit or save.");
       save.disabled = true;
       overwrite.disabled = true;
       revert.disabled = true;
-      remove.disabled = true;
+      setDeletable(false);
+      goneRow.style.display = "";
+      bar.style.display = "none";
+      host.style.display = "none";
+      problems.style.display = "none";
+      setText(checkNote, "");
       return;
     }
+    goneRow.style.display = "none";
+    bar.style.display = "";
 
     setText(title, path);
     const stale = file.contents !== held.from;
@@ -409,7 +454,7 @@ export function filesScreen(shop: Workshop, path: string): View {
 
     save.disabled = !changed;
     revert.disabled = !changed;
-    remove.disabled = classify(shop.api, path) !== "extra";
+    setDeletable(classify(shop.api, path) === "extra");
     overwrite.style.display = stale ? "" : "none";
 
     const notes: string[] = [aboutKind(classify(shop.api, path), path)];

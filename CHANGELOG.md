@@ -25,8 +25,29 @@ feature, so they go looking for the feature.
   between 4.8 and 6.3 against the surfaces it sits on rather than 3.0 to 3.7, and
   the hairline that draws every card is visible instead of nearly invisible.
 
+- **Every empty state says what happened and offers the way on from it.** An
+  unmatched filter offers to clear itself, a mod list with nothing in it offers to
+  name one, a mod with no changes offers the content-kind picker, a screen reached
+  with no mod open offers the mod list, a record part with nothing in it offers
+  the level above, and the Test panel's browser offers to forge the mod so that
+  what it adds turns up in the list. The one action that already existed no longer
+  needs a negative margin to sit inside the panel it belongs to.
+- **A control that is off says why on the control.** Each card of Test-panel
+  commands carries the reason it is dead, which is one of two reasons with two
+  different next actions, rather than leaving the reader to scroll back to the
+  paragraph at the top. Delete on the file screen says which files it can and
+  cannot take.
+
 ### Fixed
 
+- **Two cards that could not be opened can be opened.** The Test panel's "What
+  you know" shipped collapsed and had nothing wired to unfold it, so "Learn every
+  item" and "Learn every creature" could never reach the screen at all, and
+  "Before anything works" folds itself once the session has been spent and could
+  not be re-read afterwards.
+- **A file that has stopped existing no longer dead-ends the editor.** Opening a
+  file that was then deleted elsewhere left every control off and the previous
+  text on screen; it now says so and offers the file list.
 - **The banner no longer swallows the empty half of a short screen.** The frame
   declared four grid rows for five children, so the leftover height went to the
   compatibility banner rather than to the content, and an install with the banner

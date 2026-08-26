@@ -50,6 +50,9 @@ const PAGE = 60;
 /** How many of one thing a row's buttons offer. Beyond this, use the field. */
 const HANDFUL = 5;
 
+/** What the "What you know" card says about itself, whatever else is added to it. */
+const KNOW_NOTE = "so nothing shows up unidentified";
+
 export function testScreen(shop: Workshop): View {
   const main = h("div", { class: "mb-main" });
   const aside = h("div", { class: "mb-aside" });
@@ -64,7 +67,16 @@ export function testScreen(shop: Workshop): View {
   const intro = h("div", { class: "mb-prose" }, h("h2", { text: "Test it in the game" }));
   const blocked = h("div", { class: "mb-banner" });
 
-  const armCard = card({ title: "Before anything works", open: true });
+  /* BOTH OF THESE FOLD, AND BOTH HAD TO BE GIVEN THE GESTURE. This one collapses
+   * itself once the session has been spent, and "What you know" ships collapsed;
+   * neither was passed anything to toggle, so the first could never be re-read
+   * and the second could never be opened at all - its two controls had no way of
+   * ever reaching the screen. */
+  const armCard = card({
+    title: "Before anything works",
+    open: true,
+    onToggle: () => armCard.setOpen(armCard.el.dataset["open"] !== "1"),
+  });
   const armProse = h("div", { class: "mb-prose" });
   const arm = button({
     label: "Stop saving, and let me test",
@@ -187,7 +199,12 @@ export function testScreen(shop: Workshop): View {
     ),
   );
 
-  const knowCard = card({ title: "What you know", note: "so nothing shows up unidentified", open: false });
+  const knowCard = card({
+    title: "What you know",
+    note: KNOW_NOTE,
+    open: false,
+    onToggle: () => knowCard.setOpen(knowCard.el.dataset["open"] !== "1"),
+  });
   knowCard.body.append(
     row(
       null,
@@ -221,8 +238,33 @@ export function testScreen(shop: Workshop): View {
    * hundred times per paint. */
   let catalogue: WizardCatalogue = NO_CATALOGUE;
   let statsFilled = false;
+  /** What the browser's own note says, kept so the reason below can join it. */
+  let browseCount = "";
 
   const armed = (): boolean => seam.api?.sandboxed() === true;
+
+  /**
+   * Every card of dead controls says why it is dead.
+   *
+   * THE REASON WAS ONLY EVER STATED ONCE, at the top, in the card a reader has
+   * usually scrolled past by the time they reach the button that does nothing.
+   * These are the two reasons a control on this screen can be off, and they have
+   * two different next actions: this game does not lend the commands at all, or
+   * the session has not been cut loose from its save yet. Both come from the
+   * seam rather than from this screen's opinion of it.
+   */
+  const setNotes = (): void => {
+    const live = armed() && seam.available;
+    const why = seam.available
+      ? "off until this session stops being saved"
+      : `off on this game: ${seam.why ?? ""}`;
+    const compose = (own: string): string => (live ? own : own === "" ? why : `${own}, ${why}`);
+    depthCard.setNote(compose(""));
+    charCard.setNote(compose(""));
+    roomCard.setNote(compose(""));
+    knowCard.setNote(compose(KNOW_NOTE));
+    browse.setNote(compose(browseCount));
+  };
 
   const report = (outcome: WizardOutcome): void => {
     if (outcome.ok) shop.acts.notice(outcome.did, "good");
@@ -290,7 +332,8 @@ export function testScreen(shop: Workshop): View {
 
     more.style.display = rows.length > page.length ? "" : "none";
     setText(more, `Show more (${rows.length - page.length} left)`);
-    browse.setNote(`${rows.length} of ${total}`);
+    browseCount = `${rows.length} of ${total}`;
+    setNotes();
 
     fillList(
       list,
@@ -303,10 +346,32 @@ export function testScreen(shop: Workshop): View {
             "Nothing is loaded to test with",
             armedOrNot(
               "The game has not handed the workshop its content, so there is nothing to choose from.",
-              "Forge the mod and play it, and everything it adds turns up here.",
+              "Content composes when the game loads, so what this mod adds turns up here after it has been forged.",
             ),
+            seam.api === undefined
+              ? null
+              : button({
+                  label: "Forge it and play it now",
+                  kind: "primary",
+                  tip:
+                    "Forges the mod, loads it for this session only, and reloads the game. Everything it adds is in " +
+                    "this list afterwards.",
+                  onClick: () => void shop.acts.loadForSession(),
+                }),
           )
-        : empty("[ ]", "Nothing matches", "No loaded record has that in its name."),
+        : empty(
+            "[ ]",
+            "Nothing matches",
+            "No loaded record has that in its name.",
+            button({
+              label: "Clear the filter",
+              kind: "primary",
+              onClick: () => {
+                search.value = "";
+                shop.acts.setFilter("");
+              },
+            }),
+          ),
     );
   };
 
@@ -454,10 +519,17 @@ export function testScreen(shop: Workshop): View {
      * than this screen's opinion of it. A second rule here would be a second rule to
      * keep in step with the first. */
     const live = armed() && seam.available;
+    setNotes();
+
     for (const control of main.querySelectorAll("button")) {
       if (control === arm) continue;
       if (control === more) continue;
       if (control.classList.contains("mb-card-head")) continue;
+      /* An empty state's own action is never one of the debug commands - it is
+       * the way out of the empty state - so greying it out would be greying out
+       * the one control on the panel that still had somewhere to send the
+       * reader. */
+      if (control.closest(".mb-empty") !== null) continue;
       control.disabled = !live;
     }
     for (const field of [depth, exp, gold, statValue, loot, horde, hop]) field.setEnabled(live);

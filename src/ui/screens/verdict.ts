@@ -45,7 +45,14 @@ export function verdictScreen(shop: Workshop): View {
 
   const draft = openDraft(shop.store.get());
   if (!draft) {
-    main.appendChild(empty("?", "No mod is open", "Pick one on the My mods screen."));
+    main.appendChild(
+      empty(
+        "?",
+        "No mod is open",
+        "There is nothing to review until a mod is open.",
+        button({ label: "Go to my mods", kind: "primary", onClick: () => shop.acts.go({ at: "mods" }) }),
+      ),
+    );
     return { el, update: () => undefined, dispose: () => undefined };
   }
 
@@ -152,7 +159,18 @@ export function verdictScreen(shop: Workshop): View {
     const unchecked = unread(current);
     filesHost.replaceChildren(
       ...(emitted.length === 0
-        ? [empty("[ ]", "Nothing to write yet", "Add or change something first.")]
+        ? [
+            empty(
+              "[ ]",
+              "Nothing to write yet",
+              "A mod with no changes and no files of its own has nothing to emit.",
+              button({
+                label: "Add or change something",
+                kind: "primary",
+                onClick: () => shop.acts.go({ at: "kinds" }),
+              }),
+            ),
+          ]
         : emitted.map((file) => filePreview(file.path, file.contents))),
       ...(unchecked.length === 0
         ? []

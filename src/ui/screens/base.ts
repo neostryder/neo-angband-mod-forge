@@ -44,14 +44,20 @@ export function baseScreen(shop: Workshop, file: string, mode: "new" | "change")
     },
   });
 
-  const blank = button({
-    label: "Start from nothing instead",
-    kind: "ghost",
-    tip:
-      "A record with only the fields the game's own records always carry, filled with typical values. Useful when " +
-      "nothing existing is close to what you have in mind.",
-    onClick: () => shop.acts.addRecord(file, {}),
-  });
+  /* A FRESH NODE PER CALL, because this offer appears in two places: beside the
+   * filter, and inside the empty state for a file the game loaded nothing into.
+   * One element can only be in one place in the tree, so a single shared node
+   * would silently empty itself out of the first row the moment the second one
+   * claimed it. */
+  const blankButton = (): HTMLButtonElement =>
+    button({
+      label: "Start from nothing instead",
+      kind: "ghost",
+      tip:
+        "A record with only the fields the game's own records always carry, filled with typical values. Useful when " +
+        "nothing existing is close to what you have in mind.",
+      onClick: () => shop.acts.addRecord(file, {}),
+    });
 
   const el = h(
     "div",
@@ -70,7 +76,7 @@ export function baseScreen(shop: Workshop, file: string, mode: "new" | "change")
               "mods adjusting different fields of it both work.",
       }),
     ),
-    h("div", { class: "mb-row-actions" }, search, mode === "new" ? blank : null),
+    h("div", { class: "mb-row-actions" }, search, mode === "new" ? blankButton() : null),
     list,
     more,
   );
@@ -85,16 +91,33 @@ export function baseScreen(shop: Workshop, file: string, mode: "new" | "change")
     more.textContent = `Show more (${matches.length - page.length} left)`;
 
     const rows = page.map((record) => rowFor(record));
+    /* TWO DIFFERENT NOTHINGS, WITH TWO DIFFERENT WAYS ON. A filter that matched
+     * nothing is undone by clearing the filter; a record file the game loaded
+     * nothing into cannot be, and the way on from that one is another kind. */
     fillList(
       list,
       rows,
-      empty(
-        "?",
-        "Nothing matches",
-        all.length === 0
-          ? `Nothing is loaded in ${file}, so there is nothing to base anything on.`
-          : "No record in this file has that in its name.",
-      ),
+      all.length === 0
+        ? empty(
+            "?",
+            "Nothing to base one on",
+            `Nothing is loaded in ${file}, so there is no record here to copy or adjust.`,
+            mode === "new" ? blankButton() : null,
+            button({ label: "Choose another kind", kind: "ghost", onClick: () => shop.acts.go({ at: "kinds" }) }),
+          )
+        : empty(
+            "?",
+            "Nothing matches",
+            "No record in this file has that in its name.",
+            button({
+              label: "Clear the filter",
+              kind: "primary",
+              onClick: () => {
+                search.value = "";
+                shop.acts.setFilter("");
+              },
+            }),
+          ),
     );
   };
 

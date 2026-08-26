@@ -102,12 +102,24 @@ export function kindsScreen(shop: Workshop): View {
 
   for (const kind of featured) grid.appendChild(kindCard(kind));
 
+  const clearFilter = (): void => {
+    search.value = "";
+    shop.acts.setFilter("");
+  };
+
   const renderRest = (filter: string): void => {
     const needle = filter.trim().toLowerCase();
     const shown = needle === "" ? rest : rest.filter((k) => k.file.includes(needle) || k.title.toLowerCase().includes(needle));
     restGrid.replaceChildren(
       ...(shown.length === 0
-        ? [empty("?", "Nothing matches", "No record file has that in its name.")]
+        ? [
+            empty(
+              "?",
+              "Nothing matches",
+              "No record file has that in its name. The four above are not in this list.",
+              button({ label: "Clear the filter", kind: "primary", onClick: clearFilter }),
+            ),
+          ]
         : shown.map(kindCard)),
     );
   };

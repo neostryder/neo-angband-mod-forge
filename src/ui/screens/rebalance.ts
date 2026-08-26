@@ -124,19 +124,15 @@ export function rebalanceScreen(shop: Workshop, file: string): View {
       }),
     ),
     numeric.length === 0
-      ? h(
-          "div",
-          null,
-          empty("?", "Nothing to retune here", emptyRetuneMessage(shop, file)),
-          h(
-            "div",
-            { class: "mb-row-actions mb-empty-actions" },
-            button({
-              label: "Choose another kind",
-              kind: "primary",
-              onClick: () => shop.acts.go({ at: "kinds" }),
-            }),
-          ),
+      ? empty(
+          "?",
+          "Nothing to retune here",
+          emptyRetuneMessage(shop, file),
+          button({
+            label: "Choose another kind",
+            kind: "primary",
+            onClick: () => shop.acts.go({ at: "kinds" }),
+          }),
         )
       : h("div", null, search, controls.el, previewCard.el, h("div", { class: "mb-row-actions" }, apply)),
   );
@@ -161,8 +157,30 @@ export function rebalanceScreen(shop: Workshop, file: string): View {
 
     summary.textContent =
       matched.length === 0
-        ? "Nothing matches that filter, so there is nothing to change."
+        ? ""
         : `${matched.length} record${matched.length === 1 ? "" : "s"} would get one entry each.`;
+
+    /* A TABLE OF NOTHING IS STILL A TABLE, and a row of column headings over an
+     * empty body reads as a screen that is still loading. Say what happened and
+     * offer the one thing that undoes it. */
+    if (matched.length === 0) {
+      preview.replaceChildren(
+        empty(
+          "?",
+          "Nothing matches",
+          `No ${file} record has that in its name and a number in ${fieldPick.value}.`,
+          button({
+            label: "Clear the filter",
+            kind: "primary",
+            onClick: () => {
+              search.value = "";
+              shop.acts.setFilter("");
+            },
+          }),
+        ),
+      );
+      return;
+    }
 
     preview.replaceChildren(
       h(

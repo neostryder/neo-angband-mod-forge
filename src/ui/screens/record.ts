@@ -54,7 +54,15 @@ export function recordScreen(shop: Workshop, index: number, path: string): View 
 
   const target = shop.acts.target(index);
   if (!target) {
-    fill(main, empty("?", "Nothing to edit here", "That change has no record behind it. Drop it, or pick another."));
+    fill(
+      main,
+      empty(
+        "?",
+        "Nothing to edit here",
+        "That change has no record behind it, which usually means it was dropped.",
+        button({ label: "Back to the mod", kind: "primary", onClick: () => shop.acts.go({ at: "details" }) }),
+      ),
+    );
     return { el, update: () => undefined, dispose: () => undefined };
   }
   const kind = kindFor(shop.api, target.file);
@@ -192,7 +200,20 @@ export function recordScreen(shop: Workshop, index: number, path: string): View 
 
     const scope = path === "" ? current.record : (valueAt(current.record, path) as JsonRecord | undefined);
     if (scope === undefined || kindOf(scope) === "empty") {
-      fill(groupsHost, empty("?", "Nothing here", "This part of the record is empty. Go back up and give it a value."));
+      const up = path.split(".").slice(0, -1).join(".");
+      fill(
+        groupsHost,
+        empty(
+          "?",
+          "Nothing here",
+          "This part of the record is empty, so there are no fields to show. Give it a value one level up.",
+          button({
+            label: "Go back up",
+            kind: "primary",
+            onClick: () => shop.acts.go({ at: "record", change: index, path: up }),
+          }),
+        ),
+      );
       return;
     }
     if (kindOf(scope) !== "object") {

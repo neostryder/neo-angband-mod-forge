@@ -3670,7 +3670,7 @@ function baseScreen(shop, file, mode) {
       render(shop.store.get());
     }
   });
-  const blank = button({
+  const blankButton = () => button({
     label: "Start from nothing instead",
     kind: "ghost",
     tip: "A record with only the fields the game's own records always carry, filled with typical values. Useful when nothing existing is close to what you have in mind.",
@@ -3687,7 +3687,7 @@ function baseScreen(shop, file, mode) {
         text: mode === "new" ? "The workshop will fill a new record in from the one you pick: its shape, its scale, and the values its neighbours in the game actually carry. It will not copy its attacks, its flags, its spells or anything else that would hand out powers you did not ask for." : "Your mod will ship the difference rather than the record, so the base game keeps owning it and two mods adjusting different fields of it both work."
       })
     ),
-    h("div", { class: "mb-row-actions" }, search, mode === "new" ? blank : null),
+    h("div", { class: "mb-row-actions" }, search, mode === "new" ? blankButton() : null),
     list,
     more
   );
@@ -3702,10 +3702,24 @@ function baseScreen(shop, file, mode) {
     fillList(
       list,
       rows,
-      empty(
+      all.length === 0 ? empty(
+        "?",
+        "Nothing to base one on",
+        `Nothing is loaded in ${file}, so there is no record here to copy or adjust.`,
+        mode === "new" ? blankButton() : null,
+        button({ label: "Choose another kind", kind: "ghost", onClick: () => shop.acts.go({ at: "kinds" }) })
+      ) : empty(
         "?",
         "Nothing matches",
-        all.length === 0 ? `Nothing is loaded in ${file}, so there is nothing to base anything on.` : "No record in this file has that in its name."
+        "No record in this file has that in its name.",
+        button({
+          label: "Clear the filter",
+          kind: "primary",
+          onClick: () => {
+            search.value = "";
+            shop.acts.setFilter("");
+          }
+        })
       )
     );
   };
@@ -3811,7 +3825,14 @@ function detailsScreen(shop) {
   const el = h("div", { class: "mb-main" });
   const draft = openDraft(shop.store.get());
   if (!draft) {
-    el.appendChild(empty("?", "No mod is open", "Pick one on the My mods screen."));
+    el.appendChild(
+      empty(
+        "?",
+        "No mod is open",
+        "Every screen after this one is about one mod, so the list is where to start.",
+        button({ label: "Go to my mods", kind: "primary", onClick: () => shop.acts.go({ at: "mods" }) })
+      )
+    );
     return { el, update: () => void 0, dispose: () => void 0 };
   }
   const name = textField({
@@ -3975,7 +3996,16 @@ function detailsScreen(shop) {
     fillList(
       changesList,
       rows,
-      empty("...", "Nothing in it yet", "Add or change something, and it will appear here.")
+      empty(
+        "...",
+        "Nothing in it yet",
+        "The manifest above is real, and a mod that changes nothing changes nothing.",
+        button({
+          label: "Add or change something",
+          kind: "primary",
+          onClick: () => shop.acts.go({ at: "kinds" })
+        })
+      )
     );
   };
   render(shop.store.get());
@@ -5121,7 +5151,14 @@ function filesScreen(shop, path) {
   const el = h("div", { class: "mb-cols mb-cols-2" }, main, aside);
   const draft = openDraft(shop.store.get());
   if (!draft) {
-    main.appendChild(empty("?", "No mod is open", "Pick one on the My mods screen."));
+    main.appendChild(
+      empty(
+        "?",
+        "No mod is open",
+        "This screen shows one mod's files, so there is nothing to print yet.",
+        button({ label: "Go to my mods", kind: "primary", onClick: () => shop.acts.go({ at: "mods" }) })
+      )
+    );
     return { el, update: () => void 0, dispose: () => void 0 };
   }
   const list = h("div", { class: "mb-list" });
@@ -5206,11 +5243,25 @@ function filesScreen(shop, path) {
     tip: "Takes this file out of the mod. Undo brings it back.",
     onClick: () => shop.acts.deleteFile(path)
   });
+  const setDeletable = (allowed) => {
+    remove.disabled = !allowed;
+    remove.dataset["tip"] = allowed ? "Takes this file out of the mod. Undo brings it back." : "Only a file of your own can be deleted here. The manifest and a record file are written from what the mod contains, so the way to empty one is to drop the changes behind it.";
+  };
   const bar = h("div", { class: "mb-row-actions" }, save, overwrite, revert, h("span", { class: "mb-spacer" }), caret, dirty, remove);
   const problems = h("div", { class: "mb-ed-problems" });
   const checkNote = h("div", { class: "mb-why" });
   let editor;
   const host = h("div");
+  const goneRow = h(
+    "div",
+    { class: "mb-row-actions" },
+    button({
+      label: "Back to the file list",
+      kind: "primary",
+      onClick: () => shop.acts.go({ at: "files", path: "" })
+    })
+  );
+  goneRow.style.display = "none";
   const binaryInfo = h("div", { class: "mb-why" });
   const binaryReplace = h("input", { type: "file" });
   binaryReplace.addEventListener("change", () => {
@@ -5262,7 +5313,7 @@ function filesScreen(shop, path) {
       onCaret: (line, column) => setText(caret, `line ${line}, column ${column}`)
     });
     host.appendChild(editor.el);
-    main.append(title, about, bar, host, binaryPanel, problems, checkNote);
+    main.append(title, about, goneRow, bar, host, binaryPanel, problems, checkNote);
   } else {
     main.append(
       h(
@@ -5334,7 +5385,7 @@ function filesScreen(shop, path) {
       revert.disabled = true;
       overwrite.disabled = true;
       overwrite.style.display = "none";
-      remove.disabled = classify(shop.api, path) !== "extra";
+      setDeletable(classify(shop.api, path) === "extra");
       setText(checkNote, "This is not text, so there is nothing here for the record checks to read.");
       return;
     }
@@ -5344,13 +5395,20 @@ function filesScreen(shop, path) {
     const held = state.buffers[path];
     if (file === void 0 || held === void 0) {
       setText(title, path);
-      setText(about, "That file is not in the mod any more.");
+      setText(about, "That file is not in the mod any more, so there is nothing here to edit or save.");
       save.disabled = true;
       overwrite.disabled = true;
       revert.disabled = true;
-      remove.disabled = true;
+      setDeletable(false);
+      goneRow.style.display = "";
+      bar.style.display = "none";
+      host.style.display = "none";
+      problems.style.display = "none";
+      setText(checkNote, "");
       return;
     }
+    goneRow.style.display = "none";
+    bar.style.display = "";
     setText(title, path);
     const stale = file.contents !== held.from;
     const changed = held.text !== file.contents;
@@ -5358,7 +5416,7 @@ function filesScreen(shop, path) {
     dirty.dataset["tone"] = changed ? "mod" : "";
     save.disabled = !changed;
     revert.disabled = !changed;
-    remove.disabled = classify(shop.api, path) !== "extra";
+    setDeletable(classify(shop.api, path) === "extra");
     overwrite.style.display = stale ? "" : "none";
     const notes = [aboutKind(classify(shop.api, path), path)];
     if (stale) {
@@ -5529,11 +5587,22 @@ function kindsScreen(shop) {
     everything.el
   );
   for (const kind of featured) grid.appendChild(kindCard(kind));
+  const clearFilter = () => {
+    search.value = "";
+    shop.acts.setFilter("");
+  };
   const renderRest = (filter) => {
     const needle = filter.trim().toLowerCase();
     const shown = needle === "" ? rest : rest.filter((k) => k.file.includes(needle) || k.title.toLowerCase().includes(needle));
     restGrid.replaceChildren(
-      ...shown.length === 0 ? [empty("?", "Nothing matches", "No record file has that in its name.")] : shown.map(kindCard)
+      ...shown.length === 0 ? [
+        empty(
+          "?",
+          "Nothing matches",
+          "No record file has that in its name. The four above are not in this list.",
+          button({ label: "Clear the filter", kind: "primary", onClick: clearFilter })
+        )
+      ] : shown.map(kindCard)
     );
   };
   renderRest("");
@@ -5661,7 +5730,13 @@ function modsScreen(shop) {
       empty(
         "[ ]",
         "Nothing here yet",
-        "Give a mod an id above and the workshop will take it from there."
+        "A mod starts with an id, and the workshop takes it from there.",
+        button({
+          label: "Name one now",
+          kind: "primary",
+          tip: "Puts the cursor in the id field above. An id is all a mod needs to exist.",
+          onClick: () => idBox.focus()
+        })
       )
     );
   };
@@ -5764,19 +5839,15 @@ function rebalanceScreen(shop, file) {
         text: "Filter the list down to the records you mean, choose one number and one adjustment, and every record that matched gets its own entry in your mod."
       })
     ),
-    numeric.length === 0 ? h(
-      "div",
-      null,
-      empty("?", "Nothing to retune here", emptyRetuneMessage(shop, file)),
-      h(
-        "div",
-        { class: "mb-row-actions mb-empty-actions" },
-        button({
-          label: "Choose another kind",
-          kind: "primary",
-          onClick: () => shop.acts.go({ at: "kinds" })
-        })
-      )
+    numeric.length === 0 ? empty(
+      "?",
+      "Nothing to retune here",
+      emptyRetuneMessage(shop, file),
+      button({
+        label: "Choose another kind",
+        kind: "primary",
+        onClick: () => shop.acts.go({ at: "kinds" })
+      })
     ) : h("div", null, search, controls.el, previewCard.el, h("div", { class: "mb-row-actions" }, apply2))
   );
   function matches(state) {
@@ -5793,7 +5864,25 @@ function rebalanceScreen(shop, file) {
     const op = opPick.value;
     const matched = matches(state);
     apply2.disabled = matched.length === 0 || !Number.isFinite(value);
-    summary.textContent = matched.length === 0 ? "Nothing matches that filter, so there is nothing to change." : `${matched.length} record${matched.length === 1 ? "" : "s"} would get one entry each.`;
+    summary.textContent = matched.length === 0 ? "" : `${matched.length} record${matched.length === 1 ? "" : "s"} would get one entry each.`;
+    if (matched.length === 0) {
+      preview.replaceChildren(
+        empty(
+          "?",
+          "Nothing matches",
+          `No ${file} record has that in its name and a number in ${fieldPick.value}.`,
+          button({
+            label: "Clear the filter",
+            kind: "primary",
+            onClick: () => {
+              search.value = "";
+              shop.acts.setFilter("");
+            }
+          })
+        )
+      );
+      return;
+    }
     preview.replaceChildren(
       h(
         "table",
@@ -6190,7 +6279,15 @@ function recordScreen(shop, index, path) {
   const el = h("div", { class: "mb-cols" }, rail, main, aside);
   const target = shop.acts.target(index);
   if (!target) {
-    fill(main, empty("?", "Nothing to edit here", "That change has no record behind it. Drop it, or pick another."));
+    fill(
+      main,
+      empty(
+        "?",
+        "Nothing to edit here",
+        "That change has no record behind it, which usually means it was dropped.",
+        button({ label: "Back to the mod", kind: "primary", onClick: () => shop.acts.go({ at: "details" }) })
+      )
+    );
     return { el, update: () => void 0, dispose: () => void 0 };
   }
   const kind = kindFor(shop.api, target.file);
@@ -6290,7 +6387,20 @@ function recordScreen(shop, index, path) {
     if (current.mode === "patch") renderOps(current.ops ?? []);
     const scope = path === "" ? current.record : valueAt2(current.record, path);
     if (scope === void 0 || kindOf(scope) === "empty") {
-      fill(groupsHost, empty("?", "Nothing here", "This part of the record is empty. Go back up and give it a value."));
+      const up = path.split(".").slice(0, -1).join(".");
+      fill(
+        groupsHost,
+        empty(
+          "?",
+          "Nothing here",
+          "This part of the record is empty, so there are no fields to show. Give it a value one level up.",
+          button({
+            label: "Go back up",
+            kind: "primary",
+            onClick: () => shop.acts.go({ at: "record", change: index, path: up })
+          })
+        )
+      );
       return;
     }
     if (kindOf(scope) !== "object") {
@@ -6737,6 +6847,7 @@ function allEntries(catalogue) {
 // src/ui/screens/test.ts
 var PAGE2 = 60;
 var HANDFUL = 5;
+var KNOW_NOTE = "so nothing shows up unidentified";
 function testScreen(shop) {
   const main = h("div", { class: "mb-main" });
   const aside = h("div", { class: "mb-aside" });
@@ -6744,7 +6855,11 @@ function testScreen(shop) {
   const seam = shop.seams.wizard;
   const intro = h("div", { class: "mb-prose" }, h("h2", { text: "Test it in the game" }));
   const blocked = h("div", { class: "mb-banner" });
-  const armCard = card({ title: "Before anything works", open: true });
+  const armCard = card({
+    title: "Before anything works",
+    open: true,
+    onToggle: () => armCard.setOpen(armCard.el.dataset["open"] !== "1")
+  });
   const armProse = h("div", { class: "mb-prose" });
   const arm = button({
     label: "Stop saving, and let me test",
@@ -6844,7 +6959,12 @@ function testScreen(shop) {
       })
     )
   );
-  const knowCard = card({ title: "What you know", note: "so nothing shows up unidentified", open: false });
+  const knowCard = card({
+    title: "What you know",
+    note: KNOW_NOTE,
+    open: false,
+    onToggle: () => knowCard.setOpen(knowCard.el.dataset["open"] !== "1")
+  });
   knowCard.body.append(
     row(
       null,
@@ -6863,7 +6983,18 @@ function testScreen(shop) {
   let shown = PAGE2;
   let catalogue = NO_CATALOGUE;
   let statsFilled = false;
+  let browseCount = "";
   const armed = () => seam.api?.sandboxed() === true;
+  const setNotes = () => {
+    const live = armed() && seam.available;
+    const why = seam.available ? "off until this session stops being saved" : `off on this game: ${seam.why ?? ""}`;
+    const compose = (own) => live ? own : own === "" ? why : `${own}, ${why}`;
+    depthCard.setNote(compose(""));
+    charCard.setNote(compose(""));
+    roomCard.setNote(compose(""));
+    knowCard.setNote(compose(KNOW_NOTE));
+    browse.setNote(compose(browseCount));
+  };
   const report = (outcome) => {
     if (outcome.ok) shop.acts.notice(outcome.did, "good");
     else shop.acts.notice(outcome.problem, "bad");
@@ -6918,7 +7049,8 @@ function testScreen(shop) {
     const total = testRows(catalogue, { kind }).length;
     more.style.display = rows.length > page.length ? "" : "none";
     setText(more, `Show more (${rows.length - page.length} left)`);
-    browse.setNote(`${rows.length} of ${total}`);
+    browseCount = `${rows.length} of ${total}`;
+    setNotes();
     fillList(
       list,
       page.map(
@@ -6929,9 +7061,27 @@ function testScreen(shop) {
         "Nothing is loaded to test with",
         armedOrNot(
           "The game has not handed the workshop its content, so there is nothing to choose from.",
-          "Forge the mod and play it, and everything it adds turns up here."
-        )
-      ) : empty("[ ]", "Nothing matches", "No loaded record has that in its name.")
+          "Content composes when the game loads, so what this mod adds turns up here after it has been forged."
+        ),
+        seam.api === void 0 ? null : button({
+          label: "Forge it and play it now",
+          kind: "primary",
+          tip: "Forges the mod, loads it for this session only, and reloads the game. Everything it adds is in this list afterwards.",
+          onClick: () => void shop.acts.loadForSession()
+        })
+      ) : empty(
+        "[ ]",
+        "Nothing matches",
+        "No loaded record has that in its name.",
+        button({
+          label: "Clear the filter",
+          kind: "primary",
+          onClick: () => {
+            search.value = "";
+            shop.acts.setFilter("");
+          }
+        })
+      )
     );
   };
   const buildRow = (kind, name, level, modded, from) => {
@@ -7029,10 +7179,12 @@ function testScreen(shop) {
     renderMine();
     renderList(shop.store.get());
     const live = armed() && seam.available;
+    setNotes();
     for (const control of main.querySelectorAll("button")) {
       if (control === arm) continue;
       if (control === more) continue;
       if (control.classList.contains("mb-card-head")) continue;
+      if (control.closest(".mb-empty") !== null) continue;
       control.disabled = !live;
     }
     for (const field of [depth, exp, gold, statValue, loot, horde, hop]) field.setEnabled(live);
@@ -7245,7 +7397,14 @@ function verdictScreen(shop) {
   const el = h("div", { class: "mb-cols mb-cols-2" }, main, aside);
   const draft = openDraft(shop.store.get());
   if (!draft) {
-    main.appendChild(empty("?", "No mod is open", "Pick one on the My mods screen."));
+    main.appendChild(
+      empty(
+        "?",
+        "No mod is open",
+        "There is nothing to review until a mod is open.",
+        button({ label: "Go to my mods", kind: "primary", onClick: () => shop.acts.go({ at: "mods" }) })
+      )
+    );
     return { el, update: () => void 0, dispose: () => void 0 };
   }
   const headline = h("div", { class: "mb-prose" });
@@ -7315,7 +7474,18 @@ function verdictScreen(shop) {
     filesCard.setNote(`${emitted.length} file${emitted.length === 1 ? "" : "s"}`);
     const unchecked = unread(current);
     filesHost.replaceChildren(
-      ...emitted.length === 0 ? [empty("[ ]", "Nothing to write yet", "Add or change something first.")] : emitted.map((file) => filePreview(file.path, file.contents)),
+      ...emitted.length === 0 ? [
+        empty(
+          "[ ]",
+          "Nothing to write yet",
+          "A mod with no changes and no files of its own has nothing to emit.",
+          button({
+            label: "Add or change something",
+            kind: "primary",
+            onClick: () => shop.acts.go({ at: "kinds" })
+          })
+        )
+      ] : emitted.map((file) => filePreview(file.path, file.contents)),
       ...unchecked.length === 0 ? [] : [
         h(
           "div",

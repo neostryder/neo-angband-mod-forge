@@ -144,7 +144,13 @@ export function modsScreen(shop: Workshop): View {
       empty(
         "[ ]",
         "Nothing here yet",
-        "Give a mod an id above and the workshop will take it from there.",
+        "A mod starts with an id, and the workshop takes it from there.",
+        button({
+          label: "Name one now",
+          kind: "primary",
+          tip: "Puts the cursor in the id field above. An id is all a mod needs to exist.",
+          onClick: () => idBox.focus(),
+        }),
       ),
     );
   };
