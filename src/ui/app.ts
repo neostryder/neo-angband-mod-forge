@@ -28,6 +28,7 @@ import { fill, h, setText, useDocument } from "./dom.js";
 import type { Overlay } from "./overlay.js";
 import { installTooltips } from "./tooltip.js";
 import type { Tooltips } from "./tooltip.js";
+import { aboutScreen } from "./screens/about.js";
 import { baseScreen } from "./screens/base.js";
 import { detailsScreen } from "./screens/details.js";
 import { filesScreen } from "./screens/files.js";
@@ -102,6 +103,13 @@ export function mountApp(deps: AppDeps): App {
     tip: "The four things people usually make, and where the written tutorials for the same ideas are.",
     onClick: () => deps.acts.go({ at: "tour" }),
   });
+  const about = button({
+    label: "About",
+    kind: "ghost",
+    tiny: true,
+    tip: "What ModForge is, in the tool's own words - the same page the launch screen offers on the way in.",
+    onClick: () => deps.acts.go({ at: "about" }),
+  });
   const close = button({
     label: "Close",
     tiny: true,
@@ -119,6 +127,7 @@ export function mountApp(deps: AppDeps): App {
       { class: "mb-titleacts" },
       h("label", { class: "mb-switch", tip: "An ink-on-parchment treatment, for anybody who prefers it." }, parchment, h("span", { text: "parchment" })),
       guide,
+      about,
       undo,
       redo,
       close,
@@ -165,6 +174,8 @@ export function mountApp(deps: AppDeps): App {
         return testScreen(shop);
       case "files":
         return filesScreen(shop, route.path);
+      case "about":
+        return aboutScreen(shop);
     }
   };
 
@@ -425,6 +436,8 @@ function leafName(route: Route): string | undefined {
       return "Test";
     case "files":
       return route.path === "" ? "Files" : route.path;
+    case "about":
+      return "About";
     default:
       return undefined;
   }

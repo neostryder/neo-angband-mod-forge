@@ -41,7 +41,9 @@ export type Route =
   | { readonly at: "verdict" }
   | { readonly at: "test" }
   /** The file editor. An empty path means the list with nothing open. */
-  | { readonly at: "files"; readonly path: string };
+  | { readonly at: "files"; readonly path: string }
+  /** What ModForge is, in the tool's own words - also reachable from the launch screen. */
+  | { readonly at: "about" };
 
 /**
  * One file open in the editor and not yet saved.

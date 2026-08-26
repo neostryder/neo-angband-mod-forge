@@ -19,6 +19,9 @@ import { resolveSeams } from "./host/seams.js";
 import { DraftWriter, loadDrafts } from "./model/persist.js";
 import { Actions } from "./ui/actions.js";
 import { mountApp } from "./ui/app.js";
+import { useDocument } from "./ui/dom.js";
+import type { Dismissable } from "./ui/launch.js";
+import { mountExit, mountLaunch } from "./ui/launch.js";
 import { mountOverlay } from "./ui/overlay.js";
 import { initialState, Store } from "./ui/store.js";
 
@@ -60,6 +63,7 @@ export function openWorkshop(ctx: BuilderCtx, doc: Document | undefined): Worksh
   const overlay = mountOverlay(doc, { label: "ModForge" });
 
   let closed = false;
+  let launchHandle: Dismissable | undefined;
   const handle: WorkshopHandle = {
     get open() {
       return !closed;
@@ -67,6 +71,11 @@ export function openWorkshop(ctx: BuilderCtx, doc: Document | undefined): Worksh
     close() {
       if (closed) return;
       closed = true;
+      /* Stopped rather than let run: a launch screen mid-animation has
+       * pending timers of its own, and this path - a mod switched off, a
+       * test's own teardown - is tearing the whole overlay down right after,
+       * not asking the launch screen to leave gracefully. */
+      launchHandle?.dispose();
       writer.flush();
       writer.dispose();
       acts.dispose();
@@ -83,8 +92,38 @@ export function openWorkshop(ctx: BuilderCtx, doc: Document | undefined): Worksh
     log,
     doc,
     closeWorkshop: () => handle.close(),
+    /* The graceful exit screen, for the player's OWN close - the titlebar
+     * button and the bottom rung of the escape ladder - as opposed to
+     * `handle.close()` above, which is the programmatic teardown a mod
+     * switch or a test uses and which stays immediate on purpose. */
+    playExit: (done) => mountExit(overlay, { onDone: done }),
   });
 
+  /* THE LAUNCH SCREEN MOUNTS BEFORE `mountApp`, AND THAT ORDER IS LOAD-BEARING.
+   * `overlay.ts` offers a key to its registered handlers in the order they
+   * registered, and the first one to claim an event is the only one that
+   * runs - so mounting this first is what gives it Escape and Enter while it
+   * is up, ahead of the workshop's own escape ladder underneath. `useDocument`
+   * is called explicitly first because `mountApp` would otherwise be the one
+   * to call it, and this needs `h()` working before that happens. */
+  useDocument(doc);
+  launchHandle = mountLaunch(overlay, {
+    firstRun: !stored.seenTour,
+    onEnter: () => {
+      launchHandle = undefined;
+    },
+    onCancel: () => {
+      launchHandle = undefined;
+      handle.close();
+    },
+  });
+
+  /* THE TITLE SCREEN NEVER DELAYS THE WORKSHOP MOUNTING, even though it
+   * registered first. The mod list (or the guide, on a first run) is built
+   * right here and sitting ready the instant this function returns - the
+   * launch screen only plays in front of it for a few hundred milliseconds
+   * and then gets out of the way, on its own for a player who has seen it
+   * before, or on a click, Enter or Escape for anybody. */
   mountApp({
     overlay,
     doc,
@@ -96,6 +135,11 @@ export function openWorkshop(ctx: BuilderCtx, doc: Document | undefined): Worksh
     core: ctx.core,
     ...(ctx.registries === undefined ? {} : { registries: ctx.registries }),
   });
+
+  /* `mountApp`'s own render() just moved focus onto its first screen's first
+   * control, which is invisible while the launch screen still covers it -
+   * see `Dismissable.focus` for why this half exists. */
+  launchHandle.focus();
 
   overlay.onClose(() => {
     closed = true;

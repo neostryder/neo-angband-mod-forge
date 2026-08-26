@@ -36,10 +36,21 @@ export interface ActionDeps {
   readonly log: (msg: string) => void;
   readonly doc: Document;
   readonly closeWorkshop: () => void;
+  /**
+   * Play the graceful "leaving ModForge" screen, then call the handed-in
+   * function once it is through. Absent in a test that builds `Actions`
+   * directly against no overlay - `close()` falls straight through to
+   * `closeWorkshop` then, exactly as it always has.
+   */
+  readonly playExit?: (done: () => void) => void;
 }
 
 export class Actions {
   private checkTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Set the moment `close()` is first called, so a second press - the Close
+   * button mashed, or Escape landing again while the exit screen is up -
+   * cannot start a second exit transition racing the first one. */
+  private closing = false;
 
   constructor(private readonly deps: ActionDeps) {}
 
@@ -76,9 +87,19 @@ export class Actions {
     this.persist();
   }
 
+  /**
+   * The player is done. The drafts are flushed immediately either way - an
+   * animation is not a reason to risk losing unsaved work - and the actual
+   * teardown runs after the graceful exit screen has had its moment, when
+   * one is available.
+   */
   close(): void {
+    if (this.closing) return;
+    this.closing = true;
     this.deps.writer.flush();
-    this.deps.closeWorkshop();
+    const finish = (): void => this.deps.closeWorkshop();
+    if (this.deps.playExit) this.deps.playExit(finish);
+    else finish();
   }
 
   /* --------------------------------------------------------------- *

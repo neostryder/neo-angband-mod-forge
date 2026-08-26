@@ -1025,6 +1025,128 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
 .mb-tip[data-shown="1"] { opacity: 1; transform: translateY(0); }
 
 /* ---------------------------------------------------------------- *
+ * The launch screen and the exit screen                             *
+ * ---------------------------------------------------------------- *
+ *
+ * Both sit above the workshop's own frame (which has no z-index of its own,
+ * so anything after it in the shadow root already paints on top) rather than
+ * inside it, because both are about the workshop as a whole rather than
+ * about any one screen of it.
+ */
+
+.mb-launch, .mb-exit {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 6vmin 4vmin;
+  text-align: center;
+  background:
+    radial-gradient(70% 60% at 50% 28%, color-mix(in srgb, var(--gold) 10%, transparent), transparent 70%),
+    var(--scrim);
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+.mb-launch[data-shown="1"], .mb-exit[data-shown="1"] { opacity: 1; }
+.mb-exit { z-index: 20; }
+
+.mb-launch-card, .mb-exit-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 48ch;
+}
+
+.mb-launch-illum {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 42px;
+  font-weight: 600;
+  color: var(--gold-bright);
+  border: 1px solid var(--edge-strong);
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(120% 120% at 30% 10%, color-mix(in srgb, var(--gold) 26%, transparent), transparent 70%),
+    var(--stone);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transform: translateY(8px) scale(0.96);
+  transition: opacity 380ms ease, transform 380ms ease;
+}
+.mb-launch[data-phase="brand"] .mb-launch-illum,
+.mb-launch[data-phase="tagline"] .mb-launch-illum,
+.mb-launch[data-phase="ready"] .mb-launch-illum {
+  opacity: 1;
+  transform: none;
+}
+
+.mb-launch-title {
+  margin: 6px 0 0;
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 600;
+  color: var(--ink);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 380ms ease, transform 380ms ease;
+}
+.mb-launch[data-phase="brand"] .mb-launch-title,
+.mb-launch[data-phase="tagline"] .mb-launch-title,
+.mb-launch[data-phase="ready"] .mb-launch-title {
+  opacity: 1;
+  transform: none;
+}
+
+.mb-launch-tagline {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--ink-dim);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 380ms ease 60ms, transform 380ms ease 60ms;
+}
+.mb-launch[data-phase="tagline"] .mb-launch-tagline,
+.mb-launch[data-phase="ready"] .mb-launch-tagline {
+  opacity: 1;
+  transform: none;
+}
+
+.mb-launch-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 10px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 380ms ease 120ms, transform 380ms ease 120ms;
+}
+.mb-launch[data-phase="ready"] .mb-launch-actions { opacity: 1; transform: none; }
+
+.mb-launch-skip {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+.mb-launch-readme {
+  max-width: 62ch;
+  max-height: 60vh;
+  overflow: auto;
+  text-align: left;
+  padding-right: 4px;
+}
+.mb-readme-section + .mb-readme-section { margin-top: 14px; }
+
+.mb-exit-title { font-family: var(--font-display); font-size: 18px; font-weight: 600; color: var(--ink); }
+.mb-exit-note { font-size: 12px; color: var(--ink-faint); }
+
+/* ---------------------------------------------------------------- *
  * Motion, only when it is wanted                                    *
  * ---------------------------------------------------------------- */
 

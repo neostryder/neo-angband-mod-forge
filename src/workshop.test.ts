@@ -233,6 +233,83 @@ describe("opening the workshop", () => {
   });
 });
 
+/**
+ * neo-angband#126. The launch screen and the exit screen, driven the way a
+ * player drives them: a click or a key, never a wait, because the workshop
+ * underneath is mounted and ready the instant `openWorkshop` returns and
+ * `control()` reaches it directly regardless of whatever the title screen is
+ * showing on top - the same fact every OTHER test in this file already
+ * depends on without ever clicking through the title screen at all.
+ */
+describe("the launch screen and the exit screen", () => {
+  it("shows a title screen over the workshop that was already mounted underneath", () => {
+    open = openWorkshop(ctx(), document);
+    expect(screenText()).toContain("ModForge");
+    expect(screenText()).toContain("Make your own Neo Angband mod from inside the game");
+    expect(buttonNames()).toContain("Enter the workshop");
+    /* The real screen is already there, underneath - which is the whole point:
+     * this never delays the workshop mounting, it only plays in front of it. */
+    expect(screenText()).toContain("Make something for Angband");
+  });
+
+  it("gets out of the way on Enter the workshop, and the workshop keeps working", () => {
+    open = openWorkshop(ctx(), document);
+    control("Enter the workshop").click();
+    control("Take me to my mods").click();
+    expect(screenText()).toContain("Unfinished");
+  });
+
+  it("offers the README from the title screen, and returns from it without losing the way in", () => {
+    open = openWorkshop(ctx(), document);
+    control("Read the README").click();
+    expect(screenText()).toContain("What ModForge is");
+    expect(screenText()).toContain("Editing the files directly");
+    control("Back").click();
+    /* Back to the front view, and the way in is still there - the regression
+     * this covers moved a single button node between the two views instead of
+     * building a fresh one, which emptied it out after one round trip. */
+    expect(buttonNames()).toContain("Enter the workshop");
+    control("Enter the workshop").click();
+  });
+
+  it("stays reachable afterwards, as About in the titlebar", () => {
+    open = openWorkshop(ctx(), document);
+    control("Enter the workshop").click();
+    control("About").click();
+    expect(screenText()).toContain("What ModForge is");
+  });
+
+  it("cancels ModForge entirely on Escape from the title screen, rather than opening the workshop", () => {
+    open = openWorkshop(ctx(), document);
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    expect(document.getElementById("neo-angband-mod-forge")).toBeNull();
+    open = undefined;
+  });
+
+  it("plays a graceful exit on Close, and only actually closes once it is through", () => {
+    open = openWorkshop(ctx(), document);
+    control("Enter the workshop").click();
+    control("Close").click();
+    expect(screenText()).toContain("Leaving ModForge");
+    /* Not gone yet: the workshop stays up for as long as the exit screen does. */
+    expect(document.getElementById("neo-angband-mod-forge")).not.toBeNull();
+    shadow().querySelector<HTMLElement>(".mb-exit")?.click();
+    expect(document.getElementById("neo-angband-mod-forge")).toBeNull();
+    open = undefined;
+  });
+
+  it("cannot be asked to leave twice at once", () => {
+    open = openWorkshop(ctx(), document);
+    control("Enter the workshop").click();
+    control("Close").click();
+    control("Close").click();
+    /* Still exactly one exit screen, not two stacked on top of each other. */
+    expect(shadow().querySelectorAll(".mb-exit")).toHaveLength(1);
+    shadow().querySelector<HTMLElement>(".mb-exit")?.click();
+    open = undefined;
+  });
+});
+
 describe("the player's journey", () => {
   /**
    * Open the workshop and click all the way to a drafted record.

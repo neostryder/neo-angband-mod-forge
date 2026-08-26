@@ -2406,6 +2406,10 @@ var Actions = class {
   }
   deps;
   checkTimer;
+  /** Set the moment `close()` is first called, so a second press - the Close
+   * button mashed, or Escape landing again while the exit screen is up -
+   * cannot start a second exit transition racing the first one. */
+  closing = false;
   /* --------------------------------------------------------------- *
    * Navigation and chatter                                          *
    * --------------------------------------------------------------- */
@@ -2431,9 +2435,19 @@ var Actions = class {
     this.deps.store.view(() => ({ seenTour: true, route: { at: "mods" } }));
     this.persist();
   }
+  /**
+   * The player is done. The drafts are flushed immediately either way - an
+   * animation is not a reason to risk losing unsaved work - and the actual
+   * teardown runs after the graceful exit screen has had its moment, when
+   * one is available.
+   */
   close() {
+    if (this.closing) return;
+    this.closing = true;
     this.deps.writer.flush();
-    this.deps.closeWorkshop();
+    const finish = () => this.deps.closeWorkshop();
+    if (this.deps.playExit) this.deps.playExit(finish);
+    else finish();
   }
   /* --------------------------------------------------------------- *
    * Mods                                                            *
@@ -3146,6 +3160,61 @@ function installTooltips(root, doc2) {
       tip.remove();
     }
   };
+}
+
+// src/ui/readme-content.ts
+var README_SECTIONS = [
+  {
+    title: "What ModForge is",
+    paragraphs: [
+      "Pick something that already exists in Angband - a monster, a sword, a shop, a spell - and the workshop shows what it is made of, what its neighbours carry for every number, and what would have to change to make the thing you had in mind.",
+      "It never asks what JSON is, and it never hides it either: every screen can show the exact file it is about to write, and a mod it built can be taken away, hand-edited, and brought back."
+    ]
+  },
+  {
+    title: "What it does",
+    paragraphs: [
+      "Adds records - a new monster, item or spell, based on something that already exists, so it arrives with real shape and scale and none of its powers until you add them.",
+      "Adjusts records the game already owns, shipping the difference rather than the whole record, so two mods changing different fields of the same thing both keep working.",
+      "Retunes a whole file at once - every potion cheaper, every dragon faster - one adjustment applied across everything that matches a filter, each written as its own entry.",
+      "Checks as you type: a name collision, a field nothing in the file uses, a reference to something no loaded pack defines. Errors, warnings and advice are kept apart."
+    ]
+  },
+  {
+    title: "Editing the files directly",
+    paragraphs: [
+      `Every screen above asks a question and writes the answer into a file. "Edit the files directly", reached from a mod's own page, shows those files - the same mod, printed, not a second copy of it. A change made there shows up on every other screen, and the other way round.`
+    ]
+  },
+  {
+    title: "What it is not yet",
+    paragraphs: [
+      "The numbers shown today come from the workshop's own demonstration content rather than from the game's real records, until the engine grows the seams this mod is built against. The banner on every screen says so, and nothing dismisses it."
+    ]
+  },
+  {
+    title: "Reading more",
+    paragraphs: [
+      "The full README, the seven written tutorials, and every engine seam this mod is waiting on live in the repository this mod shipped from: neo-angband-mod-forge, on GitHub."
+    ]
+  }
+];
+function readmeElements() {
+  return README_SECTIONS.map(
+    (section) => h(
+      "section",
+      { class: "mb-readme-section" },
+      h("h3", { text: section.title }),
+      ...section.paragraphs.map((p) => h("p", { text: p }))
+    )
+  );
+}
+
+// src/ui/screens/about.ts
+function aboutScreen(shop) {
+  void shop;
+  const el = h("div", { class: "mb-main mb-prose" }, h("h2", { text: "About ModForge" }), ...readmeElements());
+  return { el, update: () => void 0, dispose: () => void 0 };
 }
 
 // src/ui/widgets.ts
@@ -7325,6 +7394,13 @@ function mountApp(deps) {
     tip: "The four things people usually make, and where the written tutorials for the same ideas are.",
     onClick: () => deps.acts.go({ at: "tour" })
   });
+  const about = button({
+    label: "About",
+    kind: "ghost",
+    tiny: true,
+    tip: "What ModForge is, in the tool's own words - the same page the launch screen offers on the way in.",
+    onClick: () => deps.acts.go({ at: "about" })
+  });
   const close = button({
     label: "Close",
     tiny: true,
@@ -7341,6 +7417,7 @@ function mountApp(deps) {
       { class: "mb-titleacts" },
       h("label", { class: "mb-switch", tip: "An ink-on-parchment treatment, for anybody who prefers it." }, parchment, h("span", { text: "parchment" })),
       guide,
+      about,
       undo,
       redo,
       close
@@ -7379,6 +7456,8 @@ function mountApp(deps) {
         return testScreen(shop);
       case "files":
         return filesScreen(shop, route.path);
+      case "about":
+        return aboutScreen(shop);
     }
   };
   const keyOf2 = (route) => JSON.stringify(route);
@@ -7572,9 +7651,195 @@ function leafName(route) {
       return "Test";
     case "files":
       return route.path === "" ? "Files" : route.path;
+    case "about":
+      return "About";
     default:
       return void 0;
   }
+}
+
+// src/ui/launch.ts
+var LAUNCH_PHASES = ["brand", "tagline", "ready"];
+var LAUNCH_STEP_MS = 320;
+var LAUNCH_AUTO_MS = 1100;
+var LAUNCH_FADE_MS = 260;
+function nextLaunchPhase(phase) {
+  return LAUNCH_PHASES[LAUNCH_PHASES.indexOf(phase) + 1];
+}
+function timerFns(deps) {
+  return {
+    after: deps.setTimeout ?? ((fn, ms) => setTimeout(fn, ms)),
+    cancel: deps.clearTimeout ?? ((handle) => clearTimeout(handle))
+  };
+}
+function runLaunchSequence(onPhase, deps = {}) {
+  const { after, cancel } = timerFns(deps);
+  let phase = "brand";
+  let handle;
+  let finished = false;
+  const tick = () => {
+    const next = nextLaunchPhase(phase);
+    if (next === void 0) {
+      finished = true;
+      return;
+    }
+    phase = next;
+    onPhase(phase);
+    if (nextLaunchPhase(phase) !== void 0) handle = after(tick, LAUNCH_STEP_MS);
+    else finished = true;
+  };
+  onPhase(phase);
+  handle = after(tick, LAUNCH_STEP_MS);
+  return {
+    get phase() {
+      return phase;
+    },
+    skip() {
+      if (finished) return;
+      cancel(handle);
+      finished = true;
+      const last = LAUNCH_PHASES[LAUNCH_PHASES.length - 1];
+      if (last !== void 0 && phase !== last) {
+        phase = last;
+        onPhase(phase);
+      }
+    },
+    dispose() {
+      if (!finished) cancel(handle);
+      finished = true;
+    }
+  };
+}
+var LAUNCH_TAGLINE = "Make your own Neo Angband mod from inside the game.";
+function mountLaunch(overlay, opts) {
+  const { after, cancel } = timerFns(opts.timers ?? {});
+  const illum = h("div", { class: "mb-launch-illum", text: "M" });
+  const title = h("h1", { class: "mb-launch-title", text: "ModForge" });
+  const tagline = h("p", { class: "mb-launch-tagline", text: LAUNCH_TAGLINE });
+  let settled = false;
+  let autoHandle;
+  const clearAuto = () => {
+    if (autoHandle !== void 0) {
+      cancel(autoHandle);
+      autoHandle = void 0;
+    }
+  };
+  const enterButton = () => button({ label: "Enter the workshop", kind: "primary", onClick: () => finish(opts.onEnter) });
+  let enterBtn = enterButton();
+  const readmeBtn = button({
+    label: "Read the README",
+    kind: "ghost",
+    onClick: () => {
+      clearAuto();
+      fill(
+        body,
+        h("div", { class: "mb-launch-readme mb-prose" }, ...readmeElements()),
+        h("div", { class: "mb-launch-actions" }, button({ label: "Back", onClick: showFront }), enterButton())
+      );
+    }
+  });
+  const body = h("div", { class: "mb-launch-card" }, illum, title, tagline, h("div", { class: "mb-launch-actions" }, enterBtn, readmeBtn));
+  function showFront() {
+    enterBtn = enterButton();
+    fill(body, illum, title, tagline, h("div", { class: "mb-launch-actions" }, enterBtn, readmeBtn));
+  }
+  const skip = button({ label: "Skip", kind: "ghost", tiny: true, onClick: () => finish(opts.onEnter) });
+  skip.classList.add("mb-launch-skip");
+  const panel = h("div", { class: "mb-launch", role: "dialog", aria: { label: "ModForge" } }, skip, body);
+  overlay.root.appendChild(panel);
+  panel.dataset["phase"] = "brand";
+  let revealHandle = after(() => {
+    revealHandle = void 0;
+    panel.dataset["shown"] = "1";
+  }, 0);
+  const sequencer = runLaunchSequence((phase) => {
+    panel.dataset["phase"] = phase;
+    if (phase === "ready") {
+      enterBtn.focus();
+      if (!opts.firstRun) autoHandle = after(() => finish(opts.onEnter), LAUNCH_AUTO_MS);
+    }
+  }, opts.timers);
+  const teardown = () => {
+    clearAuto();
+    sequencer.dispose();
+    if (revealHandle !== void 0) {
+      cancel(revealHandle);
+      revealHandle = void 0;
+    }
+    panel.dataset["shown"] = "0";
+    after(() => panel.remove(), LAUNCH_FADE_MS);
+  };
+  function finish(action) {
+    if (settled) return;
+    settled = true;
+    teardown();
+    action();
+  }
+  overlay.onKey((event) => {
+    if (settled) return false;
+    if (event.key === "Escape") {
+      finish(opts.onCancel);
+      return true;
+    }
+    if (event.key === "Enter") {
+      const active = overlay.root.activeElement;
+      if (active instanceof HTMLButtonElement && panel.contains(active)) {
+        active.click();
+        return true;
+      }
+      finish(opts.onEnter);
+      return true;
+    }
+    return false;
+  });
+  return {
+    dispose() {
+      settled = true;
+      clearAuto();
+      sequencer.dispose();
+      if (revealHandle !== void 0) {
+        cancel(revealHandle);
+        revealHandle = void 0;
+      }
+    },
+    focus() {
+      enterBtn.focus();
+    }
+  };
+}
+var EXIT_MS = 550;
+function mountExit(overlay, opts) {
+  const { after } = timerFns(opts.timers ?? {});
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    opts.onDone();
+  };
+  const panel = h(
+    "div",
+    {
+      class: "mb-exit",
+      role: "status",
+      aria: { label: "Leaving ModForge" },
+      on: { click: finish }
+    },
+    h(
+      "div",
+      { class: "mb-exit-card" },
+      h("div", { class: "mb-exit-title", text: "Leaving ModForge..." }),
+      h("div", { class: "mb-exit-note", text: "Back to the game. Unfinished work is kept." })
+    )
+  );
+  overlay.root.appendChild(panel);
+  after(() => {
+    panel.dataset["shown"] = "1";
+  }, 0);
+  overlay.onKey(() => {
+    finish();
+    return true;
+  });
+  after(finish, EXIT_MS);
 }
 
 // src/ui/theme.ts
@@ -8573,6 +8838,128 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
 .mb-tip[data-shown="1"] { opacity: 1; transform: translateY(0); }
 
 /* ---------------------------------------------------------------- *
+ * The launch screen and the exit screen                             *
+ * ---------------------------------------------------------------- *
+ *
+ * Both sit above the workshop's own frame (which has no z-index of its own,
+ * so anything after it in the shadow root already paints on top) rather than
+ * inside it, because both are about the workshop as a whole rather than
+ * about any one screen of it.
+ */
+
+.mb-launch, .mb-exit {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 6vmin 4vmin;
+  text-align: center;
+  background:
+    radial-gradient(70% 60% at 50% 28%, color-mix(in srgb, var(--gold) 10%, transparent), transparent 70%),
+    var(--scrim);
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+.mb-launch[data-shown="1"], .mb-exit[data-shown="1"] { opacity: 1; }
+.mb-exit { z-index: 20; }
+
+.mb-launch-card, .mb-exit-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 48ch;
+}
+
+.mb-launch-illum {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 42px;
+  font-weight: 600;
+  color: var(--gold-bright);
+  border: 1px solid var(--edge-strong);
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(120% 120% at 30% 10%, color-mix(in srgb, var(--gold) 26%, transparent), transparent 70%),
+    var(--stone);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transform: translateY(8px) scale(0.96);
+  transition: opacity 380ms ease, transform 380ms ease;
+}
+.mb-launch[data-phase="brand"] .mb-launch-illum,
+.mb-launch[data-phase="tagline"] .mb-launch-illum,
+.mb-launch[data-phase="ready"] .mb-launch-illum {
+  opacity: 1;
+  transform: none;
+}
+
+.mb-launch-title {
+  margin: 6px 0 0;
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 600;
+  color: var(--ink);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 380ms ease, transform 380ms ease;
+}
+.mb-launch[data-phase="brand"] .mb-launch-title,
+.mb-launch[data-phase="tagline"] .mb-launch-title,
+.mb-launch[data-phase="ready"] .mb-launch-title {
+  opacity: 1;
+  transform: none;
+}
+
+.mb-launch-tagline {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--ink-dim);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 380ms ease 60ms, transform 380ms ease 60ms;
+}
+.mb-launch[data-phase="tagline"] .mb-launch-tagline,
+.mb-launch[data-phase="ready"] .mb-launch-tagline {
+  opacity: 1;
+  transform: none;
+}
+
+.mb-launch-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 10px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 380ms ease 120ms, transform 380ms ease 120ms;
+}
+.mb-launch[data-phase="ready"] .mb-launch-actions { opacity: 1; transform: none; }
+
+.mb-launch-skip {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+.mb-launch-readme {
+  max-width: 62ch;
+  max-height: 60vh;
+  overflow: auto;
+  text-align: left;
+  padding-right: 4px;
+}
+.mb-readme-section + .mb-readme-section { margin-top: 14px; }
+
+.mb-exit-title { font-family: var(--font-display); font-size: 18px; font-weight: 600; color: var(--ink); }
+.mb-exit-note { font-size: 12px; color: var(--ink-faint); }
+
+/* ---------------------------------------------------------------- *
  * Motion, only when it is wanted                                    *
  * ---------------------------------------------------------------- */
 
@@ -8745,6 +9132,7 @@ function openWorkshop(ctx, doc2) {
   });
   const overlay = mountOverlay(doc2, { label: "ModForge" });
   let closed = false;
+  let launchHandle;
   const handle = {
     get open() {
       return !closed;
@@ -8752,6 +9140,7 @@ function openWorkshop(ctx, doc2) {
     close() {
       if (closed) return;
       closed = true;
+      launchHandle?.dispose();
       writer.flush();
       writer.dispose();
       acts.dispose();
@@ -8766,7 +9155,23 @@ function openWorkshop(ctx, doc2) {
     writer,
     log,
     doc: doc2,
-    closeWorkshop: () => handle.close()
+    closeWorkshop: () => handle.close(),
+    /* The graceful exit screen, for the player's OWN close - the titlebar
+     * button and the bottom rung of the escape ladder - as opposed to
+     * `handle.close()` above, which is the programmatic teardown a mod
+     * switch or a test uses and which stays immediate on purpose. */
+    playExit: (done) => mountExit(overlay, { onDone: done })
+  });
+  useDocument(doc2);
+  launchHandle = mountLaunch(overlay, {
+    firstRun: !stored.seenTour,
+    onEnter: () => {
+      launchHandle = void 0;
+    },
+    onCancel: () => {
+      launchHandle = void 0;
+      handle.close();
+    }
   });
   mountApp({
     overlay,
@@ -8779,6 +9184,7 @@ function openWorkshop(ctx, doc2) {
     core: ctx.core,
     ...ctx.registries === void 0 ? {} : { registries: ctx.registries }
   });
+  launchHandle.focus();
   overlay.onClose(() => {
     closed = true;
     writer.flush();
