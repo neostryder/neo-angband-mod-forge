@@ -44,18 +44,61 @@ describe("the stylesheet", () => {
     expect(dark.size).toBeGreaterThan(20);
     for (const name of parchment) expect(dark.has(name)).toBe(true);
     /* Every colour token redefined, so parchment is a treatment rather than a
-     * partial repaint with half the dark palette showing through. */
+     * partial repaint with half the dark palette showing through. The list below
+     * is everything that is NOT a colour - a face, a size, a radius, a length, a
+     * duration - and it is the only reason a token may be absent from parchment.
+     * A treatment changes the ink and the paper; it does not change the metrics. */
     for (const name of dark) {
-      if (!name.startsWith("--font") && !name.startsWith("--r") && name !== "--gap" && name !== "--pad" && name !== "--motion") {
-        expect(parchment.has(name), `${name} is not redefined for parchment`).toBe(true);
-      }
+      if (NOT_A_COLOUR.some((prefix) => name.startsWith(prefix))) continue;
+      expect(parchment.has(name), `${name} is not redefined for parchment`).toBe(true);
     }
+  });
+
+  it("sizes every rule from the scale rather than from a made-up fraction", () => {
+    const scale = new Set([...THEME_CSS.matchAll(/--fs-[a-z]+:\s*([0-9.]+px)/g)].map((m) => m[1] as string));
+    expect(scale.size).toBeGreaterThan(6);
+    /* The two exceptions are the file editor's own text and its line numbers, and
+     * they are exceptions because `editor.ts` does pixel arithmetic against those
+     * exact numbers to line two stacked layers up character by character. */
+    const literals = [...THEME_CSS.matchAll(/font-size:\s*([0-9.]+px)/g)].map((m) => m[1] as string);
+    const strays = [...new Set(literals)].filter((size) => size !== "12px");
+    expect(strays, "a font size that is not on the scale").toEqual([]);
+  });
+
+  it("gives the frame one grid row per child, so the content takes the slack", () => {
+    const frame = THEME_CSS.slice(THEME_CSS.indexOf("\n.mb-frame {"));
+    const rows = /grid-template-rows:\s*([^;]+);/.exec(frame.slice(0, frame.indexOf("}")))?.[1] ?? "";
+    /* Five children - titlebar, breadcrumb, banner, body, status bar - and the
+     * 1fr belongs to the fourth, which is the body. With four tracks for five
+     * children the banner took the 1fr and grew to fill any leftover height. */
+    const tracks = rows.trim().split(/\s+/);
+    expect(tracks).toHaveLength(5);
+    expect(tracks[3]).toBe("1fr");
+  });
+
+  it("makes a card head look pressable only when it is a button", () => {
+    expect(THEME_CSS).toContain("button.mb-card-head:hover");
+    const head = THEME_CSS.slice(THEME_CSS.indexOf("\n.mb-card-head {"));
+    expect(head.slice(0, head.indexOf("}"))).not.toContain("cursor: pointer");
+  });
+
+  it("gives the launch and exit layers their own typography, not the game page's", () => {
+    const launch = THEME_CSS.slice(THEME_CSS.indexOf("\n.mb-launch, .mb-exit {"));
+    const block = launch.slice(0, launch.indexOf("}"));
+    /* Both are siblings of mb-scrim rather than children of it, so nothing about
+     * the workshop's typography reaches them by inheritance. */
+    expect(block).toContain("font-family: var(--font-body)");
+    expect(block).toContain("font-size: var(--fs-body)");
+    expect(block).toContain("color: var(--ink)");
   });
 
   it("turns motion off for a reader who has asked for less of it", () => {
     expect(THEME_CSS).toContain("prefers-reduced-motion");
   });
 });
+
+/** Token prefixes that carry a metric rather than a colour. */
+const NOT_A_COLOUR = ["--font", "--fs-", "--r", "--gap", "--pad", "--gutter", "--page", "--control", "--motion"];
 
 function tokens(css: string, selector: string): Set<string> {
   const at = css.indexOf(selector);

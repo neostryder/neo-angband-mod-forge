@@ -3266,16 +3266,25 @@ function aboutScreen(shop) {
 // src/ui/widgets.ts
 function card(options) {
   const note = h("span", { class: "mb-card-note", text: options.note ?? "" });
-  const caret = svg({ viewBox: "0 0 8 12", paths: ["M1 1l5 5-5 5z"], cls: "mb-caret" });
-  const head = h(
+  const foldable = options.onToggle !== void 0;
+  const caret = foldable ? svg({ viewBox: "0 0 8 12", paths: ["M1 1l5 5-5 5z"], cls: "mb-caret" }) : null;
+  const head = foldable ? h(
     "button",
     {
       class: "mb-card-head",
       type: "button",
       ...options.tip === void 0 ? {} : { tip: options.tip },
-      ...options.onToggle === void 0 ? {} : { on: { click: options.onToggle } }
+      on: { click: options.onToggle }
     },
     caret,
+    h("span", { class: "mb-card-title", text: options.title }),
+    note
+  ) : h(
+    "div",
+    {
+      class: "mb-card-head",
+      ...options.tip === void 0 ? {} : { tip: options.tip }
+    },
     h("span", { class: "mb-card-title", text: options.title }),
     note
   );
@@ -3292,14 +3301,15 @@ function card(options) {
     }
   };
 }
-function empty(glyph, title, blurb, action) {
+function empty(glyph, title, blurb, ...actions) {
+  const offered = actions.filter((action) => action !== null && action !== void 0);
   return h(
     "div",
     { class: "mb-empty" },
     h("div", { class: "mb-empty-glyph", text: glyph }),
     h("div", { class: "mb-empty-title", text: title }),
-    h("div", { text: blurb }),
-    action
+    h("div", { class: "mb-empty-blurb", text: blurb }),
+    offered.length === 0 ? null : h("div", { class: "mb-empty-actions" }, ...offered)
   );
 }
 function button(options) {
@@ -6174,9 +6184,9 @@ function jsonEditor(path, value, on) {
 
 // src/ui/screens/record.ts
 function recordScreen(shop, index, path) {
-  const rail = h("div", null);
+  const rail = h("div", { class: "mb-rail" });
   const main = h("div", { class: "mb-main" });
-  const aside = h("div", null);
+  const aside = h("div", { class: "mb-aside" });
   const el = h("div", { class: "mb-cols" }, rail, main, aside);
   const target = shop.acts.target(index);
   if (!target) {
@@ -7231,7 +7241,7 @@ function tourScreen(shop) {
 // src/ui/screens/verdict.ts
 function verdictScreen(shop) {
   const main = h("div", { class: "mb-main" });
-  const aside = h("div", null);
+  const aside = h("div", { class: "mb-aside" });
   const el = h("div", { class: "mb-cols mb-cols-2" }, main, aside);
   const draft = openDraft(shop.store.get());
   if (!draft) {
@@ -7878,13 +7888,19 @@ var THEME_CSS = `
   /* Dark: oiled stone and lamplight. */
   --ink: #f1e6cf;
   --ink-dim: #c2b695;
-  --ink-faint: #8b8368;
+  /* MEASURED against the surfaces it actually sits on. The third step of ink
+   * carries real information - a field's measured type, a rule id, the share of
+   * the game's records that use a field - and at eleven and twelve pixels the
+   * old value read at 3.0 to 3.7 against a card. This reads at 4.8 to 6.3. */
+  --ink-faint: #a0977b;
   --canvas: #171b1a;
   --surface: #222721;
   --surface-2: #2c312a;
   --surface-3: #363c33;
   --stone: #101615;
-  --edge: #3d4239;
+  /* The hairline that draws every card, field and table row. The old value was
+   * 1.34 against a card, which is a boundary the reader has to hunt for. */
+  --edge: #4a5145;
   --edge-strong: #746037;
   --gold: #e0bb64;
   --gold-bright: #f4d584;
@@ -7903,11 +7919,34 @@ var THEME_CSS = `
   --font-body: "Segoe UI", Inter, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
   --font-mono: "Cascadia Mono", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
+  /* The type scale. Named for the job, because a rule that says 12.5px says
+   * nothing about why, and three rules that each say a different fraction of a
+   * pixel are three rules nobody can keep in step. */
+  --fs-micro: 11px;   /* a rule id, a count, a measured share */
+  --fs-small: 12px;   /* a note, a tag, a table cell, a breadcrumb */
+  --fs-ui: 13px;      /* anything the reader operates: controls and list rows */
+  --fs-body: 14px;    /* running text */
+  --fs-title: 15px;   /* the title on a card */
+  --fs-head: 17px;    /* a heading inside a screen */
+  --fs-screen: 20px;  /* the screen's own title */
+  --fs-brand: 28px;   /* the illuminated initial */
+  --fs-hero: 34px;    /* the launch mark, and an empty state's glyph */
+  --fs-mark: 42px;    /* the launch screen's own initial, and nothing else */
+
   --r-sm: 3px;
   --r: 5px;
   --r-lg: 9px;
   --gap: 12px;
-  --pad: 14px;
+  --pad: 16px;
+  /* One indent for the titlebar, the breadcrumb, the banner, the content and the
+   * status bar, so the window has a single left edge instead of five. */
+  --gutter: 16px;
+  /* How wide a screen that is one column lets itself get. A form whose text
+   * fields are a thousand pixels wide is a form nobody laid out. */
+  --page: 900px;
+  /* How wide one control gets, so a select holding the word "add" stops being
+   * the widest thing on the screen. */
+  --control: 560px;
 
   --shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
   --inset: inset 0 1px 0 rgba(255, 255, 255, 0.045);
@@ -7921,13 +7960,13 @@ var THEME_CSS = `
   /* Parchment: iron-gall ink on aged rag paper. */
   --ink: #27271f;
   --ink-dim: #57513f;
-  --ink-faint: #7d745c;
+  --ink-faint: #6f6750;
   --canvas: #e7d8b6;
   --surface: #f6efdd;
   --surface-2: #fbf5e7;
   --surface-3: #fffaee;
   --stone: #d6c49c;
-  --edge: #cdb98d;
+  --edge: #c3ac7f;
   --edge-strong: #b79a5e;
   --gold: #8a6519;
   --gold-bright: #a87d22;
@@ -7962,16 +8001,22 @@ var THEME_CSS = `
   place-items: stretch;
   padding: clamp(0px, 2vmin, 26px);
   font-family: var(--font-body);
-  font-size: 14px;
+  font-size: var(--fs-body);
   line-height: 1.45;
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
 }
 
+/* FIVE CHILDREN, FIVE ROWS, and the fifth is why this line is spelled out.
+ * There were four track sizes for five elements, so the BANNER got the 1fr and
+ * the body got an implicit auto - which meant the banner grew to swallow every
+ * pixel of leftover height on any screen whose content was shorter than the
+ * window, and an empty 1fr row opened the same gap on an install where the
+ * banner is hidden altogether. The content is the thing that takes the slack. */
 .mb-frame {
   position: relative;
   display: grid;
-  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: auto auto auto 1fr auto;
   min-height: 0;
   overflow: hidden;
   border: 1px solid var(--edge-strong);
@@ -8002,7 +8047,7 @@ var THEME_CSS = `
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: var(--gap);
-  padding: 10px 16px 8px;
+  padding: 10px var(--gutter) 8px;
   border-bottom: 1px solid var(--edge);
   background: linear-gradient(180deg, color-mix(in srgb, var(--gold) 7%, transparent), transparent);
 }
@@ -8014,7 +8059,7 @@ var THEME_CSS = `
   height: 44px;
   flex: none;
   font-family: var(--font-display);
-  font-size: 28px;
+  font-size: var(--fs-brand);
   font-weight: 600;
   line-height: 1;
   color: var(--gold-bright);
@@ -8031,7 +8076,7 @@ var THEME_CSS = `
 .mb-title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 19px;
+  font-size: var(--fs-screen);
   font-weight: 600;
   letter-spacing: 0.01em;
   color: var(--ink);
@@ -8042,7 +8087,7 @@ var THEME_CSS = `
 
 .mb-subtitle {
   margin: 1px 0 0;
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--ink-dim);
   white-space: nowrap;
   overflow: hidden;
@@ -8060,9 +8105,9 @@ var THEME_CSS = `
   flex-wrap: wrap;
   align-items: center;
   gap: 4px;
-  padding: 7px 16px;
+  padding: 7px calc(var(--gutter) - 5px);
   border-bottom: 1px solid var(--edge);
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--ink-dim);
   background: color-mix(in srgb, var(--stone) 40%, transparent);
 }
@@ -8076,9 +8121,15 @@ var THEME_CSS = `
   font: inherit;
   color: var(--gold);
   cursor: pointer;
+  transition: background var(--motion) ease, color var(--motion) ease;
 }
 .mb-crumb:hover { background: color-mix(in srgb, var(--gold) 12%, transparent); }
+.mb-crumb:active { background: color-mix(in srgb, var(--gold) 20%, transparent); }
+/* The crumb for where the reader already is goes nowhere, so it stops offering
+ * to: no pointer, no hover, no colour change under the mouse. */
 .mb-crumb[aria-current="page"] { color: var(--ink); cursor: default; }
+.mb-crumb[aria-current="page"]:hover,
+.mb-crumb[aria-current="page"]:active { background: none; }
 .mb-crumb-sep { opacity: 0.5; user-select: none; }
 
 .mb-banner {
@@ -8086,10 +8137,10 @@ var THEME_CSS = `
   gap: 10px;
   align-items: flex-start;
   margin: 0;
-  padding: 9px 16px;
+  padding: 9px var(--gutter);
   border-bottom: 1px solid color-mix(in srgb, var(--warn) 40%, var(--edge));
   background: color-mix(in srgb, var(--warn) 12%, transparent);
-  font-size: 12.5px;
+  font-size: var(--fs-ui);
   color: var(--ink);
 }
 .mb-banner b { color: var(--warn); font-weight: 600; }
@@ -8117,6 +8168,14 @@ var THEME_CSS = `
 .mb-rail { border-right: 1px solid var(--edge); background: color-mix(in srgb, var(--stone) 30%, transparent); }
 .mb-aside { border-left: 1px solid var(--edge); background: color-mix(in srgb, var(--stone) 22%, transparent); }
 .mb-main { padding: var(--pad); display: flex; flex-direction: column; gap: var(--gap); }
+
+/* A SCREEN THAT IS ONE COLUMN IS A PAGE, AND A PAGE HAS A MEASURE. Only the
+ * direct child of the body is one, which is what tells a whole-screen main apart
+ * from the middle column of the record editor - that one is already narrow and
+ * capping it again would take width it needs. Left, not centred: the titlebar,
+ * the breadcrumb and the status bar all start at the gutter, and a centred
+ * column would be the only thing on screen that does not. */
+.mb-body > .mb-main { max-width: var(--page); }
 
 @media (max-width: 1080px) {
   .mb-cols, .mb-cols.mb-cols-2 { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr auto; }
@@ -8148,9 +8207,7 @@ var THEME_CSS = `
 .mb-card-head.mb-head-stacked {
   align-items: flex-start;
   gap: 12px;
-  cursor: default;
 }
-.mb-card-head.mb-head-stacked:hover { background: none; }
 
 .mb-card-head {
   display: flex;
@@ -8165,18 +8222,28 @@ var THEME_CSS = `
   font: inherit;
   color: var(--ink);
   text-align: left;
-  cursor: pointer;
 }
 .mb-card[data-open="1"] > .mb-card-head { border-bottom-color: var(--edge); }
-.mb-card-head:hover { background: color-mix(in srgb, var(--gold) 7%, transparent); }
+
+/* ONLY A HEAD THAT IS A BUTTON LOOKS LIKE ONE. Half the cards in the workshop
+ * have nothing to toggle and are built as a div with the same class, and those
+ * were showing a pointer cursor and lighting up under the mouse - an offer to
+ * do something that then did nothing, which is the gesture that teaches a reader
+ * to stop trusting the ones that work. */
+button.mb-card-head {
+  cursor: pointer;
+  transition: background var(--motion) ease;
+}
+button.mb-card-head:hover { background: color-mix(in srgb, var(--gold) 7%, transparent); }
+button.mb-card-head:active { background: color-mix(in srgb, var(--gold) 13%, transparent); }
 
 .mb-card-title {
   font-family: var(--font-display);
-  font-size: 15px;
+  font-size: var(--fs-title);
   font-weight: 600;
   letter-spacing: 0.01em;
 }
-.mb-card-note { font-size: 11.5px; color: var(--ink-faint); flex: 1; }
+.mb-card-note { font-size: var(--fs-small); color: var(--ink-faint); flex: 1; }
 .mb-card-body { padding: 4px 12px 12px; display: flex; flex-direction: column; }
 .mb-card[data-open="0"] > .mb-card-body { display: none; }
 
@@ -8213,17 +8280,20 @@ var THEME_CSS = `
 }
 .mb-label-name {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--ink);
   overflow-wrap: anywhere;
 }
-.mb-label-meta { font-size: 10.5px; color: var(--ink-faint); }
+.mb-label-meta { font-size: var(--fs-micro); color: var(--ink-faint); }
 
-.mb-control { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+/* ONE CONTROL IS NOT A COLUMN. Left uncapped, every text box on the details
+ * screen was as wide as the window, which reads as a form nobody laid out and
+ * puts the label and its value a thousand pixels apart. */
+.mb-control { display: flex; flex-direction: column; gap: 5px; min-width: 0; max-width: var(--control); }
 .mb-control-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
 .mb-why {
-  font-size: 11.5px;
+  font-size: var(--fs-small);
   color: var(--ink-dim);
   font-style: italic;
 }
@@ -8236,7 +8306,7 @@ var THEME_CSS = `
   height: 15px;
   flex: none;
   border-radius: 50%;
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: 700;
   font-family: var(--font-body);
 }
@@ -8250,7 +8320,7 @@ var THEME_CSS = `
 
 input[type="text"], input[type="number"], input[type="search"], textarea, select {
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-ui);
   color: var(--ink);
   background: var(--surface-3);
   border: 1px solid var(--edge);
@@ -8259,9 +8329,29 @@ input[type="text"], input[type="number"], input[type="search"], textarea, select
   min-width: 0;
   width: 100%;
   max-width: 100%;
+  transition: border-color var(--motion) ease, background var(--motion) ease;
 }
+input[type="text"]:hover:not(:disabled),
+input[type="number"]:hover:not(:disabled),
+input[type="search"]:hover:not(:disabled),
+textarea:hover:not(:disabled),
+select:hover:not(:disabled) { border-color: var(--edge-strong); }
 input[type="number"] { max-width: 130px; font-family: var(--font-mono); }
+/* A PICKER IS AS WIDE AS ITS WIDEST OPTION, NOT AS WIDE AS THE SCREEN, and a
+ * filter box is a filter box rather than a headline. Both were stretching to
+ * whatever the row gave them. */
+select { max-width: 280px; }
+input[type="search"] { max-width: 340px; }
 textarea { resize: vertical; line-height: 1.5; }
+
+/* DISABLED HAS TO LOOK DISABLED, INCLUDING A FIELD. Only buttons were dimmed,
+ * so the Test panel's number boxes looked live while refusing every keystroke. */
+input:disabled, textarea:disabled, select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
 input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-visible, [tabindex]:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 1px;
@@ -8272,6 +8362,42 @@ input[aria-invalid="true"], textarea[aria-invalid="true"] {
 }
 input::placeholder, textarea::placeholder { color: var(--ink-faint); }
 
+/* A tick box drawn by the browser, in the workshop's own colours rather than the
+ * operating system's blue. */
+input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.5; }
+
+/* A file picker is two controls in one element, and only the button half of it
+ * can be styled. Doing that is the difference between the workshop's own row of
+ * buttons and one grey system control sitting in the middle of it. */
+input[type="file"] {
+  font: inherit;
+  font-size: var(--fs-small);
+  font-style: normal;
+  color: var(--ink-dim);
+  max-width: 100%;
+}
+input[type="file"]::file-selector-button {
+  font: inherit;
+  font-size: var(--fs-small);
+  font-style: normal;
+  color: var(--ink);
+  background: linear-gradient(180deg, var(--surface-3), var(--surface-2));
+  border: 1px solid var(--edge);
+  border-radius: var(--r-sm);
+  padding: 3px 9px;
+  margin-right: 8px;
+  cursor: pointer;
+  transition: background var(--motion) ease, border-color var(--motion) ease;
+}
+input[type="file"]::file-selector-button:hover { border-color: var(--edge-strong); background: var(--surface-3); }
+
 .mb-mono { font-family: var(--font-mono); }
 
 .mb-btn {
@@ -8281,7 +8407,7 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   gap: 6px;
   padding: 5px 11px;
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--fs-ui);
   color: var(--ink);
   background: linear-gradient(180deg, var(--surface-3), var(--surface-2));
   border: 1px solid var(--edge);
@@ -8291,7 +8417,7 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   white-space: nowrap;
 }
 .mb-btn:hover:not(:disabled) { border-color: var(--edge-strong); background: var(--surface-3); }
-.mb-btn:active:not(:disabled) { transform: translateY(1px); }
+.mb-btn:active:not(:disabled) { transform: translateY(1px); background: var(--surface-2); }
 .mb-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .mb-btn.mb-primary {
@@ -8301,15 +8427,30 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   font-weight: 600;
 }
 :host(.mb-parchment) .mb-btn.mb-primary { color: #fdf6e6; }
-.mb-btn.mb-primary:hover:not(:disabled) { background: var(--gold-bright); }
+.mb-btn.mb-primary:hover:not(:disabled) { background: var(--gold-bright); border-color: var(--gold); }
+.mb-btn.mb-primary:active:not(:disabled) { background: var(--gold); }
 
 .mb-btn.mb-danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, var(--edge)); }
 .mb-btn.mb-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.mb-btn.mb-danger:active:not(:disabled) { background: color-mix(in srgb, var(--danger) 22%, transparent); }
 
-.mb-btn.mb-ghost { background: none; border-color: transparent; color: var(--ink-dim); }
-.mb-btn.mb-ghost:hover:not(:disabled) { background: color-mix(in srgb, var(--gold) 10%, transparent); color: var(--ink); }
+/* A QUIET BUTTON IS STILL A BUTTON. With no border at all these read as captions
+ * next to the two bordered controls they sit beside - "Retune many" and "Start
+ * from nothing instead" were both offers nobody could see. A hairline is enough
+ * to say it can be pressed without competing with the primary action. */
+.mb-btn.mb-ghost {
+  background: none;
+  border-color: color-mix(in srgb, var(--edge) 60%, transparent);
+  color: var(--ink-dim);
+}
+.mb-btn.mb-ghost:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--gold) 10%, transparent);
+  border-color: var(--edge);
+  color: var(--ink);
+}
+.mb-btn.mb-ghost:active:not(:disabled) { background: color-mix(in srgb, var(--gold) 16%, transparent); }
 
-.mb-btn.mb-tiny { padding: 2px 7px; font-size: 11.5px; }
+.mb-btn.mb-tiny { padding: 2px 7px; font-size: var(--fs-small); }
 
 /* The one irreversible button in the workshop wears a seal. Decoration around a
  * real button, never instead of one: the label still says what it does and the
@@ -8339,7 +8480,7 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   gap: 5px;
   padding: 2px 4px 2px 8px;
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: var(--fs-small);
   color: var(--ink);
   background: color-mix(in srgb, var(--gold) 13%, var(--surface-3));
   border: 1px solid color-mix(in srgb, var(--gold) 30%, var(--edge));
@@ -8355,11 +8496,12 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   padding: 1px 3px;
   border-radius: 50%;
   cursor: pointer;
+  transition: background var(--motion) ease, color var(--motion) ease;
 }
 .mb-chip button:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 18%, transparent); }
-.mb-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.mb-chips { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
 
-.mb-switch { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; cursor: pointer; }
+.mb-switch { display: inline-flex; align-items: center; gap: 7px; font-size: var(--fs-ui); cursor: pointer; }
 .mb-switch input { width: auto; }
 
 /* ---------------------------------------------------------------- *
@@ -8379,13 +8521,13 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
 }
 .mb-row-index {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-micro);
   color: var(--ink-faint);
   min-width: 1.4em;
   text-align: right;
 }
 .mb-row-summary {
-  font-size: 12.5px;
+  font-size: var(--fs-ui);
   color: var(--ink-dim);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -8406,15 +8548,20 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   background: linear-gradient(180deg, var(--surface-2), color-mix(in srgb, var(--surface-2) 82%, transparent));
   backdrop-filter: blur(3px);
 }
-.mb-listhead h3 {
-  margin: 0 0 6px;
+
+/* THE SAME IDEA, ONE TREATMENT. A list's head and a column's section title are
+ * both "the name of the block below", and they were two sizes and two letter
+ * spacings apart for no reason anybody could have named. */
+.mb-listhead h3, .mb-aside-title {
+  margin: 0 0 7px;
   font-family: var(--font-display);
-  font-size: 13px;
+  font-size: var(--fs-small);
   font-weight: 600;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-dim);
 }
+.mb-listhead h3 { margin-bottom: 6px; }
 
 .mb-list { list-style: none; margin: 0; padding: 4px; display: flex; flex-direction: column; gap: 2px; }
 .mb-listrow {
@@ -8432,8 +8579,10 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   color: var(--ink);
   text-align: left;
   cursor: pointer;
+  transition: background var(--motion) ease, border-color var(--motion) ease;
 }
 .mb-listrow:hover { background: color-mix(in srgb, var(--gold) 9%, transparent); }
+.mb-listrow:active { background: color-mix(in srgb, var(--gold) 15%, transparent); }
 .mb-listrow[aria-selected="true"] {
   border-color: color-mix(in srgb, var(--gold) 50%, transparent);
   background: color-mix(in srgb, var(--gold) 15%, transparent);
@@ -8444,14 +8593,14 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
 .mb-listrow-main { min-width: 0; display: grid; }
 .mb-listrow-name {
   display: block;
-  font-size: 13px;
+  font-size: var(--fs-ui);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .mb-listrow-meta {
   display: block;
-  font-size: 11px;
+  font-size: var(--fs-micro);
   color: var(--ink-faint);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -8465,7 +8614,7 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   height: 22px;
   flex: none;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--gold);
   border: 1px solid var(--edge);
   border-radius: var(--r-sm);
@@ -8473,7 +8622,7 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
 }
 
 .mb-tag {
-  font-size: 10.5px;
+  font-size: var(--fs-micro);
   padding: 1px 6px;
   border-radius: 999px;
   border: 1px solid var(--edge);
@@ -8504,28 +8653,29 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   background: color-mix(in srgb, var(--surface-2) 60%, transparent);
   font: inherit;
   color: var(--ink);
-  cursor: pointer;
-  transition: border-color var(--motion) ease, transform var(--motion) ease, background var(--motion) ease;
+  transition: border-color var(--motion) ease, background var(--motion) ease;
 }
+/* The card is a container for three offers rather than an offer itself, so it
+ * lights up when the reader is over it and never claims to be pressable. */
 .mb-kind:hover {
   border-color: var(--edge-strong);
   background: color-mix(in srgb, var(--gold) 8%, var(--surface-2));
-  transform: translateY(-1px);
 }
+.mb-kind:focus-within { border-color: var(--focus); }
 .mb-kind-badge {
   display: grid;
   place-items: center;
   width: 34px;
   height: 34px;
   font-family: var(--font-mono);
-  font-size: 17px;
+  font-size: var(--fs-head);
   color: var(--gold-bright);
   border: 1px solid var(--edge-strong);
   border-radius: var(--r-sm);
   background: radial-gradient(120% 120% at 30% 15%, color-mix(in srgb, var(--gold) 18%, transparent), transparent 70%), var(--stone);
 }
-.mb-kind-title { font-family: var(--font-display); font-size: 15px; font-weight: 600; }
-.mb-kind-blurb { font-size: 12px; color: var(--ink-dim); margin-top: 2px; }
+.mb-kind-title { font-family: var(--font-display); font-size: var(--fs-title); font-weight: 600; }
+.mb-kind-blurb { font-size: var(--fs-small); color: var(--ink-dim); margin-top: 2px; }
 
 /* ---------------------------------------------------------------- *
  * Findings and evidence                                             *
@@ -8534,20 +8684,13 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
 .mb-aside-section { padding: 10px; border-bottom: 1px solid var(--edge); }
 .mb-aside-section:last-child { border-bottom: 0; }
 .mb-aside-title {
-  margin: 0 0 7px;
-  font-family: var(--font-display);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-dim);
   display: flex;
   align-items: baseline;
   gap: 7px;
 }
 .mb-aside-title .mb-count { font-family: var(--font-mono); letter-spacing: 0; text-transform: none; color: var(--ink-faint); }
 
-.mb-stale { font-size: 11px; color: var(--warn); font-style: italic; }
+.mb-stale { font-size: var(--fs-micro); color: var(--warn); font-style: italic; }
 
 .mb-findings { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .mb-finding {
@@ -8562,30 +8705,35 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   border-radius: var(--r-sm);
   background: color-mix(in srgb, var(--stone) 30%, transparent);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--ink);
   text-align: left;
-  cursor: pointer;
+  transition: background var(--motion) ease;
 }
 .mb-finding[data-level="error"] { border-left-color: var(--danger); }
 .mb-finding[data-level="warn"] { border-left-color: var(--warn); }
 .mb-finding[data-level="hint"] { border-left-color: var(--focus); }
-.mb-finding:hover { background: color-mix(in srgb, var(--gold) 9%, transparent); }
-.mb-finding-rule { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); margin-top: 2px; }
+/* Only the ones that go somewhere offer to. A finding with no field behind it is
+ * built as a div, and a div that highlighted under the mouse was an invitation
+ * to click something that could not answer. */
+button.mb-finding { cursor: pointer; }
+button.mb-finding:hover { background: color-mix(in srgb, var(--gold) 9%, transparent); }
+button.mb-finding:active { background: color-mix(in srgb, var(--gold) 15%, transparent); }
+.mb-finding-rule { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--ink-faint); margin-top: 2px; }
 
-.mb-peers { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.mb-peers { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
 .mb-peers th, .mb-peers td {
   padding: 3px 6px;
   text-align: left;
   border-bottom: 1px solid color-mix(in srgb, var(--edge) 70%, transparent);
   white-space: nowrap;
 }
-.mb-peers th { font-weight: 600; color: var(--ink-dim); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; }
+.mb-peers th { font-weight: 600; color: var(--ink-dim); font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: 0.04em; }
 .mb-peers td.mb-num { font-family: var(--font-mono); text-align: right; }
 .mb-peers col.mb-focus-col, .mb-peers .mb-focus-cell { background: color-mix(in srgb, var(--gold) 12%, transparent); }
 .mb-scrollx { overflow-x: auto; }
 
-.mb-stat { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11.5px; color: var(--ink-dim); margin-bottom: 6px; }
+.mb-stat { display: flex; gap: 12px; flex-wrap: wrap; font-size: var(--fs-small); color: var(--ink-dim); margin-bottom: 6px; }
 .mb-stat b { color: var(--ink); font-family: var(--font-mono); font-weight: 600; }
 
 /* ---------------------------------------------------------------- *
@@ -8597,10 +8745,10 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--gap);
-  padding: 8px 14px;
+  padding: 8px var(--gutter);
   border-top: 1px solid var(--edge);
   background: linear-gradient(0deg, color-mix(in srgb, var(--gold) 6%, transparent), transparent);
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 .mb-status-text { color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mb-status-text[data-tone="good"] { color: var(--good); }
@@ -8611,16 +8759,16 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
  * Prose, code and empties                                          *
  * ---------------------------------------------------------------- */
 
-.mb-prose { max-width: 68ch; font-size: 13.5px; }
+.mb-prose { max-width: 68ch; font-size: var(--fs-body); }
 .mb-prose h2 {
   font-family: var(--font-display);
-  font-size: 20px;
+  font-size: var(--fs-screen);
   font-weight: 600;
   margin: 0 0 8px;
 }
 .mb-prose h3 {
   font-family: var(--font-display);
-  font-size: 15px;
+  font-size: var(--fs-title);
   font-weight: 600;
   margin: 18px 0 4px;
 }
@@ -8629,7 +8777,7 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
 .mb-prose li { margin-bottom: 5px; }
 .mb-prose code {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-small);
   padding: 1px 4px;
   border-radius: var(--r-sm);
   background: color-mix(in srgb, var(--gold) 12%, var(--stone));
@@ -8654,7 +8802,7 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   margin: 0;
   padding: 10px 12px;
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: var(--fs-small);
   line-height: 1.55;
   color: var(--ink-dim);
   background: var(--stone);
@@ -8667,7 +8815,7 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
 }
 .mb-filename {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--gold);
   margin-bottom: 4px;
 }
@@ -8693,6 +8841,16 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   border-radius: var(--r-sm);
   background: var(--stone);
   overflow: hidden;
+  transition: border-color var(--motion) ease, box-shadow var(--motion) ease;
+}
+/* THE ONE PLACE THE FOCUS RING HAD TO BE DRAWN BY HAND. The textarea suppresses
+ * its own outline on purpose - it is transparent text over a painted layer, and
+ * a ring around it would sit inside the gutter - so without this the editor was
+ * the only control in the workshop that gave a keyboard user no sign at all that
+ * it held the caret. */
+.mb-ed:focus-within {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 1px var(--focus);
 }
 .mb-ed-body { display: flex; min-height: 0; height: 52vh; }
 
@@ -8790,13 +8948,13 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   border-bottom: 1px solid var(--edge);
   background: var(--surface-2);
 }
-.mb-ed-find-box { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 12px; }
-.mb-ed-find-count { font-size: 11px; color: var(--ink-faint); font-family: var(--font-mono); }
+.mb-ed-find-box { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: var(--fs-small); max-width: none; }
+.mb-ed-find-count { font-size: var(--fs-micro); color: var(--ink-faint); font-family: var(--font-mono); }
 
-.mb-ed-caret { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+.mb-ed-caret { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--ink-faint); }
 
 .mb-ed-new { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
-.mb-ed-new input { flex: 1; min-width: 0; font-size: 12px; }
+.mb-ed-new input { flex: 1; min-width: 0; font-size: var(--fs-small); }
 
 .mb-ed-problems { display: flex; flex-direction: column; gap: 2px; }
 .mb-ed-problem {
@@ -8807,16 +8965,15 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   padding: 4px 8px;
   text-align: left;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--danger);
   background: color-mix(in srgb, var(--danger) 9%, transparent);
   border: 0;
   border-left: 2px solid var(--danger);
   border-radius: 0 var(--r-sm) var(--r-sm) 0;
-  cursor: pointer;
 }
-.mb-ed-problem:hover { background: color-mix(in srgb, var(--danger) 16%, transparent); }
-.mb-ed-problem-at { font-family: var(--font-mono); color: var(--ink-faint); flex: none; }
+button.mb-ed-problem { cursor: pointer; transition: background var(--motion) ease; }
+button.mb-ed-problem:hover { background: color-mix(in srgb, var(--danger) 16%, transparent); }
 
 /* A CHECK FINDING IS THE SAME ROW, COLOURED BY WHAT IT COSTS. A syntax fault carries
    no level and keeps the plain danger colouring above, because a file that is not
@@ -8826,30 +8983,42 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   background: color-mix(in srgb, var(--tone) 9%, transparent);
   border-left-color: var(--tone);
 }
-.mb-ed-problem[data-level]:hover { background: color-mix(in srgb, var(--tone) 16%, transparent); }
+button.mb-ed-problem[data-level]:hover { background: color-mix(in srgb, var(--tone) 16%, transparent); }
 .mb-ed-problem[data-still] { cursor: default; }
 .mb-ed-problem[data-level="error"] { --tone: var(--danger); }
 .mb-ed-problem[data-level="warn"] { --tone: var(--warn); }
 .mb-ed-problem[data-level="hint"] { --tone: var(--focus); }
 .mb-ed-problem-text { flex: 1; min-width: 0; }
-.mb-ed-problem-rule { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); flex: none; }
+.mb-ed-problem-rule { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--ink-faint); flex: none; }
+
+/* ---------------------------------------------------------------- *
+ * Empty states                                                      *
+ * ---------------------------------------------------------------- *
+ *
+ * ONE TREATMENT, AND IT ALWAYS HAS ROOM FOR A WAY ON. The actions used to be
+ * appended after the panel and pulled back over it with a negative margin, which
+ * only worked on the one screen it was written for. They are part of the panel
+ * now, so every empty state in the workshop can offer a next action and they all
+ * look the same when they do.
+ */
 
 .mb-empty {
   display: grid;
   place-items: center;
   gap: 8px;
-  padding: 44px 20px;
+  padding: 40px 20px;
   text-align: center;
   color: var(--ink-faint);
 }
 .mb-empty-glyph {
   font-family: var(--font-mono);
-  font-size: 34px;
+  font-size: var(--fs-hero);
   color: var(--gold-dim);
   opacity: 0.7;
 }
-.mb-empty-title { font-family: var(--font-display); font-size: 16px; color: var(--ink-dim); }
-.mb-empty-actions { justify-content: center; margin-top: -30px; padding-bottom: 30px; }
+.mb-empty-title { font-family: var(--font-display); font-size: var(--fs-head); color: var(--ink-dim); }
+.mb-empty-blurb { max-width: 52ch; }
+.mb-empty-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
 
 .mb-row-actions { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
 .mb-spacer { flex: 1; }
@@ -8864,7 +9033,8 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   z-index: 40;
   max-width: 300px;
   padding: 7px 9px;
-  font-size: 12px;
+  font-family: var(--font-body);
+  font-size: var(--fs-small);
   line-height: 1.4;
   color: var(--ink);
   background: var(--surface-3);
@@ -8886,6 +9056,13 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
  * so anything after it in the shadow root already paints on top) rather than
  * inside it, because both are about the workshop as a whole rather than
  * about any one screen of it.
+ *
+ * WHICH IS ALSO WHY THEY HAVE TO STATE THEIR OWN TYPOGRAPHY. They are siblings
+ * of mb-scrim rather than children of it, so they inherited neither its family
+ * nor its size nor its ink - and what they inherited instead was the game page's
+ * own monospace face at the game's own line height. The workshop's front door
+ * was set in the wrong typeface, in the one place a reader's first impression is
+ * the whole of the impression.
  */
 
 .mb-launch, .mb-exit {
@@ -8896,6 +9073,11 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   place-items: center;
   padding: 6vmin 4vmin;
   text-align: center;
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: 1.45;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
   background:
     radial-gradient(70% 60% at 50% 28%, color-mix(in srgb, var(--gold) 10%, transparent), transparent 70%),
     var(--scrim);
@@ -8919,7 +9101,7 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   display: grid;
   place-items: center;
   font-family: var(--font-display);
-  font-size: 42px;
+  font-size: var(--fs-mark);
   font-weight: 600;
   color: var(--gold-bright);
   border: 1px solid var(--edge-strong);
@@ -8942,8 +9124,9 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
 .mb-launch-title {
   margin: 6px 0 0;
   font-family: var(--font-display);
-  font-size: 30px;
+  font-size: var(--fs-hero);
   font-weight: 600;
+  letter-spacing: 0.01em;
   color: var(--ink);
   opacity: 0;
   transform: translateY(6px);
@@ -8958,7 +9141,7 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
 
 .mb-launch-tagline {
   margin: 0;
-  font-size: 13.5px;
+  font-size: var(--fs-body);
   color: var(--ink-dim);
   opacity: 0;
   transform: translateY(6px);
@@ -8997,8 +9180,8 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
 }
 .mb-readme-section + .mb-readme-section { margin-top: 14px; }
 
-.mb-exit-title { font-family: var(--font-display); font-size: 18px; font-weight: 600; color: var(--ink); }
-.mb-exit-note { font-size: 12px; color: var(--ink-faint); }
+.mb-exit-title { font-family: var(--font-display); font-size: var(--fs-head); font-weight: 600; color: var(--ink); }
+.mb-exit-note { font-size: var(--fs-small); color: var(--ink-faint); }
 
 /* ---------------------------------------------------------------- *
  * Motion, only when it is wanted                                    *

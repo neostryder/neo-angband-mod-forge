@@ -40,7 +40,7 @@ import type { View, Workshop } from "../view.js";
 
 export function verdictScreen(shop: Workshop): View {
   const main = h("div", { class: "mb-main" });
-  const aside = h("div", null);
+  const aside = h("div", { class: "mb-aside" });
   const el = h("div", { class: "mb-cols mb-cols-2" }, main, aside);
 
   const draft = openDraft(shop.store.get());

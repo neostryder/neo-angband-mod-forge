@@ -43,9 +43,13 @@ import type { View, Workshop } from "../view.js";
 import { draftLabel, labelOf } from "../../model/refs.js";
 
 export function recordScreen(shop: Workshop, index: number, path: string): View {
-  const rail = h("div", null);
+  /* THE THREE COLUMNS ARE THE THREE COLUMN CLASSES. Without them this screen's
+   * rail and aside were the only ones in the workshop with no edge, no ground
+   * tint and - the part that showed - no scroll box of their own, so the peer
+   * table ran off the right of the window instead of scrolling inside its pane. */
+  const rail = h("div", { class: "mb-rail" });
   const main = h("div", { class: "mb-main" });
-  const aside = h("div", null);
+  const aside = h("div", { class: "mb-aside" });
   const el = h("div", { class: "mb-cols" }, rail, main, aside);
 
   const target = shop.acts.target(index);

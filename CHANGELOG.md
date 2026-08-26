@@ -14,8 +14,43 @@ feature, so they go looking for the feature.
 
 ## Unreleased
 
+### Changed
+
+- **The workshop is laid out to one type scale, one gutter and one reading
+  measure.** Nine named sizes replace seventeen ad hoc ones, the titlebar,
+  breadcrumb, banner, content and status bar all indent by the same amount so the
+  window has a single left edge, and a screen that is one column stops at a
+  reading width instead of stretching a text box or a picker across the whole
+  display. Two colour tokens were also re-measured: the faintest ink now reads
+  between 4.8 and 6.3 against the surfaces it sits on rather than 3.0 to 3.7, and
+  the hairline that draws every card is visible instead of nearly invisible.
+
 ### Fixed
 
+- **The banner no longer swallows the empty half of a short screen.** The frame
+  declared four grid rows for five children, so the leftover height went to the
+  compatibility banner rather than to the content, and an install with the banner
+  hidden opened the same gap above every screen.
+- **The launch screen and the exit screen are set in the workshop's own
+  typeface.** Both sit beside the workshop's frame rather than inside it, so they
+  had been inheriting the game page's monospace face, size and ink.
+- **The record editor's side columns behave like side columns.** They were
+  missing the classes that give every other screen's rail and aside their edge,
+  their ground and their own scroll box, so the peer table ran off the side of
+  the window rather than scrolling inside its pane. The review screen's aside had
+  the same gap.
+- **A card head that cannot fold anything no longer looks like a button.** Cards
+  built without anything to toggle - the manifest, what a mod contains, the
+  derived values - carried a caret and lit up under the mouse, then did nothing
+  when pressed.
+- **A quiet button looks like a button.** "Retune many" and "Start from nothing
+  instead" had no border at all beside two bordered controls, so both read as
+  captions rather than as offers.
+- **Disabled fields look disabled.** Only buttons were dimmed, so the Test
+  panel's number boxes looked live while refusing every keystroke.
+- **The file editor shows where the caret is.** It suppresses its own outline
+  because the text it holds is transparent, which left it the one control in the
+  workshop with no keyboard focus state; the frame around it now takes the ring.
 - **Bulk retuning now finds numeric fields nested inside record objects.** Item
   qualities expose their live `alloc.common`, `info.cost`, and `info.rating`
   fields instead of ending at "Nothing to retune here". Array positions remain

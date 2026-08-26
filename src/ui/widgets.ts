@@ -15,6 +15,16 @@ export interface Card {
   setNote(note: string): void;
 }
 
+/**
+ * A card.
+ *
+ * A CARD THAT CANNOT BE COLLAPSED DOES NOT WEAR A CARET AND IS NOT A BUTTON.
+ * Every card was built with a button for a head and a caret on it whether or not
+ * anything was passed to toggle, so more than half the cards in the workshop were
+ * offering a gesture that did nothing when it was taken - the details screen's
+ * three cards among them. The head is a heading when there is nothing to fold and
+ * a control when there is, which is the only version of this a reader can learn.
+ */
 export function card(options: {
   readonly title: string;
   readonly note?: string;
@@ -23,19 +33,30 @@ export function card(options: {
   readonly onToggle?: () => void;
 }): Card {
   const note = h("span", { class: "mb-card-note", text: options.note ?? "" });
-  const caret = svg({ viewBox: "0 0 8 12", paths: ["M1 1l5 5-5 5z"], cls: "mb-caret" });
-  const head = h(
-    "button",
-    {
-      class: "mb-card-head",
-      type: "button",
-      ...(options.tip === undefined ? {} : { tip: options.tip }),
-      ...(options.onToggle === undefined ? {} : { on: { click: options.onToggle } }),
-    },
-    caret,
-    h("span", { class: "mb-card-title", text: options.title }),
-    note,
-  );
+  const foldable = options.onToggle !== undefined;
+  const caret = foldable ? svg({ viewBox: "0 0 8 12", paths: ["M1 1l5 5-5 5z"], cls: "mb-caret" }) : null;
+  const head = foldable
+    ? h(
+        "button",
+        {
+          class: "mb-card-head",
+          type: "button",
+          ...(options.tip === undefined ? {} : { tip: options.tip }),
+          on: { click: options.onToggle as () => void },
+        },
+        caret,
+        h("span", { class: "mb-card-title", text: options.title }),
+        note,
+      )
+    : h(
+        "div",
+        {
+          class: "mb-card-head",
+          ...(options.tip === undefined ? {} : { tip: options.tip }),
+        },
+        h("span", { class: "mb-card-title", text: options.title }),
+        note,
+      );
   const body = h("div", { class: "mb-card-body" });
   const el = h("section", { class: "mb-card", data: { open: options.open === false ? "0" : "1" } }, head, body);
   return {
@@ -50,15 +71,26 @@ export function card(options: {
   };
 }
 
-/** A standing-in-for-nothing panel with a glyph, a line, and an optional action. */
-export function empty(glyph: string, title: string, blurb: string, action?: HTMLElement): HTMLElement {
+/**
+ * A standing-in-for-nothing panel: a glyph, a title, one sentence, and the way on.
+ *
+ * NO EMPTY STATE WITHOUT A WAY ON FROM IT. Saying what happened is half of the
+ * job; the other half is the next action, because the reader arrived here by
+ * doing something reasonable and the screen has just told them it produced
+ * nothing. Any number of actions may be passed, they go in the panel's own row,
+ * and they are the same row on every screen - the retune screen used to append
+ * its one action after the panel and drag it back over the top with a negative
+ * margin, which is what "the same idea done twice" looks like in a stylesheet.
+ */
+export function empty(glyph: string, title: string, blurb: string, ...actions: (HTMLElement | null | undefined)[]): HTMLElement {
+  const offered = actions.filter((action): action is HTMLElement => action !== null && action !== undefined);
   return h(
     "div",
     { class: "mb-empty" },
     h("div", { class: "mb-empty-glyph", text: glyph }),
     h("div", { class: "mb-empty-title", text: title }),
-    h("div", { text: blurb }),
-    action,
+    h("div", { class: "mb-empty-blurb", text: blurb }),
+    offered.length === 0 ? null : h("div", { class: "mb-empty-actions" }, ...offered),
   );
 }
 
