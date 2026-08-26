@@ -204,7 +204,7 @@ export function recordScreen(shop: Workshop, index: number, path: string): View 
       fill(
         groupsHost,
         empty(
-          "?",
+          "[ ]",
           "Nothing here",
           "This part of the record is empty, so there are no fields to show. Give it a value one level up.",
           button({

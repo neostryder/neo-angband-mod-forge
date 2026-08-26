@@ -25,6 +25,11 @@ feature, so they go looking for the feature.
   between 4.8 and 6.3 against the surfaces it sits on rather than 3.0 to 3.7, and
   the hairline that draws every card is visible instead of nearly invisible.
 
+- **A card is built in one place.** The guide screen and the mod list each
+  hand-rolled the same section, head and body markup, so a card was three slightly
+  different things depending on which screen it was on. Empty states also settle
+  on two glyphs with two meanings - nothing here yet, and nothing found - rather
+  than three glyphs with two meanings.
 - **Every empty state says what happened and offers the way on from it.** An
   unmatched filter offers to clear itself, a mod list with nothing in it offers to
   name one, a mod with no changes offers the content-kind picker, a screen reached

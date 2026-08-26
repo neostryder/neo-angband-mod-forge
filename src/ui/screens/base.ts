@@ -99,7 +99,7 @@ export function baseScreen(shop: Workshop, file: string, mode: "new" | "change")
       rows,
       all.length === 0
         ? empty(
-            "?",
+            "[ ]",
             "Nothing to base one on",
             `Nothing is loaded in ${file}, so there is no record here to copy or adjust.`,
             mode === "new" ? blankButton() : null,

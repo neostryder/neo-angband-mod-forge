@@ -3265,28 +3265,27 @@ function aboutScreen(shop) {
 
 // src/ui/widgets.ts
 function card(options) {
-  const note = h("span", { class: "mb-card-note", text: options.note ?? "" });
+  const note = h(options.badge === void 0 ? "span" : "div", { class: "mb-card-note", text: options.note ?? "" });
   const foldable = options.onToggle !== void 0;
   const caret = foldable ? svg({ viewBox: "0 0 8 12", paths: ["M1 1l5 5-5 5z"], cls: "mb-caret" }) : null;
+  const title = h("span", { class: "mb-card-title", text: options.title });
+  const inside = options.badge === void 0 ? [caret, title, note] : [caret, h("span", { class: "mb-kind-badge", text: options.badge }), h("span", null, title, note)];
   const head = foldable ? h(
     "button",
     {
-      class: "mb-card-head",
+      class: options.badge === void 0 ? "mb-card-head" : "mb-card-head mb-head-stacked",
       type: "button",
       ...options.tip === void 0 ? {} : { tip: options.tip },
       on: { click: options.onToggle }
     },
-    caret,
-    h("span", { class: "mb-card-title", text: options.title }),
-    note
+    ...inside
   ) : h(
     "div",
     {
-      class: "mb-card-head",
+      class: options.badge === void 0 ? "mb-card-head" : "mb-card-head mb-head-stacked",
       ...options.tip === void 0 ? {} : { tip: options.tip }
     },
-    h("span", { class: "mb-card-title", text: options.title }),
-    note
+    ...inside
   );
   const body = h("div", { class: "mb-card-body" });
   const el = h("section", { class: "mb-card", data: { open: options.open === false ? "0" : "1" } }, head, body);
@@ -3703,7 +3702,7 @@ function baseScreen(shop, file, mode) {
       list,
       rows,
       all.length === 0 ? empty(
-        "?",
+        "[ ]",
         "Nothing to base one on",
         `Nothing is loaded in ${file}, so there is no record here to copy or adjust.`,
         mode === "new" ? blankButton() : null,
@@ -3903,7 +3902,7 @@ function detailsScreen(shop) {
     engine.el,
     description.el
   );
-  const derived = h("div", { class: "mb-card-body mb-prose" });
+  const derived = h("div", { class: "mb-prose" });
   const derivedCard = card({ title: "Written for you", note: "from what you actually did", open: true });
   derivedCard.body.appendChild(derived);
   const changesList = h("div", { class: "mb-list" });
@@ -3997,7 +3996,7 @@ function detailsScreen(shop) {
       changesList,
       rows,
       empty(
-        "...",
+        "[ ]",
         "Nothing in it yet",
         "The manifest above is real, and a mod that changes nothing changes nothing.",
         button({
@@ -5644,54 +5643,37 @@ function modsScreen(shop) {
   idBox.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.isComposing) create.click();
   });
-  const el = h(
-    "div",
-    { class: "mb-main" },
+  const startCard = card({ title: "Start something", open: true });
+  startCard.body.appendChild(
     h(
-      "section",
-      { class: "mb-card", data: { open: "1" } },
-      h("div", { class: "mb-card-head" }, h("span", { class: "mb-card-title", text: "Start something" })),
+      "div",
+      { class: "mb-field" },
       h(
-        "div",
-        { class: "mb-card-body" },
-        h(
-          "div",
-          { class: "mb-field" },
-          h(
-            "label",
-            { class: "mb-label" },
-            h("span", { class: "mb-label-name", text: "id" }),
-            h("span", { class: "mb-label-meta", text: "lower case, hyphens" })
-          ),
-          h(
-            "div",
-            { class: "mb-control" },
-            h("div", { class: "mb-control-line" }, idBox, create),
-            h("div", {
-              class: "mb-why",
-              text: "This is the mod's name to the game and to every other mod. It cannot be changed later without the game treating the result as a different mod, so it is worth a moment."
-            }),
-            idProblem
-          )
-        )
-      )
-    ),
-    h(
-      "section",
-      { class: "mb-card", data: { open: "1" } },
-      h(
-        "div",
-        { class: "mb-card-head" },
-        h("span", { class: "mb-card-title", text: "Unfinished" }),
-        h("span", {
-          class: "mb-card-note",
-          text: "kept in this install's settings, not in any character's save",
-          tip: "Unfinished work does not live in a file. The store it uses can run out of room without saying so, which is why the workshop verifies every write and why a finished mod, saved as a file, is the only save point it will promise you."
-        })
+        "label",
+        { class: "mb-label" },
+        h("span", { class: "mb-label-name", text: "id" }),
+        h("span", { class: "mb-label-meta", text: "lower case, hyphens" })
       ),
-      list
+      h(
+        "div",
+        { class: "mb-control" },
+        h("div", { class: "mb-control-line" }, idBox, create),
+        h("div", {
+          class: "mb-why",
+          text: "This is the mod's name to the game and to every other mod. It cannot be changed later without the game treating the result as a different mod, so it is worth a moment."
+        }),
+        idProblem
+      )
     )
   );
+  const unfinishedCard = card({
+    title: "Unfinished",
+    note: "kept in this install's settings, not in any character's save",
+    tip: "Unfinished work does not live in a file. The store it uses can run out of room without saying so, which is why the workshop verifies every write and why a finished mod, saved as a file, is the only save point it will promise you.",
+    open: true
+  });
+  unfinishedCard.body.appendChild(list);
+  const el = h("div", { class: "mb-main" }, startCard.el, unfinishedCard.el);
   let lastDrafts;
   const render = (state) => {
     const drafts = Object.values(state.drafts).sort((a, b) => b.touched.localeCompare(a.touched));
@@ -6170,7 +6152,6 @@ function flagEditor(path, flags, shape, on) {
     h("option", { value: "", text: `one of the ${known.length} the game uses` }),
     ...known.slice(0, 200).map((value) => h("option", { value, text: value }))
   );
-  if (offered) offered.style.maxWidth = "220px";
   return h("div", { class: "mb-chips" }, ...chips, box, offered);
 }
 function rowsEditor(path, rows, on) {
@@ -6391,7 +6372,7 @@ function recordScreen(shop, index, path) {
       fill(
         groupsHost,
         empty(
-          "?",
+          "[ ]",
           "Nothing here",
           "This part of the record is empty, so there are no fields to show. Give it a value one level up.",
           button({
@@ -7311,70 +7292,45 @@ function tourScreen(shop) {
       text: "Nothing you do in here touches the game until you install what you built, and nothing you install is permanent: a mod can be switched off, and switching it off gives you the base game back exactly as it was."
     })
   );
-  const cards = LESSONS.map(
-    (lesson) => h(
-      "section",
-      { class: "mb-card", data: { open: "1" } },
+  const cards = LESSONS.map((lesson) => {
+    const block = card({ title: lesson.title, note: lesson.teaches, badge: lesson.badge, open: true });
+    block.body.append(
+      h("div", { class: "mb-prose" }, ...lesson.body.map((line) => h("p", { text: line }))),
       h(
         "div",
-        { class: "mb-card-head mb-head-stacked" },
-        h("span", { class: "mb-kind-badge", text: lesson.badge }),
-        h(
-          "span",
-          null,
-          h("span", { class: "mb-card-title", text: lesson.title }),
-          h("div", { class: "mb-card-note", text: lesson.teaches })
-        )
-      ),
-      h(
-        "div",
-        { class: "mb-card-body" },
-        h("div", { class: "mb-prose" }, ...lesson.body.map((line) => h("p", { text: line }))),
-        h(
-          "div",
-          { class: "mb-row-actions" },
-          button({ label: lesson.cta, kind: "primary", onClick: () => lesson.start(shop) }),
-          h("span", {
-            class: "mb-label-meta",
-            text: `The written version of this is docs/modding/${lesson.tutorial}`,
-            tip: "The game's own tutorial for the same idea, for reading rather than clicking. It builds the same mod with a text editor and pins the finished version with a test."
-          })
-        )
+        { class: "mb-row-actions" },
+        button({ label: lesson.cta, kind: "primary", onClick: () => lesson.start(shop) }),
+        h("span", {
+          class: "mb-label-meta",
+          text: `The written version of this is docs/modding/${lesson.tutorial}`,
+          tip: "The game's own tutorial for the same idea, for reading rather than clicking. It builds the same mod with a text editor and pins the finished version with a test."
+        })
       )
-    )
-  );
-  const advanced = h(
-    "section",
-    { class: "mb-card", data: { open: "1" } },
+    );
+    return block.el;
+  });
+  const advanced = card({
+    title: "Or do it by hand",
+    note: "Everything the workshop cannot reach, and where to read about it",
+    badge: "+",
+    open: true
+  });
+  advanced.body.classList.add("mb-prose");
+  advanced.body.append(
+    h("p", {
+      text: "The workshop writes content: records, and adjustments to records. It does not write code, it cannot ship a picture or a sound, and it does not write the switchable sections that let somebody else turn half your mod off. Those are all real and all documented, and none of them needs the workshop."
+    }),
     h(
-      "div",
-      { class: "mb-card-head mb-head-stacked" },
-      h("span", { class: "mb-kind-badge", text: "+" }),
-      h(
-        "span",
-        null,
-        h("span", { class: "mb-card-title", text: "Or do it by hand" }),
-        h("div", { class: "mb-card-note", text: "Everything the workshop cannot reach, and where to read about it" })
-      )
+      "ul",
+      null,
+      h("li", null, h("code", { text: "docs/modding/tutorials/" }), " builds seven mods from nothing, in a text editor."),
+      h("li", null, h("code", { text: "docs/modding/PLUGINS.md" }), " is how a mod runs code."),
+      h("li", null, h("code", { text: "docs/modding/AUTHORING.md" }), " is the library the workshop itself calls."),
+      h("li", null, h("code", { text: "docs/modding/MOD_COMPATIBILITY.md" }), " is what surviving a game update takes.")
     ),
-    h(
-      "div",
-      { class: "mb-card-body mb-prose" },
-      h("p", {
-        text: "The workshop writes content: records, and adjustments to records. It does not write code, it cannot ship a picture or a sound, and it does not write the switchable sections that let somebody else turn half your mod off. Those are all real and all documented, and none of them needs the workshop."
-      }),
-      h(
-        "ul",
-        null,
-        h("li", null, h("code", { text: "docs/modding/tutorials/" }), " builds seven mods from nothing, in a text editor."),
-        h("li", null, h("code", { text: "docs/modding/PLUGINS.md" }), " is how a mod runs code."),
-        h("li", null, h("code", { text: "docs/modding/AUTHORING.md" }), " is the library the workshop itself calls."),
-        h("li", null, h("code", { text: "docs/modding/MOD_COMPATIBILITY.md" }), " is what surviving a game update takes.")
-      ),
-      h("p", {
-        text: "A mod the workshop wrote is an ordinary folder of ordinary files. Take it out, edit it in anything, and bring it back through Import a zip. Nothing in it belongs to the workshop."
-      })
-    )
+    h("p", {
+      text: "A mod the workshop wrote is an ordinary folder of ordinary files. Take it out, edit it in anything, and bring it back through Import a zip. Nothing in it belongs to the workshop."
+    })
   );
   const done = h(
     "div",
@@ -7386,7 +7342,7 @@ function tourScreen(shop) {
     }),
     h("span", { class: "mb-label-meta", text: "This page is under Guide whenever you want it again." })
   );
-  el.append(intro, ...cards, advanced, done);
+  el.append(intro, ...cards, advanced.el, done);
   return { el, update: () => void 0, dispose: () => void 0 };
 }
 

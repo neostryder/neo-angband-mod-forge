@@ -114,7 +114,9 @@ export function detailsScreen(shop: Workshop): View {
     description.el,
   );
 
-  const derived = h("div", { class: "mb-card-body mb-prose" });
+  /* Prose, not a second card body inside the first one, which is what this was
+   * and which paid for its padding twice. */
+  const derived = h("div", { class: "mb-prose" });
   const derivedCard = card({ title: "Written for you", note: "from what you actually did", open: true });
   derivedCard.body.appendChild(derived);
 
@@ -240,7 +242,7 @@ export function detailsScreen(shop: Workshop): View {
       changesList,
       rows,
       empty(
-        "...",
+        "[ ]",
         "Nothing in it yet",
         "The manifest above is real, and a mod that changes nothing changes nothing.",
         button({

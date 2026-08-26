@@ -24,6 +24,12 @@ export interface Card {
  * offering a gesture that did nothing when it was taken - the details screen's
  * three cards among them. The head is a heading when there is nothing to fold and
  * a control when there is, which is the only version of this a reader can learn.
+ *
+ * AND IT IS THE ONLY PLACE A CARD IS BUILT. The guide screen and the mod list
+ * each hand-rolled the same section, head and body markup, which is how a card
+ * ends up being three slightly different things depending on which screen it is
+ * on. `badge` is the one thing a hand-rolled head had that this did not: a mark
+ * beside a title with its note stacked under it.
  */
 export function card(options: {
   readonly title: string;
@@ -31,31 +37,35 @@ export function card(options: {
   readonly tip?: string;
   readonly open?: boolean;
   readonly onToggle?: () => void;
+  /** A single character in an illuminated box, for a card that leads with one. */
+  readonly badge?: string;
 }): Card {
-  const note = h("span", { class: "mb-card-note", text: options.note ?? "" });
+  const note = h(options.badge === undefined ? "span" : "div", { class: "mb-card-note", text: options.note ?? "" });
   const foldable = options.onToggle !== undefined;
   const caret = foldable ? svg({ viewBox: "0 0 8 12", paths: ["M1 1l5 5-5 5z"], cls: "mb-caret" }) : null;
+  const title = h("span", { class: "mb-card-title", text: options.title });
+  const inside =
+    options.badge === undefined
+      ? [caret, title, note]
+      : [caret, h("span", { class: "mb-kind-badge", text: options.badge }), h("span", null, title, note)];
   const head = foldable
     ? h(
         "button",
         {
-          class: "mb-card-head",
+          class: options.badge === undefined ? "mb-card-head" : "mb-card-head mb-head-stacked",
           type: "button",
           ...(options.tip === undefined ? {} : { tip: options.tip }),
           on: { click: options.onToggle as () => void },
         },
-        caret,
-        h("span", { class: "mb-card-title", text: options.title }),
-        note,
+        ...inside,
       )
     : h(
         "div",
         {
-          class: "mb-card-head",
+          class: options.badge === undefined ? "mb-card-head" : "mb-card-head mb-head-stacked",
           ...(options.tip === undefined ? {} : { tip: options.tip }),
         },
-        h("span", { class: "mb-card-title", text: options.title }),
-        note,
+        ...inside,
       );
   const body = h("div", { class: "mb-card-body" });
   const el = h("section", { class: "mb-card", data: { open: options.open === false ? "0" : "1" } }, head, body);
@@ -73,6 +83,12 @@ export function card(options: {
 
 /**
  * A standing-in-for-nothing panel: a glyph, a title, one sentence, and the way on.
+ *
+ * TWO GLYPHS, AND THEY MEAN TWO DIFFERENT THINGS. `[ ]` is nothing here yet, and
+ * the way on from it is to make something. `?` is nothing found, and the way on
+ * from it is to look somewhere else or to stop looking with that filter. There
+ * was a third in use, and a third glyph with no third meaning is just a third
+ * glyph.
  *
  * NO EMPTY STATE WITHOUT A WAY ON FROM IT. Saying what happened is half of the
  * job; the other half is the next action, because the reader arrived here by

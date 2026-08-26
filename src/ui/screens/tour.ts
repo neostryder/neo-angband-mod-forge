@@ -21,7 +21,7 @@
 
 import { h } from "../dom.js";
 import type { View, Workshop } from "../view.js";
-import { button } from "../widgets.js";
+import { button, card } from "../widgets.js";
 
 interface Lesson {
   readonly badge: string;
@@ -104,78 +104,53 @@ export function tourScreen(shop: Workshop): View {
     }),
   );
 
-  const cards = LESSONS.map((lesson) =>
-    h(
-      "section",
-      { class: "mb-card", data: { open: "1" } },
+  const cards = LESSONS.map((lesson) => {
+    const block = card({ title: lesson.title, note: lesson.teaches, badge: lesson.badge, open: true });
+    block.body.append(
+      h("div", { class: "mb-prose" }, ...lesson.body.map((line) => h("p", { text: line }))),
       h(
         "div",
-        { class: "mb-card-head mb-head-stacked" },
-        h("span", { class: "mb-kind-badge", text: lesson.badge }),
-        h(
-          "span",
-          null,
-          h("span", { class: "mb-card-title", text: lesson.title }),
-          h("div", { class: "mb-card-note", text: lesson.teaches }),
-        ),
+        { class: "mb-row-actions" },
+        button({ label: lesson.cta, kind: "primary", onClick: () => lesson.start(shop) }),
+        h("span", {
+          class: "mb-label-meta",
+          text: `The written version of this is docs/modding/${lesson.tutorial}`,
+          tip:
+            "The game's own tutorial for the same idea, for reading rather than clicking. It builds the same mod " +
+            "with a text editor and pins the finished version with a test.",
+        }),
       ),
-      h(
-        "div",
-        { class: "mb-card-body" },
-        h("div", { class: "mb-prose" }, ...lesson.body.map((line) => h("p", { text: line }))),
-        h(
-          "div",
-          { class: "mb-row-actions" },
-          button({ label: lesson.cta, kind: "primary", onClick: () => lesson.start(shop) }),
-          h("span", {
-            class: "mb-label-meta",
-            text: `The written version of this is docs/modding/${lesson.tutorial}`,
-            tip:
-              "The game's own tutorial for the same idea, for reading rather than clicking. It builds the same mod " +
-              "with a text editor and pins the finished version with a test.",
-          }),
-        ),
-      ),
-    ),
-  );
+    );
+    return block.el;
+  });
 
-  const advanced = h(
-    "section",
-    { class: "mb-card", data: { open: "1" } },
+  const advanced = card({
+    title: "Or do it by hand",
+    note: "Everything the workshop cannot reach, and where to read about it",
+    badge: "+",
+    open: true,
+  });
+  advanced.body.classList.add("mb-prose");
+  advanced.body.append(
+    h("p", {
+      text:
+        "The workshop writes content: records, and adjustments to records. It does not write code, it cannot " +
+        "ship a picture or a sound, and it does not write the switchable sections that let somebody else turn " +
+        "half your mod off. Those are all real and all documented, and none of them needs the workshop.",
+    }),
     h(
-      "div",
-      { class: "mb-card-head mb-head-stacked" },
-      h("span", { class: "mb-kind-badge", text: "+" }),
-      h(
-        "span",
-        null,
-        h("span", { class: "mb-card-title", text: "Or do it by hand" }),
-        h("div", { class: "mb-card-note", text: "Everything the workshop cannot reach, and where to read about it" }),
-      ),
+      "ul",
+      null,
+      h("li", null, h("code", { text: "docs/modding/tutorials/" }), " builds seven mods from nothing, in a text editor."),
+      h("li", null, h("code", { text: "docs/modding/PLUGINS.md" }), " is how a mod runs code."),
+      h("li", null, h("code", { text: "docs/modding/AUTHORING.md" }), " is the library the workshop itself calls."),
+      h("li", null, h("code", { text: "docs/modding/MOD_COMPATIBILITY.md" }), " is what surviving a game update takes."),
     ),
-    h(
-      "div",
-      { class: "mb-card-body mb-prose" },
-      h("p", {
-        text:
-          "The workshop writes content: records, and adjustments to records. It does not write code, it cannot " +
-          "ship a picture or a sound, and it does not write the switchable sections that let somebody else turn " +
-          "half your mod off. Those are all real and all documented, and none of them needs the workshop.",
-      }),
-      h(
-        "ul",
-        null,
-        h("li", null, h("code", { text: "docs/modding/tutorials/" }), " builds seven mods from nothing, in a text editor."),
-        h("li", null, h("code", { text: "docs/modding/PLUGINS.md" }), " is how a mod runs code."),
-        h("li", null, h("code", { text: "docs/modding/AUTHORING.md" }), " is the library the workshop itself calls."),
-        h("li", null, h("code", { text: "docs/modding/MOD_COMPATIBILITY.md" }), " is what surviving a game update takes."),
-      ),
-      h("p", {
-        text:
-          "A mod the workshop wrote is an ordinary folder of ordinary files. Take it out, edit it in anything, and " +
-          "bring it back through Import a zip. Nothing in it belongs to the workshop.",
-      }),
-    ),
+    h("p", {
+      text:
+        "A mod the workshop wrote is an ordinary folder of ordinary files. Take it out, edit it in anything, and " +
+        "bring it back through Import a zip. Nothing in it belongs to the workshop.",
+    }),
   );
 
   const done = h(
@@ -189,6 +164,6 @@ export function tourScreen(shop: Workshop): View {
     h("span", { class: "mb-label-meta", text: "This page is under Guide whenever you want it again." }),
   );
 
-  el.append(intro, ...cards, advanced, done);
+  el.append(intro, ...cards, advanced.el, done);
   return { el, update: () => undefined, dispose: () => undefined };
 }

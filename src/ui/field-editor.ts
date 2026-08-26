@@ -329,8 +329,9 @@ function flagEditor(path: string, flags: readonly string[], shape: FieldShape | 
           h("option", { value: "", text: `one of the ${known.length} the game uses` }),
           ...known.slice(0, 200).map((value) => h("option", { value, text: value })),
         );
-  if (offered) offered.style.maxWidth = "220px";
-
+  /* No inline width: every picker in the workshop is capped by one rule in the
+   * stylesheet now, and a second answer here would be a second answer to keep in
+   * step with the first. */
   return h("div", { class: "mb-chips" }, ...chips, box, offered);
 }
 

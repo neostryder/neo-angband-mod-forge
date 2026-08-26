@@ -14,7 +14,7 @@
 
 import { h } from "../dom.js";
 import type { View, Workshop } from "../view.js";
-import { button, empty, fillList, listRow } from "../widgets.js";
+import { button, card, empty, fillList, listRow } from "../widgets.js";
 import { draftSize } from "../../model/draft.js";
 import type { AppState } from "../store.js";
 
@@ -48,59 +48,44 @@ export function modsScreen(shop: Workshop): View {
     if (event.key === "Enter" && !event.isComposing) create.click();
   });
 
-  const el = h(
-    "div",
-    { class: "mb-main" },
+  const startCard = card({ title: "Start something", open: true });
+  startCard.body.appendChild(
     h(
-      "section",
-      { class: "mb-card", data: { open: "1" } },
-      h("div", { class: "mb-card-head" }, h("span", { class: "mb-card-title", text: "Start something" })),
+      "div",
+      { class: "mb-field" },
       h(
-        "div",
-        { class: "mb-card-body" },
-        h(
-          "div",
-          { class: "mb-field" },
-          h(
-            "label",
-            { class: "mb-label" },
-            h("span", { class: "mb-label-name", text: "id" }),
-            h("span", { class: "mb-label-meta", text: "lower case, hyphens" }),
-          ),
-          h(
-            "div",
-            { class: "mb-control" },
-            h("div", { class: "mb-control-line" }, idBox, create),
-            h("div", {
-              class: "mb-why",
-              text:
-                "This is the mod's name to the game and to every other mod. It cannot be changed later without " +
-                "the game treating the result as a different mod, so it is worth a moment.",
-            }),
-            idProblem,
-          ),
-        ),
+        "label",
+        { class: "mb-label" },
+        h("span", { class: "mb-label-name", text: "id" }),
+        h("span", { class: "mb-label-meta", text: "lower case, hyphens" }),
       ),
-    ),
-    h(
-      "section",
-      { class: "mb-card", data: { open: "1" } },
       h(
         "div",
-        { class: "mb-card-head" },
-        h("span", { class: "mb-card-title", text: "Unfinished" }),
-        h("span", {
-          class: "mb-card-note",
-          text: "kept in this install's settings, not in any character's save",
-          tip:
-            "Unfinished work does not live in a file. The store it uses can run out of room without saying so, " +
-            "which is why the workshop verifies every write and why a finished mod, saved as a file, is the only " +
-            "save point it will promise you.",
+        { class: "mb-control" },
+        h("div", { class: "mb-control-line" }, idBox, create),
+        h("div", {
+          class: "mb-why",
+          text:
+            "This is the mod's name to the game and to every other mod. It cannot be changed later without " +
+            "the game treating the result as a different mod, so it is worth a moment.",
         }),
+        idProblem,
       ),
-      list,
     ),
   );
+
+  const unfinishedCard = card({
+    title: "Unfinished",
+    note: "kept in this install's settings, not in any character's save",
+    tip:
+      "Unfinished work does not live in a file. The store it uses can run out of room without saying so, " +
+      "which is why the workshop verifies every write and why a finished mod, saved as a file, is the only " +
+      "save point it will promise you.",
+    open: true,
+  });
+  unfinishedCard.body.appendChild(list);
+
+  const el = h("div", { class: "mb-main" }, startCard.el, unfinishedCard.el);
 
   let lastDrafts: unknown;
 
