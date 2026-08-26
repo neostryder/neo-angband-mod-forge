@@ -19,7 +19,7 @@
 import { h } from "../dom.js";
 import type { View, Workshop } from "../view.js";
 import { button, card, empty, fillList, listRow, textField } from "../widgets.js";
-import { dependenciesFor, groupFor, ID_RE, VERSION_RE } from "../../model/draft.js";
+import { allChanges, dependenciesFor, groupFor, ID_RE, VERSION_RE } from "../../model/draft.js";
 import type { AppState } from "../store.js";
 import { openDraft } from "../store.js";
 import { draftLabel } from "../../model/refs.js";
@@ -173,15 +173,15 @@ export function detailsScreen(shop: Workshop): View {
      * different mod, so offering the field would be offering a mistake. */
     const idProblem = ID_RE.test(current.id) ? "" : ` The id "${current.id}" is not one the game will accept.`;
 
-    const deps = Object.keys(dependenciesFor(current.changes));
+    const deps = Object.keys(dependenciesFor(allChanges(current)));
     derived.replaceChildren(
       h("p", null, "id ", h("code", { text: current.id }), ", which is also the folder name.", idProblem),
       h(
         "p",
         null,
         "group ",
-        h("code", { text: groupFor(current.changes) }),
-        groupFor(current.changes) === "content"
+        h("code", { text: groupFor(allChanges(current)) }),
+        groupFor(allChanges(current)) === "content"
           ? ", because this mod adds records. Adding mods load before the ones that only adjust things."
           : ", because this mod only adjusts records that already exist, so it wants to load after the mods that add them.",
       ),

@@ -41,6 +41,17 @@ describe("manifestFor", () => {
     const manifest = manifestFor(draftWith([{ kind: "patch", file: "object", ref: "core:sword--dagger", ops: [] }]));
     expect(manifest.dependencies).toEqual({ core: "*" });
   });
+
+  it("declares sections in the manifest", () => {
+    const draft = {
+      ...draftWith([]),
+      sections: [{ id: "kobolds", title: "Kobolds", changes: [{ kind: "add" as const, file: "monster", record: { name: "section kobold" }, section: "kobolds" }] }],
+    };
+    expect(manifestFor(draft).sections).toEqual([{ id: "kobolds", title: "Kobolds" }]);
+    const files = emitDraft(api, draft);
+    const monster = JSON.parse(asText(files.find((file) => file.path === "monster.json")?.contents ?? "{}")) as { sections?: unknown };
+    expect(monster.sections).toEqual({ kobolds: { records: [{ name: "section kobold" }] } });
+  });
 });
 
 describe("emitDraft", () => {

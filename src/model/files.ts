@@ -37,7 +37,7 @@
  * `draft.manifestExtras` is what makes this an escape hatch rather than a viewer.
  */
 
-import type { AuthoringApi, FieldDecl, FieldOp, JsonRecord, JsonValue } from "../host/authoring.js";
+import type { AuthoringApi, FieldDecl, FieldOp, JsonRecord, JsonValue, PackSection } from "../host/authoring.js";
 import type { Change, Draft } from "./draft.js";
 import { emitDraft, manifestFor } from "./build.js";
 
@@ -358,7 +358,7 @@ function parseObject(text: string, what: string): { ok: true; value: JsonRecord 
 const OWNED = ["id", "name", "version", "author", "description", "repository", "license", "engine", "fields"] as const;
 
 /** The keys the workshop DERIVES, which an author may still override by hand. */
-const DERIVED = ["shape", "facets", "group", "dependencies", "affectsGameplay", "modApi"] as const;
+const DERIVED = ["shape", "facets", "group", "dependencies", "affectsGameplay", "modApi", "sections"] as const;
 
 function writeManifest(draft: Draft, text: string): WriteOutcome {
   const parsed = parseObject(text, "The manifest");
@@ -449,10 +449,11 @@ function writeManifest(draft: Draft, text: string): WriteOutcome {
 }
 
 /** The keys a record file may carry, all four of which are `Change`s. */
-const CONTRIBUTIONS = ["records", "fieldPatches", "replaces", "removes"] as const;
+const CONTRIBUTIONS = ["records", "fieldPatches", "replaces", "removes", "sections"] as const;
 
 function writeRecordFile(draft: Draft, file: string, text: string): WriteOutcome {
   const changes: Change[] = [];
+  const sectionIds: string[] = [];
   const spare: Record<string, unknown> = {};
 
   if (text.trim() !== "") {
@@ -472,6 +473,41 @@ function writeRecordFile(draft: Draft, file: string, text: string): WriteOutcome
     for (const [key, value] of Object.entries(raw)) {
       if (!(CONTRIBUTIONS as readonly string[]).includes(key)) spare[key] = value;
     }
+
+    const readContribution = (value: unknown, section?: string): boolean => {
+      if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+      const contribution = value as Record<string, unknown>;
+      const records = contribution["records"];
+      if (records !== undefined) {
+        if (!Array.isArray(records)) return false;
+        for (const record of records) {
+          if (typeof record !== "object" || record === null || Array.isArray(record)) return false;
+          changes.push({ kind: "add", file, record: record as JsonRecord, ...(section ? { section } : {}) });
+        }
+      }
+      const patches = contribution["fieldPatches"];
+      if (patches !== undefined) {
+        if (typeof patches !== "object" || patches === null || Array.isArray(patches)) return false;
+        for (const [ref, ops] of Object.entries(patches)) {
+          if (!Array.isArray(ops)) return false;
+          changes.push({ kind: "patch", file, ref, ops: ops as unknown as readonly FieldOp[], ...(section ? { section } : {}) });
+        }
+      }
+      const replaces = contribution["replaces"];
+      if (replaces !== undefined) {
+        if (typeof replaces !== "object" || replaces === null || Array.isArray(replaces)) return false;
+        for (const [ref, record] of Object.entries(replaces)) {
+          if (typeof record !== "object" || record === null || Array.isArray(record)) return false;
+          changes.push({ kind: "replace", file, ref, record: record as JsonRecord, ...(section ? { section } : {}) });
+        }
+      }
+      const removes = contribution["removes"];
+      if (removes !== undefined) {
+        if (!Array.isArray(removes) || removes.some((ref) => typeof ref !== "string")) return false;
+        for (const ref of removes) changes.push({ kind: "remove", file, ref, ...(section ? { section } : {}) });
+      }
+      return true;
+    };
 
     const records = raw["records"];
     if (records !== undefined) {
@@ -526,13 +562,36 @@ function writeRecordFile(draft: Draft, file: string, text: string): WriteOutcome
       }
       for (const ref of removes) changes.push({ kind: "remove", file, ref: ref as string });
     }
+
+    const sections = raw["sections"];
+    if (sections !== undefined) {
+      if (typeof sections !== "object" || sections === null || Array.isArray(sections)) return { ok: false, why: `"sections" in ${file}.json has to be an object.` };
+      for (const [id, contribution] of Object.entries(sections)) {
+        if (!readContribution(contribution, id)) return { ok: false, why: `The contribution for section ${id} is malformed.` };
+      }
+      const declaredSectionIds = Object.keys(sections);
+      for (const id of declaredSectionIds) if (!sectionIds.includes(id)) sectionIds.push(id);
+    }
   }
 
+  for (const id of changes.map((change) => change.section).filter((id): id is string => id !== undefined)) {
+    if (!sectionIds.includes(id)) sectionIds.push(id);
+  }
+  const existingSections = new Map((draft.sections ?? []).map((section) => [section.id, section]));
+  const sections = sectionIds.map((id) => ({
+    ...(existingSections.get(id) ?? { id, title: id }),
+    changes: changes.filter((change) => change.section === id),
+  }));
   const fileExtras = { ...(draft.fileExtras ?? {}) };
   if (Object.keys(spare).length === 0) delete fileExtras[file];
   else fileExtras[file] = spare;
 
-  return { ok: true, draft: { ...draft, changes: spliceFile(draft.changes, file, changes), fileExtras } };
+  const unsectioned = changes.filter((change) => change.section === undefined);
+  const sectioned = [...(draft.sections ?? []).filter((section) => !sectionIds.includes(section.id)), ...sections];
+  const next = { ...draft, changes: spliceFile(draft.changes, file, unsectioned), fileExtras };
+  if (sectioned.length > 0) return { ok: true, draft: { ...next, sections: sectioned } };
+  const { sections: _sections, ...withoutSections } = next;
+  return { ok: true, draft: withoutSections };
 }
 
 /**
@@ -554,4 +613,3 @@ function spliceFile(changes: readonly Change[], file: string, replacement: reado
   const before = changes.slice(0, at);
   return [...before, ...replacement, ...others.slice(before.length)];
 }
-

@@ -157,6 +157,17 @@ export interface FileContribution {
   sections?: Record<string, FileContribution>;
 }
 
+export type SectionBand = "first" | "early" | "normal" | "late" | "last";
+
+export interface PackSection {
+  readonly id: string;
+  readonly title: string;
+  readonly description?: string;
+  readonly default?: boolean;
+  readonly priority?: SectionBand;
+  readonly flag?: string;
+}
+
 /** A pack, loaded: its manifest and its per-file contributions. */
 export interface LoadedPack {
   manifest: PackManifest;
@@ -200,6 +211,7 @@ export interface PackManifest {
   author?: string;
   license?: string;
   repository?: string;
+  sections?: PackSection[];
 }
 
 /**
@@ -237,6 +249,8 @@ export interface ProjectLike {
   patchFields(file: string, ref: string, ops: readonly FieldOp[]): ProjectLike;
   replace(file: string, ref: string, record: JsonRecord): ProjectLike;
   remove(file: string, ref: string): ProjectLike;
+  /** Select a declared section for subsequent contributions, when supported. */
+  section?(id: string): ProjectLike;
   manifest(): PackManifest;
   toPack(): LoadedPack;
   emit(): EmittedFile[];

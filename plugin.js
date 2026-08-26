@@ -694,6 +694,7 @@ var StubProject = class {
   base;
   fields = [];
   files = /* @__PURE__ */ new Map();
+  activeSection;
   constructor(manifest) {
     const m = validateManifest(manifest);
     this.base = m;
@@ -707,6 +708,10 @@ var StubProject = class {
     this.files.set(name, made);
     return made;
   }
+  section(id) {
+    this.activeSection = id;
+    return this;
+  }
   declareField(field) {
     if (!this.fields.some((f) => f.name === field.name)) this.fields.push(field);
     return this;
@@ -716,11 +721,23 @@ var StubProject = class {
   }
   add(file, ...records) {
     const target = this.file(file);
-    target.records = [...target.records ?? [], ...records.map((r) => clone(r))];
+    if (this.activeSection) {
+      target.sections ??= {};
+      const section = target.sections[this.activeSection] ?? {};
+      section.records = [...section.records ?? [], ...records.map((r) => clone(r))];
+      target.sections[this.activeSection] = section;
+    } else target.records = [...target.records ?? [], ...records.map((r) => clone(r))];
     return this;
   }
   patchFields(file, ref, ops) {
     const target = this.file(file);
+    if (this.activeSection) {
+      target.sections ??= {};
+      const section = target.sections[this.activeSection] ?? {};
+      section.fieldPatches = { ...section.fieldPatches ?? {}, [ref]: [...section.fieldPatches?.[ref] ?? [], ...ops.map((op) => clone(op))] };
+      target.sections[this.activeSection] = section;
+      return this;
+    }
     const table = target.fieldPatches ?? {};
     table[ref] = [...table[ref] ?? [], ...ops.map((op) => clone(op))];
     target.fieldPatches = table;
@@ -728,6 +745,13 @@ var StubProject = class {
   }
   replace(file, ref, record) {
     const target = this.file(file);
+    if (this.activeSection) {
+      target.sections ??= {};
+      const section = target.sections[this.activeSection] ?? {};
+      section.replaces = { ...section.replaces ?? {}, [ref]: clone(record) };
+      target.sections[this.activeSection] = section;
+      return this;
+    }
     const table = target.replaces ?? {};
     table[ref] = clone(record);
     target.replaces = table;
@@ -735,6 +759,13 @@ var StubProject = class {
   }
   remove(file, ref) {
     const target = this.file(file);
+    if (this.activeSection) {
+      target.sections ??= {};
+      const section = target.sections[this.activeSection] ?? {};
+      section.removes = [...section.removes ?? [], ref];
+      target.sections[this.activeSection] = section;
+      return this;
+    }
     const list = target.removes ?? [];
     if (!list.includes(ref)) list.push(ref);
     target.removes = list;
@@ -1422,6 +1453,9 @@ function engineRangeFor(engine) {
 function groupFor(changes) {
   return changes.some((c) => c.kind === "add" || c.kind === "replace") ? "content" : "tweaks";
 }
+function allChanges(draft) {
+  return [...draft.changes, ...(draft.sections ?? []).flatMap((section) => section.changes)];
+}
 function dependenciesFor(changes) {
   const out = {};
   for (const change of changes) {
@@ -1434,7 +1468,7 @@ function draftSize(draft) {
   let added = 0;
   let patched = 0;
   let removed = 0;
-  for (const change of draft.changes) {
+  for (const change of allChanges(draft)) {
     if (change.kind === "add") added++;
     else if (change.kind === "patch") patched++;
     else if (change.kind === "replace") patched++;
@@ -1443,7 +1477,7 @@ function draftSize(draft) {
   return { added, patched, removed };
 }
 function draftFiles(draft) {
-  return [...new Set(draft.changes.map((c) => c.file))].sort();
+  return [...new Set(allChanges(draft).map((c) => c.file))].sort();
 }
 
 // src/model/zip.ts
@@ -1559,8 +1593,8 @@ function manifestFor(draft) {
     shape: "content",
     facets: code ? ["content", "plugin"] : ["content"],
     engine: draft.engine,
-    group: groupFor(draft.changes),
-    dependencies: dependenciesFor(draft.changes),
+    group: groupFor(allChanges(draft)),
+    dependencies: dependenciesFor(allChanges(draft)),
     /* A content mod that adds or retunes anything the player meets is a mod that
      * affects gameplay, and every change the workshop can make does. Saying so
      * is what lets the mod manager warn a player who cares about their score. */
@@ -1572,6 +1606,9 @@ function manifestFor(draft) {
   };
   if (code) manifest.modApi = MOD_API;
   if (draft.fields.length > 0) manifest.fields = [...draft.fields];
+  if (draft.sections && draft.sections.length > 0) {
+    manifest.sections = draft.sections.map(({ changes: _changes, ...section }) => ({ ...section }));
+  }
   return { ...manifest, ...draft.manifestExtras ?? {} };
 }
 function basePacks(api, records) {
@@ -1608,22 +1645,8 @@ function basePacks(api, records) {
 function buildDraft(api, draft, records) {
   const project = api.modProject(manifestFor(draft));
   for (const field of draft.fields) project.declareField(field);
-  for (const change of draft.changes) {
-    switch (change.kind) {
-      case "add":
-        project.add(change.file, change.record);
-        break;
-      case "patch":
-        project.patchFields(change.file, change.ref, change.ops);
-        break;
-      case "replace":
-        project.replace(change.file, change.ref, change.record);
-        break;
-      case "remove":
-        project.remove(change.file, change.ref);
-        break;
-    }
-  }
+  addChanges(project, draft.changes);
+  for (const section of draft.sections ?? []) addChanges(project.section?.(section.id) ?? project, section.changes);
   const merged = mergeBase(basePacks(api, records));
   return project.build(merged);
 }
@@ -1644,7 +1667,12 @@ function mergeBase(packs) {
 function emitDraft(api, draft) {
   const project = api.modProject(manifestFor(draft));
   for (const field of draft.fields) project.declareField(field);
-  for (const change of draft.changes) {
+  addChanges(project, draft.changes);
+  for (const section of draft.sections ?? []) addChanges(project.section?.(section.id) ?? project, section.changes);
+  return withHandWritten(project.emit(), draft);
+}
+function addChanges(project, changes) {
+  for (const change of changes) {
     switch (change.kind) {
       case "add":
         project.add(change.file, change.record);
@@ -1660,7 +1688,6 @@ function emitDraft(api, draft) {
         break;
     }
   }
-  return withHandWritten(project.emit(), draft);
 }
 function withHandWritten(generated, draft) {
   const fileExtras = draft.fileExtras ?? {};
@@ -1854,7 +1881,7 @@ function parseObject(text, what) {
   return { ok: true, value };
 }
 var OWNED = ["id", "name", "version", "author", "description", "repository", "license", "engine", "fields"];
-var DERIVED = ["shape", "facets", "group", "dependencies", "affectsGameplay", "modApi"];
+var DERIVED = ["shape", "facets", "group", "dependencies", "affectsGameplay", "modApi", "sections"];
 function writeManifest(draft, text) {
   const parsed = parseObject(text, "The manifest");
   if (!parsed.ok) return parsed;
@@ -1914,9 +1941,10 @@ function writeManifest(draft, text) {
   }
   return { ok: true, draft: { ...next, manifestExtras: extras } };
 }
-var CONTRIBUTIONS = ["records", "fieldPatches", "replaces", "removes"];
+var CONTRIBUTIONS = ["records", "fieldPatches", "replaces", "removes", "sections"];
 function writeRecordFile(draft, file, text) {
   const changes = [];
+  const sectionIds = [];
   const spare = {};
   if (text.trim() !== "") {
     const parsed = parseObject(text, `${file}.json`);
@@ -1925,6 +1953,40 @@ function writeRecordFile(draft, file, text) {
     for (const [key, value] of Object.entries(raw)) {
       if (!CONTRIBUTIONS.includes(key)) spare[key] = value;
     }
+    const readContribution = (value, section) => {
+      if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+      const contribution = value;
+      const records2 = contribution["records"];
+      if (records2 !== void 0) {
+        if (!Array.isArray(records2)) return false;
+        for (const record of records2) {
+          if (typeof record !== "object" || record === null || Array.isArray(record)) return false;
+          changes.push({ kind: "add", file, record, ...section ? { section } : {} });
+        }
+      }
+      const patches2 = contribution["fieldPatches"];
+      if (patches2 !== void 0) {
+        if (typeof patches2 !== "object" || patches2 === null || Array.isArray(patches2)) return false;
+        for (const [ref, ops] of Object.entries(patches2)) {
+          if (!Array.isArray(ops)) return false;
+          changes.push({ kind: "patch", file, ref, ops, ...section ? { section } : {} });
+        }
+      }
+      const replaces2 = contribution["replaces"];
+      if (replaces2 !== void 0) {
+        if (typeof replaces2 !== "object" || replaces2 === null || Array.isArray(replaces2)) return false;
+        for (const [ref, record] of Object.entries(replaces2)) {
+          if (typeof record !== "object" || record === null || Array.isArray(record)) return false;
+          changes.push({ kind: "replace", file, ref, record, ...section ? { section } : {} });
+        }
+      }
+      const removes2 = contribution["removes"];
+      if (removes2 !== void 0) {
+        if (!Array.isArray(removes2) || removes2.some((ref) => typeof ref !== "string")) return false;
+        for (const ref of removes2) changes.push({ kind: "remove", file, ref, ...section ? { section } : {} });
+      }
+      return true;
+    };
     const records = raw["records"];
     if (records !== void 0) {
       if (!Array.isArray(records)) return { ok: false, why: `"records" in ${file}.json has to be a list.` };
@@ -1969,11 +2031,33 @@ function writeRecordFile(draft, file, text) {
       }
       for (const ref of removes) changes.push({ kind: "remove", file, ref });
     }
+    const sections2 = raw["sections"];
+    if (sections2 !== void 0) {
+      if (typeof sections2 !== "object" || sections2 === null || Array.isArray(sections2)) return { ok: false, why: `"sections" in ${file}.json has to be an object.` };
+      for (const [id, contribution] of Object.entries(sections2)) {
+        if (!readContribution(contribution, id)) return { ok: false, why: `The contribution for section ${id} is malformed.` };
+      }
+      const declaredSectionIds = Object.keys(sections2);
+      for (const id of declaredSectionIds) if (!sectionIds.includes(id)) sectionIds.push(id);
+    }
   }
+  for (const id of changes.map((change) => change.section).filter((id2) => id2 !== void 0)) {
+    if (!sectionIds.includes(id)) sectionIds.push(id);
+  }
+  const existingSections = new Map((draft.sections ?? []).map((section) => [section.id, section]));
+  const sections = sectionIds.map((id) => ({
+    ...existingSections.get(id) ?? { id, title: id },
+    changes: changes.filter((change) => change.section === id)
+  }));
   const fileExtras = { ...draft.fileExtras ?? {} };
   if (Object.keys(spare).length === 0) delete fileExtras[file];
   else fileExtras[file] = spare;
-  return { ok: true, draft: { ...draft, changes: spliceFile(draft.changes, file, changes), fileExtras } };
+  const unsectioned = changes.filter((change) => change.section === void 0);
+  const sectioned = [...(draft.sections ?? []).filter((section) => !sectionIds.includes(section.id)), ...sections];
+  const next = { ...draft, changes: spliceFile(draft.changes, file, unsectioned), fileExtras };
+  if (sectioned.length > 0) return { ok: true, draft: { ...next, sections: sectioned } };
+  const { sections: _sections, ...withoutSections } = next;
+  return { ok: true, draft: withoutSections };
 }
 function spliceFile(changes, file, replacement) {
   const at = changes.findIndex((change) => change.file === file);
@@ -3721,15 +3805,15 @@ function detailsScreen(shop) {
       shop.api.satisfies(shop.seams.engine, current.engine) ? void 0 : `This range excludes the build you are running (${shop.seams.engine}), so you could not install what you are making.`
     );
     const idProblem = ID_RE2.test(current.id) ? "" : ` The id "${current.id}" is not one the game will accept.`;
-    const deps = Object.keys(dependenciesFor(current.changes));
+    const deps = Object.keys(dependenciesFor(allChanges(current)));
     derived.replaceChildren(
       h("p", null, "id ", h("code", { text: current.id }), ", which is also the folder name.", idProblem),
       h(
         "p",
         null,
         "group ",
-        h("code", { text: groupFor(current.changes) }),
-        groupFor(current.changes) === "content" ? ", because this mod adds records. Adding mods load before the ones that only adjust things." : ", because this mod only adjusts records that already exist, so it wants to load after the mods that add them."
+        h("code", { text: groupFor(allChanges(current)) }),
+        groupFor(allChanges(current)) === "content" ? ", because this mod adds records. Adding mods load before the ones that only adjust things." : ", because this mod only adjusts records that already exist, so it wants to load after the mods that add them."
       ),
       deps.length === 0 ? h("p", { text: "No dependencies, because nothing here touches anybody else's records yet." }) : h(
         "p",
@@ -7114,7 +7198,7 @@ function verdictScreen(shop) {
     const findings = build ? sortFindings(build.findings) : [];
     const counts = countFindings(findings);
     const ok = build?.ok === true;
-    const anything = current.changes.length > 0 || Object.keys(current.extras ?? {}).length > 0;
+    const anything = current.changes.length > 0 || (current.sections?.length ?? 0) > 0 || Object.keys(current.extras ?? {}).length > 0;
     const buildable = ok && anything;
     const refusal = sessionRefusal(current);
     tryIt.disabled = !shop.seams.session.available || !buildable || refusal !== void 0;
@@ -7129,7 +7213,7 @@ function verdictScreen(shop) {
         build === void 0 ? "" : `${counts.errors} error${counts.errors === 1 ? "" : "s"}, ${counts.warnings} warning${counts.warnings === 1 ? "" : "s"}, ${counts.hints} note${counts.hints === 1 ? "" : "s"}.`
       ),
       h("p", {
-        text: `${size.added} new record${size.added === 1 ? "" : "s"}, ${size.patched} adjusted, ${size.removed} removed, across ${files.length} file${files.length === 1 ? "" : "s"}. Checked against the game exactly as it is loaded right now, mods included, because that is what your changes will actually land on.`
+        text: `${size.added} new record${size.added === 1 ? "" : "s"}, ${size.patched} adjusted, ${size.removed} removed, ${current.sections?.length ?? 0} switchable section${(current.sections?.length ?? 0) === 1 ? "" : "s"}, across ${files.length} file${files.length === 1 ? "" : "s"}. Checked against the game exactly as it is loaded right now, mods included, because that is what your changes will actually land on.`
       }),
       ...shop.seams.authoring.demonstration ? [h("p", null, h("b", { text: "These checks are the workshop's own small set, not the game's. " }), shop.seams.authoring.why ?? "")] : []
     );

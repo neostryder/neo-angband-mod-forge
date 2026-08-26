@@ -109,7 +109,7 @@ export function verdictScreen(shop: Workshop): View {
     /* A mod with no changes but a file of its own is still a mod worth forging: an
      * author whose whole mod is a hand-written plugin.js has zero changes and a real
      * pack. Counting emitted files rather than changes is what lets them ship it. */
-    const anything = current.changes.length > 0 || Object.keys(current.extras ?? {}).length > 0;
+    const anything = current.changes.length > 0 || (current.sections?.length ?? 0) > 0 || Object.keys(current.extras ?? {}).length > 0;
     const buildable = ok && anything;
     const refusal = sessionRefusal(current);
     tryIt.disabled = !shop.seams.session.available || !buildable || refusal !== undefined;
@@ -133,7 +133,7 @@ export function verdictScreen(shop: Workshop): View {
       h("p", {
         text:
           `${size.added} new record${size.added === 1 ? "" : "s"}, ${size.patched} adjusted, ${size.removed} removed, ` +
-          `across ${files.length} file${files.length === 1 ? "" : "s"}. Checked against the game exactly as it is ` +
+          `${current.sections?.length ?? 0} switchable section${(current.sections?.length ?? 0) === 1 ? "" : "s"}, across ${files.length} file${files.length === 1 ? "" : "s"}. Checked against the game exactly as it is ` +
           "loaded right now, mods included, because that is what your changes will actually land on.",
       }),
       ...(shop.seams.authoring.demonstration

@@ -520,6 +520,7 @@ class StubProject implements ProjectLike {
   private readonly base: PackManifest;
   private readonly fields: FieldDecl[] = [];
   private readonly files = new Map<string, FileContribution>();
+  private activeSection: string | undefined;
 
   constructor(manifest: unknown) {
     const m = validateManifest(manifest);
@@ -536,6 +537,11 @@ class StubProject implements ProjectLike {
     return made;
   }
 
+  section(id: string): ProjectLike {
+    this.activeSection = id;
+    return this;
+  }
+
   declareField(field: FieldDecl): ProjectLike {
     if (!this.fields.some((f) => f.name === field.name)) this.fields.push(field);
     return this;
@@ -547,12 +553,24 @@ class StubProject implements ProjectLike {
 
   add(file: string, ...records: JsonRecord[]): ProjectLike {
     const target = this.file(file);
-    target.records = [...(target.records ?? []), ...records.map((r) => clone(r))];
+    if (this.activeSection) {
+      target.sections ??= {};
+      const section = target.sections[this.activeSection] ?? {};
+      section.records = [...(section.records ?? []), ...records.map((r) => clone(r))];
+      target.sections[this.activeSection] = section;
+    } else target.records = [...(target.records ?? []), ...records.map((r) => clone(r))];
     return this;
   }
 
   patchFields(file: string, ref: string, ops: readonly FieldOp[]): ProjectLike {
     const target = this.file(file);
+    if (this.activeSection) {
+      target.sections ??= {};
+      const section = target.sections[this.activeSection] ?? {};
+      section.fieldPatches = { ...(section.fieldPatches ?? {}), [ref]: [...(section.fieldPatches?.[ref] ?? []), ...ops.map((op) => clone(op) as FieldOp)] };
+      target.sections[this.activeSection] = section;
+      return this;
+    }
     const table = target.fieldPatches ?? {};
     table[ref] = [...(table[ref] ?? []), ...ops.map((op) => clone(op) as FieldOp)];
     target.fieldPatches = table;
@@ -561,6 +579,13 @@ class StubProject implements ProjectLike {
 
   replace(file: string, ref: string, record: JsonRecord): ProjectLike {
     const target = this.file(file);
+    if (this.activeSection) {
+      target.sections ??= {};
+      const section = target.sections[this.activeSection] ?? {};
+      section.replaces = { ...(section.replaces ?? {}), [ref]: clone(record) };
+      target.sections[this.activeSection] = section;
+      return this;
+    }
     const table = target.replaces ?? {};
     table[ref] = clone(record);
     target.replaces = table;
@@ -569,6 +594,13 @@ class StubProject implements ProjectLike {
 
   remove(file: string, ref: string): ProjectLike {
     const target = this.file(file);
+    if (this.activeSection) {
+      target.sections ??= {};
+      const section = target.sections[this.activeSection] ?? {};
+      section.removes = [...(section.removes ?? []), ref];
+      target.sections[this.activeSection] = section;
+      return this;
+    }
     const list = target.removes ?? [];
     if (!list.includes(ref)) list.push(ref);
     target.removes = list;

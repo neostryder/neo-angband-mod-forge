@@ -26,8 +26,8 @@ import type {
   PackManifest,
   ProjectBuild,
 } from "../host/authoring.js";
-import type { Draft } from "./draft.js";
-import { dependenciesFor, groupFor, MOD_API } from "./draft.js";
+import type { Change, Draft } from "./draft.js";
+import { allChanges, dependenciesFor, groupFor, MOD_API } from "./draft.js";
 import { ownerOf } from "./refs.js";
 import { zipStored } from "./zip.js";
 
@@ -57,8 +57,8 @@ export function manifestFor(draft: Draft): PackManifest {
     shape: "content",
     facets: code ? ["content", "plugin"] : ["content"],
     engine: draft.engine,
-    group: groupFor(draft.changes),
-    dependencies: dependenciesFor(draft.changes),
+    group: groupFor(allChanges(draft)),
+    dependencies: dependenciesFor(allChanges(draft)),
     /* A content mod that adds or retunes anything the player meets is a mod that
      * affects gameplay, and every change the workshop can make does. Saying so
      * is what lets the mod manager warn a player who cares about their score. */
@@ -70,6 +70,9 @@ export function manifestFor(draft: Draft): PackManifest {
   };
   if (code) manifest.modApi = MOD_API;
   if (draft.fields.length > 0) manifest.fields = [...draft.fields];
+  if (draft.sections && draft.sections.length > 0) {
+    manifest.sections = draft.sections.map(({ changes: _changes, ...section }) => ({ ...section }));
+  }
 
   /* Whatever the author wrote by hand wins, and the reason it is safe to let it is
    * that the game's validator passes an unknown key through untouched, so a key it
@@ -131,22 +134,8 @@ export function basePacks(api: AuthoringApi, records: ComposedRecords): LoadedPa
 export function buildDraft(api: AuthoringApi, draft: Draft, records: ComposedRecords): ProjectBuild {
   const project = api.modProject(manifestFor(draft));
   for (const field of draft.fields) project.declareField(field);
-  for (const change of draft.changes) {
-    switch (change.kind) {
-      case "add":
-        project.add(change.file, change.record);
-        break;
-      case "patch":
-        project.patchFields(change.file, change.ref, change.ops);
-        break;
-      case "replace":
-        project.replace(change.file, change.ref, change.record);
-        break;
-      case "remove":
-        project.remove(change.file, change.ref);
-        break;
-    }
-  }
+  addChanges(project, draft.changes);
+  for (const section of draft.sections ?? []) addChanges(project.section?.(section.id) ?? project, section.changes);
   const merged = mergeBase(basePacks(api, records));
   return project.build(merged);
 }
@@ -179,7 +168,13 @@ function mergeBase(packs: readonly LoadedPack[]): LoadedPack {
 export function emitDraft(api: AuthoringApi, draft: Draft): readonly EmittedFile[] {
   const project = api.modProject(manifestFor(draft));
   for (const field of draft.fields) project.declareField(field);
-  for (const change of draft.changes) {
+  addChanges(project, draft.changes);
+  for (const section of draft.sections ?? []) addChanges(project.section?.(section.id) ?? project, section.changes);
+  return withHandWritten(project.emit(), draft);
+}
+
+function addChanges(project: ReturnType<AuthoringApi["modProject"]>, changes: readonly Change[]): void {
+  for (const change of changes) {
     switch (change.kind) {
       case "add":
         project.add(change.file, change.record);
@@ -195,7 +190,6 @@ export function emitDraft(api: AuthoringApi, draft: Draft): readonly EmittedFile
         break;
     }
   }
-  return withHandWritten(project.emit(), draft);
 }
 
 /**

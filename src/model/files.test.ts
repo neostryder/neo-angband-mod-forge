@@ -208,26 +208,22 @@ describe("editing a record file as text", () => {
     expect(outcome.ok).toBe(false);
   });
 
-  /**
-   * The key the draft cannot model. Carried rather than refused, and declared
-   * rather than carried quietly: both halves are the decision, and a version that
-   * did the first without the second would ship an unchecked contribution silently.
-   */
-  it("carries a key it cannot model through to the folder, and says that it did", () => {
+  it("models a section, declares it, and groups its contribution in the folder", () => {
     const outcome = writeFileText(
       api,
       draft(),
       "monster.json",
-      '{ "records": [ { "name": "grue" } ], "sections": { "extras": { "records": [] } } }',
+      '{ "records": [ { "name": "grue" } ], "sections": { "extras": { "records": [ { "name": "sectioned grue" } ] } } }',
     );
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
 
-    expect(unread(outcome.draft)).toEqual([{ path: "monster.json", keys: ["sections"] }]);
+    expect(unread(outcome.draft)).toEqual([]);
+    expect(outcome.draft.sections?.map(({ id, title }) => ({ id, title }))).toEqual([{ id: "extras", title: "extras" }]);
 
     const written = emitDraft(api, outcome.draft).find((file) => file.path === "monster.json");
     const body = JSON.parse(asText(written?.contents ?? "{}")) as Record<string, unknown>;
-    expect(body["sections"]).toEqual({ extras: { records: [] } });
+    expect(body["sections"]).toEqual({ extras: { records: [{ name: "sectioned grue" }] } });
     expect(body["records"]).toHaveLength(1);
   });
 

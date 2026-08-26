@@ -16,15 +16,17 @@
  * not carry.
  */
 
-import type { FieldDecl, FieldOp, JsonRecord } from "../host/authoring.js";
+import type { FieldDecl, FieldOp, JsonRecord, PackSection } from "../host/authoring.js";
 import { splitRef } from "./refs.js";
 
 /** One thing the player has done, in the order they did it. */
 export type Change =
-  | { readonly kind: "add"; readonly file: string; readonly record: JsonRecord }
-  | { readonly kind: "patch"; readonly file: string; readonly ref: string; readonly ops: readonly FieldOp[] }
-  | { readonly kind: "replace"; readonly file: string; readonly ref: string; readonly record: JsonRecord }
-  | { readonly kind: "remove"; readonly file: string; readonly ref: string };
+  | ({ readonly kind: "add"; readonly file: string; readonly record: JsonRecord } & Sectioned)
+  | ({ readonly kind: "patch"; readonly file: string; readonly ref: string; readonly ops: readonly FieldOp[] } & Sectioned)
+  | ({ readonly kind: "replace"; readonly file: string; readonly ref: string; readonly record: JsonRecord } & Sectioned)
+  | ({ readonly kind: "remove"; readonly file: string; readonly ref: string } & Sectioned);
+
+export interface Sectioned { readonly section?: string }
 
 /** A mod in progress. Every field is something the emitted files carry. */
 export interface Draft {
@@ -54,6 +56,8 @@ export interface Draft {
   /** Fields the mod coins, in its own namespace. */
   readonly fields: readonly FieldDecl[];
   readonly changes: readonly Change[];
+  /** Declared switchable parts and the changes attributed to each part. */
+  readonly sections?: readonly (PackSection & { readonly changes: readonly Change[] })[];
   /**
    * Files the mod folder carries that no screen writes, by path, verbatim.
    *
@@ -179,6 +183,10 @@ export function groupFor(changes: readonly Change[]): string {
   return changes.some((c) => c.kind === "add" || c.kind === "replace") ? "content" : "tweaks";
 }
 
+export function allChanges(draft: Pick<Draft, "changes" | "sections">): readonly Change[] {
+  return [...draft.changes, ...(draft.sections ?? []).flatMap((section) => section.changes)];
+}
+
 /**
  * Every pack whose records this draft touches, which is exactly the set the
  * manifest must declare as dependencies.
@@ -208,7 +216,7 @@ export function draftSize(draft: Draft): { added: number; patched: number; remov
   let added = 0;
   let patched = 0;
   let removed = 0;
-  for (const change of draft.changes) {
+  for (const change of allChanges(draft)) {
     if (change.kind === "add") added++;
     else if (change.kind === "patch") patched++;
     else if (change.kind === "replace") patched++;
@@ -219,5 +227,5 @@ export function draftSize(draft: Draft): { added: number; patched: number; remov
 
 /** Every record file a draft touches, sorted, for the emit summary. */
 export function draftFiles(draft: Draft): readonly string[] {
-  return [...new Set(draft.changes.map((c) => c.file))].sort();
+  return [...new Set(allChanges(draft).map((c) => c.file))].sort();
 }
