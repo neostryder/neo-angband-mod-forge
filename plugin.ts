@@ -39,19 +39,15 @@
  * PLANNED.md rather than glossed here.
  *
  * ------------------------------------------------------------------
- * WHAT THE WORKSHOP CANNOT DO ON THIS ENGINE, said once, plainly
+ * WHAT THE WORKSHOP GETS FROM A SUPPORTED ENGINE
  * ------------------------------------------------------------------
  *
- * Four seams it wants do not exist yet, and `docs/ENGINE_SEAMS.md` specifies all
- * four. Without the first two the numbers on screen come from the workshop's own
- * demonstration content, and it says so in a banner it will not let the player
- * dismiss. Without the third, a finished mod is saved as a file and added through
- * the mod manager's existing import door. Without the fourth, the Test panel is
- * off with the reason on it.
- *
- * The mod is built and shipped in that state on purpose. A tool that refuses to
- * open until an engine change lands is a tool nobody can look at, and looking at
- * it is how the seams get specified correctly.
+ * Neo Angband 1.0.0 hands this plugin the authoring SDK and the records composed
+ * for the running game. `docs/ENGINE_SEAMS.md` traces that route and records all
+ * five seam decisions. The small demonstration set remains for a standalone or
+ * partial test context; when it is used, the workshop says so in a banner it will
+ * not let the player dismiss. Installing another mod in place remains deliberately
+ * absent, while session loading and the Test panel use their landed host surfaces.
  */
 
 import type { RegionDeclaration, RegionPointer, RegionSurface } from "@rpgm-tools/neo-angband-mod-sdk";

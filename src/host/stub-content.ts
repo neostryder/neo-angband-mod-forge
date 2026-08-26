@@ -5,8 +5,9 @@
  * TWO CALLERS, and both of them matter. The tests use it, because a unit test
  * that needed 3279 records to check that a dot-path edit lands on the right
  * field would be testing the wrong thing. And the workshop uses it when
- * `ctx.authoring` and `ctx.composedRecords` are absent, which on the engine this
- * was built against is always - see `docs/ENGINE_SEAMS.md`.
+ * `ctx.authoring` or `ctx.composedRecords` is absent from a standalone or partial
+ * host. Neo Angband 1.0.0 supplies both on the production plugin path; see
+ * `docs/ENGINE_SEAMS.md`.
  *
  * IT IS NOT A COPY OF ANYTHING. Every record here is invented, deliberately, and
  * the numbers are round. Shipping a trimmed copy of core's real records would
@@ -372,4 +373,3 @@ export const STUB_RECORDS: Readonly<Record<string, readonly JsonRecord[]>> = Obj
   object: OBJECTS,
   store: STORES,
 });
-

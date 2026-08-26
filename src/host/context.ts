@@ -8,11 +8,11 @@
  * "the mod uses no private path".
  *
  * FIVE MEMBERS HERE MAY NOT EXIST. `authoring`, `composedRecords`, `installMod`,
- * `loadModForSession` and `wizard` are the seams in `docs/ENGINE_SEAMS.md`, and
- * every one of them is optional in this interface because every one of them is
- * genuinely absent on some engine this mod runs on. Nothing reads them directly:
- * `seams.ts` resolves each to either the real thing or a named fallback, so a
- * seam landing changes one file.
+ * `loadModForSession` and `wizard` are the seams in `docs/ENGINE_SEAMS.md`.
+ * Supported production hosts provide the first two, but this narrower structural
+ * interface keeps them optional for the standalone preview and partial test
+ * contexts. Nothing reads them directly: `seams.ts` resolves each to either the
+ * real thing or a named fallback.
  */
 
 import type { AuthoringApi, JsonRecord } from "./authoring.js";

@@ -213,6 +213,7 @@ describe("mountLaunch", () => {
     );
     readme?.click();
     expect(overlay.root.textContent ?? "").toContain("What ModForge is");
+    expect(panel(overlay, ".mb-launch-readme")?.classList.contains("mb-readme-card")).toBe(true);
 
     const back = [...overlay.root.querySelectorAll<HTMLButtonElement>("button")].find(
       (b) => (b.textContent ?? "").trim() === "Back",

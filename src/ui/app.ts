@@ -284,6 +284,17 @@ export function mountApp(deps: AppDeps): App {
         }),
       );
     }
+    if (state.route.at === "base" || state.route.at === "rebalance") {
+      out.push(h("span", { class: "mb-crumb-sep", text: ">" }));
+      out.push(
+        h("button", {
+          class: "mb-crumb",
+          type: "button",
+          text: "What are you making",
+          on: { click: () => deps.acts.go({ at: "kinds" }) },
+        }),
+      );
+    }
     const leaf = leafName(state.route);
     if (leaf !== undefined) {
       out.push(h("span", { class: "mb-crumb-sep", text: ">" }));

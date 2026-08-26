@@ -476,13 +476,13 @@ function editDistance(a, b) {
 function measureField(values, total) {
   const types = /* @__PURE__ */ new Set();
   const numbers = [];
-  const vocabulary2 = /* @__PURE__ */ new Set();
+  const vocabulary = /* @__PURE__ */ new Set();
   const childValues = /* @__PURE__ */ new Map();
   const itemValues = [];
   for (const value of values) {
     types.add(shapeOf(value));
     if (typeof value === "number") numbers.push(value);
-    if (typeof value === "string" || typeof value === "boolean") vocabulary2.add(value);
+    if (typeof value === "string" || typeof value === "boolean") vocabulary.add(value);
     if (Array.isArray(value)) for (const item of value) itemValues.push(item);
     else if (isRecord(value)) {
       for (const [k, v] of Object.entries(value)) {
@@ -507,8 +507,8 @@ function measureField(values, total) {
     shape.fields = fields;
   }
   if (itemValues.length > 0) shape.items = measureField(itemValues, itemValues.length);
-  if (vocabulary2.size > 0 && vocabulary2.size <= Math.max(2, Math.floor(total / 2))) {
-    shape.values = [...vocabulary2].sort((a, b) => String(a).localeCompare(String(b)));
+  if (vocabulary.size > 0 && vocabulary.size <= Math.max(2, Math.floor(total / 2))) {
+    shape.values = [...vocabulary].sort((a, b) => String(a).localeCompare(String(b)));
   }
   return shape;
 }
@@ -1648,7 +1648,43 @@ function buildDraft(api, draft, records) {
   addChanges(project, draft.changes);
   for (const section of draft.sections ?? []) addChanges(project.section?.(section.id) ?? project, section.changes);
   const merged = mergeBase(basePacks(api, records));
-  return project.build(merged);
+  const built = project.build(merged);
+  if (built.composed === void 0) return built;
+  const all = composedRecordObjects(built.composed);
+  const subject = {};
+  for (const [file, list] of Object.entries(all)) {
+    const mine = list.filter((record) => {
+      const provenance = api.provenanceOf(record);
+      return provenance?.owner === draft.id || provenance?.modifiedBy?.includes(draft.id) === true;
+    });
+    if (mine.length > 0) subject[file] = mine;
+  }
+  const findings = distinctFindings([...built.findings, ...api.checkRecords(subject, all)]);
+  return {
+    ...built,
+    findings,
+    ok: built.ok && !findings.some((finding) => finding.level === "error")
+  };
+}
+function composedRecordObjects(composed) {
+  const out = {};
+  for (const [file, values] of Object.entries(composed)) {
+    out[file] = values.filter(
+      (value) => typeof value === "object" && value !== null && !Array.isArray(value)
+    );
+  }
+  return out;
+}
+function distinctFindings(findings) {
+  const seen = /* @__PURE__ */ new Set();
+  return sortFindings(
+    findings.filter((finding) => {
+      const key = [finding.level, finding.file, finding.record, finding.field ?? "", finding.rule].join("\0");
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+  );
 }
 function mergeBase(packs) {
   const files = {};
@@ -3187,15 +3223,16 @@ var README_SECTIONS = [
     ]
   },
   {
-    title: "What it is not yet",
+    title: "The game it reads",
     paragraphs: [
-      "The numbers shown today come from the workshop's own demonstration content rather than from the game's real records, until the engine grows the seams this mod is built against. The banner on every screen says so, and nothing dismisses it."
+      "On Neo Angband 1.0.0 the workshop reads the authoring SDK and the complete set of records composed for this running game, including enabled content mods. Its suggestions, comparisons and checks are about what is actually loaded.",
+      "A small demonstration set remains for the standalone preview and partial test hosts. If either live-data surface is missing, an undismissable banner says so. That banner is hidden on the normal in-game path."
     ]
   },
   {
     title: "Reading more",
     paragraphs: [
-      "The full README, the seven written tutorials, and every engine seam this mod is waiting on live in the repository this mod shipped from: neo-angband-mod-forge, on GitHub."
+      "The full README, the seven written tutorials, and every engine seam decision live in the repository this mod shipped from: neo-angband-mod-forge, on GitHub."
     ]
   }
 ];
@@ -3213,7 +3250,16 @@ function readmeElements() {
 // src/ui/screens/about.ts
 function aboutScreen(shop) {
   void shop;
-  const el = h("div", { class: "mb-main mb-prose" }, h("h2", { text: "About ModForge" }), ...readmeElements());
+  const el = h(
+    "div",
+    { class: "mb-main" },
+    h(
+      "section",
+      { class: "mb-readme-card mb-prose" },
+      h("h2", { text: "About ModForge" }),
+      ...readmeElements()
+    )
+  );
   return { el, update: () => void 0, dispose: () => void 0 };
 }
 
@@ -4905,7 +4951,6 @@ function lintFile(api, draft, records, path, text) {
   for (const problem of refusals) {
     out.push({ level: "error", rule: "project/refused", message: problem });
   }
-  if (path !== MANIFEST) out.push(...vocabulary(api, stem, body, index, text));
   return { findings: sortLint(out), elsewhere, checked: true };
 }
 function sortLint(findings) {
@@ -5041,67 +5086,6 @@ function recordAnchor(body, label) {
 }
 function isRecord3(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-var VOCABULARY_RULE = "workshop/vocabulary";
-function vocabulary(api, file, body, index, text) {
-  const blueprint = api.blueprintFor(file);
-  if (blueprint === void 0) return [];
-  const out = [];
-  const visit = (record, at) => {
-    walk(record, blueprint.fields, at, (path, shape, value) => {
-      const allowed = shape.values;
-      if (allowed === void 0 || allowed.length === 0) return;
-      if (typeof value !== "string" && typeof value !== "boolean") return;
-      if (allowed.includes(value)) return;
-      const offset = nearestOffset(index, path, 2);
-      const where = offset === void 0 ? {} : positionAt(text, offset);
-      const shown = allowed.slice(0, 12).map((one) => String(one)).join(", ");
-      out.push({
-        level: "hint",
-        rule: VOCABULARY_RULE,
-        field: String(path[path.length - 1] ?? ""),
-        message: `${JSON.stringify(value)} is not one of the ${allowed.length} values core's own ${file} records use here (${shown}${allowed.length > 12 ? ", and more" : ""}). That is allowed - a mod may coin a new one - and the game's own checker will not mention it, so this is the workshop's word and not the game's.`,
-        ...where
-      });
-    });
-  };
-  const added = body["records"];
-  if (Array.isArray(added)) {
-    added.forEach((entry, n) => {
-      if (isRecord3(entry)) visit(entry, ["records", n]);
-    });
-  }
-  const replaced = body["replaces"];
-  if (isRecord3(replaced)) {
-    for (const [ref, entry] of Object.entries(replaced)) {
-      if (isRecord3(entry)) visit(entry, ["replaces", ref]);
-    }
-  }
-  return out;
-}
-function walk(value, fields, at, found) {
-  if (!isRecord3(value)) return;
-  for (const [key, child] of Object.entries(value)) {
-    const shape = fields[key];
-    if (shape === void 0) continue;
-    const path = [...at, key];
-    descend(child, shape, path, found);
-  }
-}
-function descend(value, shape, path, found) {
-  if (Array.isArray(value)) {
-    const items = shape.items;
-    value.forEach((entry, n) => {
-      if (items === void 0) found([...path, n], shape, entry);
-      else descend(entry, items, [...path, n], found);
-    });
-    return;
-  }
-  if (isRecord3(value)) {
-    if (shape.fields !== void 0) walk(value, shape.fields, path, found);
-    return;
-  }
-  found(path, shape, value);
 }
 
 // src/ui/screens/files.ts
@@ -5448,18 +5432,11 @@ function checkedFurther(lint, settled) {
   if (!lint.checked) return lint.why ?? "";
   const parts = [];
   const about = lint.findings.filter((finding) => finding.caveat !== true);
-  const ours = about.filter((finding) => finding.rule.startsWith("workshop/")).length;
-  const theirs = about.length - ours;
   const standIn = lint.findings.some((finding) => finding.caveat === true);
   const whose = standIn ? "the record checks" : "the game's own record checker";
   parts.push(
-    theirs === 0 ? `${standIn ? "The record checks have" : "The game's own record checker has"} nothing to say about this file.` : `${theirs} thing${theirs === 1 ? "" : "s"} ${whose} found here, which is the same checking the record screens show. Click one to go to it.`
+    about.length === 0 ? `${standIn ? "The record checks have" : "The game's own record checker has"} nothing to say about this file.` : `${about.length} thing${about.length === 1 ? "" : "s"} ${whose} found here, which is the same checking the record screens show. Click one to go to it.`
   );
-  if (ours > 0) {
-    parts.push(
-      `${ours} more ${ours === 1 ? "is" : "are"} the workshop's own: a value outside the set core's records use for that field. That is legal, and the game will not mention it.`
-    );
-  }
   if (!settled) parts.push("Checking what you have just typed.");
   if (lint.elsewhere > 0) {
     parts.push(
@@ -5777,13 +5754,26 @@ function rebalanceScreen(shop, file) {
         text: "Filter the list down to the records you mean, choose one number and one adjustment, and every record that matched gets its own entry in your mod."
       })
     ),
-    numeric.length === 0 ? empty("?", "Nothing to retune here", `No field in ${file} holds a plain number across the loaded records.`) : h("div", null, search, controls.el, previewCard.el, h("div", { class: "mb-row-actions" }, apply2))
+    numeric.length === 0 ? h(
+      "div",
+      null,
+      empty("?", "Nothing to retune here", emptyRetuneMessage(shop, file)),
+      h(
+        "div",
+        { class: "mb-row-actions mb-empty-actions" },
+        button({
+          label: "Choose another kind",
+          kind: "primary",
+          onClick: () => shop.acts.go({ at: "kinds" })
+        })
+      )
+    ) : h("div", null, search, controls.el, previewCard.el, h("div", { class: "mb-row-actions" }, apply2))
   );
   function matches(state) {
     const needle = state.filter.trim().toLowerCase();
     const field = fieldPick.value;
     return all.filter(
-      (record) => typeof record[field] === "number" && (needle === "" || labelOf(shop.api, file, record).toLowerCase().includes(needle))
+      (record) => typeof valueAt2(record, field) === "number" && (needle === "" || labelOf(shop.api, file, record).toLowerCase().includes(needle))
     );
   }
   const render = (state) => {
@@ -5803,7 +5793,7 @@ function rebalanceScreen(shop, file) {
           "tbody",
           null,
           ...matched.slice(0, 25).map((record) => {
-            const was = record[field];
+            const was = valueAt2(record, field);
             const now = typeof was === "number" && Number.isFinite(value) ? op === "mul" ? was * value : was + value : was;
             return h(
               "tr",
@@ -5832,12 +5822,37 @@ function rebalanceScreen(shop, file) {
 function numericFields(records) {
   const counts = /* @__PURE__ */ new Map();
   for (const record of records) {
-    for (const [key, value] of Object.entries(record)) {
-      if (typeof value === "number") counts.set(key, (counts.get(key) ?? 0) + 1);
-    }
+    for (const path of numericPaths(record)) counts.set(path, (counts.get(path) ?? 0) + 1);
   }
   const floor = Math.max(1, records.length / 4);
   return [...counts.entries()].filter(([, count]) => count >= floor).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([key]) => key);
+}
+function numericPaths(record) {
+  const out = [];
+  const visit = (value, path) => {
+    if (typeof value === "number") {
+      if (path !== "") out.push(path);
+      return;
+    }
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return;
+    for (const [key, child] of Object.entries(value)) {
+      visit(child, path === "" ? key : `${path}.${key}`);
+    }
+  };
+  visit(record, "");
+  return out;
+}
+function emptyRetuneMessage(shop, file) {
+  const alternatives = contentKinds(shop.api).filter((kind) => kind.file !== file && numericFields(shop.records[kind.file] ?? []).length > 0).slice(0, 3).map((kind) => kind.title);
+  if (alternatives.length === 0) {
+    return `No numeric field appears often enough across the loaded ${file} records. Choose another kind to keep going.`;
+  }
+  return `No numeric field appears often enough across the loaded ${file} records. Try ${joinAlternatives(alternatives)}, or choose another kind.`;
+}
+function joinAlternatives(values) {
+  if (values.length === 1) return values[0] ?? "another kind";
+  if (values.length === 2) return `${values[0]} or ${values[1]}`;
+  return `${values.slice(0, -1).join(", ")}, or ${values[values.length - 1]}`;
 }
 function round(value) {
   return Number.isInteger(value) ? value : Math.round(value * 100) / 100;
@@ -7541,6 +7556,17 @@ function mountApp(deps) {
         })
       );
     }
+    if (state.route.at === "base" || state.route.at === "rebalance") {
+      out.push(h("span", { class: "mb-crumb-sep", text: ">" }));
+      out.push(
+        h("button", {
+          class: "mb-crumb",
+          type: "button",
+          text: "What are you making",
+          on: { click: () => deps.acts.go({ at: "kinds" }) }
+        })
+      );
+    }
     const leaf = leafName(state.route);
     if (leaf !== void 0) {
       out.push(h("span", { class: "mb-crumb-sep", text: ">" }));
@@ -7733,7 +7759,7 @@ function mountLaunch(overlay, opts) {
       clearAuto();
       fill(
         body,
-        h("div", { class: "mb-launch-readme mb-prose" }, ...readmeElements()),
+        h("div", { class: "mb-launch-readme mb-readme-card mb-prose" }, ...readmeElements()),
         h("div", { class: "mb-launch-actions" }, button({ label: "Back", onClick: showFront }), enterButton())
       );
     }
@@ -8610,6 +8636,20 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
 }
 .mb-prose strong { color: var(--gold); font-weight: 600; }
 
+/* The README is shown both over the launch scrim and as the About screen. Give
+ * the shared copy the same backed treatment as the workshop's other cards, and
+ * set its ink explicitly because the launch layer is a sibling of mb-scrim and
+ * does not inherit that element's foreground colour. */
+.mb-readme-card {
+  width: min(100%, 68ch);
+  padding: 14px 16px;
+  color: var(--ink);
+  border: 1px solid var(--edge);
+  border-radius: var(--r);
+  background: var(--surface-2);
+  box-shadow: var(--inset);
+}
+
 .mb-code {
   margin: 0;
   padding: 10px 12px;
@@ -8809,6 +8849,7 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   opacity: 0.7;
 }
 .mb-empty-title { font-family: var(--font-display); font-size: 16px; color: var(--ink-dim); }
+.mb-empty-actions { justify-content: center; margin-top: -30px; padding-bottom: 30px; }
 
 .mb-row-actions { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
 .mb-spacer { flex: 1; }

@@ -22,6 +22,8 @@
 import { h } from "../dom.js";
 import type { JsonRecord } from "../../host/authoring.js";
 import { kindFor } from "../../model/kinds.js";
+import { contentKinds } from "../../model/kinds.js";
+import { valueAt } from "../../model/paths.js";
 import { labelOf, ownerOf } from "../../model/refs.js";
 import type { AppState } from "../store.js";
 import { button, card, empty, searchBox } from "../widgets.js";
@@ -122,7 +124,20 @@ export function rebalanceScreen(shop: Workshop, file: string): View {
       }),
     ),
     numeric.length === 0
-      ? empty("?", "Nothing to retune here", `No field in ${file} holds a plain number across the loaded records.`)
+      ? h(
+          "div",
+          null,
+          empty("?", "Nothing to retune here", emptyRetuneMessage(shop, file)),
+          h(
+            "div",
+            { class: "mb-row-actions mb-empty-actions" },
+            button({
+              label: "Choose another kind",
+              kind: "primary",
+              onClick: () => shop.acts.go({ at: "kinds" }),
+            }),
+          ),
+        )
       : h("div", null, search, controls.el, previewCard.el, h("div", { class: "mb-row-actions" }, apply)),
   );
 
@@ -131,7 +146,7 @@ export function rebalanceScreen(shop: Workshop, file: string): View {
     const field = fieldPick.value;
     return all.filter(
       (record) =>
-        typeof record[field] === "number" &&
+        typeof valueAt(record, field) === "number" &&
         (needle === "" || labelOf(shop.api, file, record).toLowerCase().includes(needle)),
     );
   }
@@ -158,7 +173,7 @@ export function rebalanceScreen(shop: Workshop, file: string): View {
           "tbody",
           null,
           ...matched.slice(0, 25).map((record) => {
-            const was = record[field];
+            const was = valueAt(record, field);
             const now = typeof was === "number" && Number.isFinite(value) ? (op === "mul" ? was * value : was + value) : was;
             return h(
               "tr",
@@ -188,19 +203,63 @@ export function rebalanceScreen(shop: Workshop, file: string): View {
   };
 }
 
-/** Fields that hold a plain number on at least a quarter of the loaded records. */
-function numericFields(records: readonly JsonRecord[]): readonly string[] {
+/** Numeric leaf paths that appear on at least a quarter of the loaded records. */
+export function numericFields(records: readonly JsonRecord[]): readonly string[] {
   const counts = new Map<string, number>();
   for (const record of records) {
-    for (const [key, value] of Object.entries(record)) {
-      if (typeof value === "number") counts.set(key, (counts.get(key) ?? 0) + 1);
-    }
+    for (const path of numericPaths(record)) counts.set(path, (counts.get(path) ?? 0) + 1);
   }
   const floor = Math.max(1, records.length / 4);
   return [...counts.entries()]
     .filter(([, count]) => count >= floor)
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .map(([key]) => key);
+}
+
+/**
+ * Numeric leaves inside objects are ordinary patch targets too. The engine's
+ * field-patch format addresses them with dotted paths, so stopping at the first
+ * object hid fields such as ego_item's info.cost and info.rating even though the
+ * SDK measured them and the patch composer could edit them.
+ *
+ * Arrays stay out of a bulk retune. Their positions are often rows rather than
+ * stable identities, so applying one operation to index 0 across unrelated
+ * records would claim those rows mean the same thing when they may not.
+ */
+function numericPaths(record: JsonRecord): readonly string[] {
+  const out: string[] = [];
+  const visit = (value: unknown, path: string): void => {
+    if (typeof value === "number") {
+      if (path !== "") out.push(path);
+      return;
+    }
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return;
+    for (const [key, child] of Object.entries(value)) {
+      visit(child, path === "" ? key : `${path}.${key}`);
+    }
+  };
+  visit(record, "");
+  return out;
+}
+
+function emptyRetuneMessage(shop: Workshop, file: string): string {
+  const alternatives = contentKinds(shop.api)
+    .filter((kind) => kind.file !== file && numericFields(shop.records[kind.file] ?? []).length > 0)
+    .slice(0, 3)
+    .map((kind) => kind.title);
+  if (alternatives.length === 0) {
+    return `No numeric field appears often enough across the loaded ${file} records. Choose another kind to keep going.`;
+  }
+  return (
+    `No numeric field appears often enough across the loaded ${file} records. ` +
+    `Try ${joinAlternatives(alternatives)}, or choose another kind.`
+  );
+}
+
+function joinAlternatives(values: readonly string[]): string {
+  if (values.length === 1) return values[0] ?? "another kind";
+  if (values.length === 2) return `${values[0]} or ${values[1]}`;
+  return `${values.slice(0, -1).join(", ")}, or ${values[values.length - 1]}`;
 }
 
 function round(value: number): number {

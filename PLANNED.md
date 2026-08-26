@@ -39,6 +39,11 @@ Last reviewed: 2026-08-26.
 
 ## The engine seams
 
+The authoring SDK and composed-record seams are LANDED in Neo Angband 1.0.0 and
+therefore have no open entry here. `docs/ENGINE_SEAMS.md` records their production
+wiring. What remains in this section is the install decision, which is declined
+rather than waiting on implementation.
+
 ### Installing without leaving the workshop - DECLINED
 
 `ctx.installMod` behind a new `mod:install` capability (seam 3). Not asked for, and

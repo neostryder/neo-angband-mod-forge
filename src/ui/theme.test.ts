@@ -30,6 +30,14 @@ describe("the stylesheet", () => {
     expect(block).toContain("flex: none");
   });
 
+  it("backs the in-app README with the existing card tokens and explicit ink", () => {
+    const readme = THEME_CSS.slice(THEME_CSS.indexOf("\n.mb-readme-card {"));
+    const block = readme.slice(0, readme.indexOf("}"));
+    expect(block).toContain("color: var(--ink)");
+    expect(block).toContain("border: 1px solid var(--edge)");
+    expect(block).toContain("background: var(--surface-2)");
+  });
+
   it("defines both treatments, and every colour in both", () => {
     const dark = tokens(THEME_CSS, ":host {");
     const parchment = tokens(THEME_CSS, ":host(.mb-parchment) {");

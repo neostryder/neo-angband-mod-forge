@@ -1,12 +1,12 @@
 /**
  * A working stand-in for the authoring SDK, for a host that cannot hand it over.
  *
- * WHAT THIS IS FOR. `ctx.authoring` does not exist on any engine yet
+ * WHAT THIS IS FOR. Neo Angband 1.0.0 supplies `ctx.authoring` in production, but
+ * a standalone preview and a partial test context may omit it
  * (`docs/ENGINE_SEAMS.md`, seam 1). Without something behind that interface the
- * workshop would be a set of screens that draw nothing, which cannot be shown to
- * anybody and cannot be tested. This is the something. Every screen renders,
- * every gesture works, and the files it emits are structurally exactly what the
- * folder reader expects.
+ * workshop would be a set of screens that draw nothing. This is the fallback.
+ * Every screen renders, every gesture works, and the files it emits are
+ * structurally exactly what the folder reader expects.
  *
  * WHAT IT IS NOT, said as loudly here as the workshop says it on screen. Three
  * of these functions are MEASUREMENTS - `requiredFields`, `fieldUsage`,

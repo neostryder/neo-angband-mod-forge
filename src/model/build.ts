@@ -137,7 +137,51 @@ export function buildDraft(api: AuthoringApi, draft: Draft, records: ComposedRec
   addChanges(project, draft.changes);
   for (const section of draft.sections ?? []) addChanges(project.section?.(section.id) ?? project, section.changes);
   const merged = mergeBase(basePacks(api, records));
-  return project.build(merged);
+  const built = project.build(merged);
+  if (built.composed === undefined) return built;
+
+  /* ModProject runs the install-time pack checker. checkRecords is the authoring
+   * companion over the same composed output, including advisory rules such as
+   * field/vocabulary that deliberately do not run while a player's game boots.
+   * A supported host hands both through one SDK barrel, so the workshop must call
+   * both rather than keep its former local copy of that advisory rule. */
+  const all = composedRecordObjects(built.composed);
+  const subject: Record<string, JsonRecord[]> = {};
+  for (const [file, list] of Object.entries(all)) {
+    const mine = list.filter((record) => {
+      const provenance = api.provenanceOf(record);
+      return provenance?.owner === draft.id || provenance?.modifiedBy?.includes(draft.id) === true;
+    });
+    if (mine.length > 0) subject[file] = mine;
+  }
+  const findings = distinctFindings([...built.findings, ...api.checkRecords(subject, all)]);
+  return {
+    ...built,
+    findings,
+    ok: built.ok && !findings.some((finding) => finding.level === "error"),
+  };
+}
+
+function composedRecordObjects(composed: Readonly<Record<string, readonly unknown[]>>): ComposedRecords {
+  const out: Record<string, JsonRecord[]> = {};
+  for (const [file, values] of Object.entries(composed)) {
+    out[file] = values.filter(
+      (value): value is JsonRecord => typeof value === "object" && value !== null && !Array.isArray(value),
+    );
+  }
+  return out;
+}
+
+function distinctFindings(findings: readonly AuthoringFinding[]): readonly AuthoringFinding[] {
+  const seen = new Set<string>();
+  return sortFindings(
+    findings.filter((finding) => {
+      const key = [finding.level, finding.file, finding.record, finding.field ?? "", finding.rule].join("\u0000");
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }),
+  );
 }
 
 function mergeBase(packs: readonly LoadedPack[]): LoadedPack {

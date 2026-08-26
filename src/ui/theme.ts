@@ -797,6 +797,20 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
 }
 .mb-prose strong { color: var(--gold); font-weight: 600; }
 
+/* The README is shown both over the launch scrim and as the About screen. Give
+ * the shared copy the same backed treatment as the workshop's other cards, and
+ * set its ink explicitly because the launch layer is a sibling of mb-scrim and
+ * does not inherit that element's foreground colour. */
+.mb-readme-card {
+  width: min(100%, 68ch);
+  padding: 14px 16px;
+  color: var(--ink);
+  border: 1px solid var(--edge);
+  border-radius: var(--r);
+  background: var(--surface-2);
+  box-shadow: var(--inset);
+}
+
 .mb-code {
   margin: 0;
   padding: 10px 12px;
@@ -996,6 +1010,7 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   opacity: 0.7;
 }
 .mb-empty-title { font-family: var(--font-display); font-size: 16px; color: var(--ink-dim); }
+.mb-empty-actions { justify-content: center; margin-top: -30px; padding-bottom: 30px; }
 
 .mb-row-actions { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
 .mb-spacer { flex: 1; }

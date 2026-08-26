@@ -18,21 +18,20 @@ hand-edited and brought back.
 
 **Available today. The workshop opens, every screen works, the mod it emits is a real mod,
 and you can load that mod into the running game for the rest of the session.**
-What it is not yet is connected to the game's own content: two of the five engine
-seams it wants do not exist, so the numbers on screen come from the workshop's own
-demonstration content rather than from the 3279 records the game actually runs on.
-The workshop says so in a banner it will not let you dismiss, and
-[docs/ENGINE_SEAMS.md](docs/ENGINE_SEAMS.md) specifies all five precisely.
-[PLANNED.md](PLANNED.md) records which of them blocks what.
+On Neo Angband 1.0.0 it is connected to the game's own authoring SDK and the full
+set of records composed for the running session, including enabled content mods.
+Suggestions, peer tables, validation and the content-kind list therefore describe
+the game the player is actually running. [docs/ENGINE_SEAMS.md](docs/ENGINE_SEAMS.md)
+records the production path and all five seam decisions precisely.
 
-It needs Neo Angband 0.26.0 or newer, because the capability behind the session
-load arrived there and a mod declaring one the running game does not know is
-refused outright.
+It needs Neo Angband 1.0.0 or newer. That release carries both live-authoring
+seams as well as the session-load and test surfaces ModForge uses.
 
-The missing seams are an explicit compatibility boundary rather than a reason to
-hide the workshop: it remains openable and fully usable for drafting, reviewing,
-and emitting a mod, while the banner identifies the places where its demonstration
-content stands in for the game's live content.
+The small demonstration fixture remains only as a compatibility and standalone
+development fallback. If either live-data seam is absent, the workshop stays
+open but shows an undismissable banner identifying the fallback. That banner is
+hidden when the real SDK and composed records are present, which is the normal
+in-game path for every engine version this release supports.
 
 ## What it does
 
@@ -110,12 +109,11 @@ wrong, a reference to something nothing defines and a record that will never be
 generated all appear under the editor with the line they are on. Click one to go to
 it. Each row says which rule found it.
 
-One rule is the workshop's own and is labelled as such: a value outside the set of
-values the game's own records use for that field. The engine's checker does not say
-this, deliberately, because a mod coining a new value is doing something legal. So
-it is a hint, its rule id is `workshop/vocabulary`, and the line under the pane says
-in words that the game will not repeat it. It catches the case nothing else can: a
-perfectly valid string, of the right type, in a field that exists, spelled wrong.
+One SDK rule is deliberately only a hint: a value outside the set of values the
+game's own records use for that field. A mod coining a new value is legal, but the
+same shape can be a typo in an existing vocabulary. The rule is
+`field/vocabulary`, and the message says that it is the SDK's advice rather than a
+load-time refusal.
 
 **Three things are only possible here**, and they are why it exists rather than
 being a viewer:
@@ -312,9 +310,10 @@ npm run build      # rebuild plugin.js from the source
 ```
 
 The tests boot the workshop into a synthetic document and drive it by clicking
-things, so they fail when a label stops saying what it does. They need no engine:
-the demonstration content is what they run against, which is also what makes it
-worth shipping.
+things, so they fail when a label stops saying what it does. They need no running
+game: most deliberately exercise the demonstration fallback, while integration
+coverage in the engine repository runs the same plugin against real composed
+records.
 
 To develop against an engine change that has not been released yet:
 
@@ -330,27 +329,26 @@ npm run preview
 
 That serves the repository on the loopback interface and opens a harness page which
 builds the narrowest context the mod actually reads, hands it to the plugin, and
-taps the tab. Every seam is absent there, which is exactly the state a player is in
-today, so what appears is what appears in the game. The same `plugin.js` loaded by
-the real game is the one this page loads, so the two are the same mod and not two
-builds of it.
+taps the tab. Every seam is absent by default so the compatibility fallback stays
+easy to inspect. This is deliberately different from Neo Angband 1.0.0's in-game
+path, which supplies the authoring SDK and the composed records. The same
+`plugin.js` loaded by the real game is the one this page loads, so the two are the
+same mod and not two builds of it.
 
 Adding `?authoring=sdk` to that page puts the real mod SDK behind `ctx.authoring`,
-which is the one seam a harness can honestly supply: the SDK is already a
+which is the one live-data seam a standalone harness can honestly supply: the SDK is already a
 devDependency here, its `dist` is plain ES modules, and the preview server serves
-the repository. It is not the default, because the default has to be what a player
-gets. It matters for anything that reads a field's measured shape, because the
+the repository. It matters for anything that reads a field's measured shape, because the
 stand-in in `src/host/authoring-stub.ts` is a deliberately small subset with no
 field-type rule and none of the companion rules - so a check that passes against
 the stand-in has been shown very little.
 
-`ctx.composedRecords` is still the fixture even with that flag, and there is no way
-around it: the published core package carries the engine's code and not its content
-pack, so the game's own records are not obtainable outside the game. The blueprints
-are real, because they are generated data that ships inside the SDK. Anything that
-reads the whole composed world, such as a dangling reference or the flavour-pressure
-warning, is still measured against a few dozen invented records, and the workshop's
-own banner keeps saying so.
+`ctx.composedRecords` is still the fixture in the standalone preview even with that
+flag, and there is no way around it: the published core package carries the engine's
+code and not its content pack. Inside the game the boot path supplies the real
+composition. In the preview, anything that reads the whole composed world is still
+measured against a few dozen invented records, and the workshop's own banner keeps
+saying so.
 
 Asking about AI use in this project? [AI_USAGE_POLICY.md](AI_USAGE_POLICY.md) is
 the complete answer.

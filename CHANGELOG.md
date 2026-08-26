@@ -14,6 +14,22 @@ feature, so they go looking for the feature.
 
 ## Unreleased
 
+### Fixed
+
+- **Bulk retuning now finds numeric fields nested inside record objects.** Item
+  qualities expose their live `alloc.common`, `info.cost`, and `info.rating`
+  fields instead of ending at "Nothing to retune here". Array positions remain
+  excluded because the same index need not represent the same row across records.
+- **The in-app README now has a backed, high-contrast card.** The launch panel
+  and the persistent About screen use the workshop's existing surface, edge and
+  ink tokens instead of placing prose directly over the dark scrim.
+- **The retune flow now links directly back to the content-kind picker.** Its
+  breadcrumb no longer forces a trip through mod details to switch kinds, and a
+  genuinely empty retune offers the same next action with useful alternatives.
+- **The workshop now consumes the SDK's `field/vocabulary` advisory rule.** The
+  SDK checker runs over the composed draft beside the install-time pack checker,
+  replacing the workshop's duplicate local implementation.
+
 ## 1.0.0 - 2026-08-26
 
 ### Added

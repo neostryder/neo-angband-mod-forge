@@ -19,25 +19,6 @@
  * reused, which is WHERE in the text a finding belongs.
  *
  * ------------------------------------------------------------------
- * THE ONE RULE THAT IS THE WORKSHOP'S OWN, AND WHY IT SAYS SO
- * ------------------------------------------------------------------
- *
- * `RECORD_BLUEPRINTS` measures a closed vocabulary for a field where core's data
- * has one, and the record screen offers those values as a dropdown. Nothing checks
- * them: the engine's checker reads `values` for nothing at all, and its own header
- * says why, which is that a mod coining a new tval or a new slay code is doing
- * something legal. That is right, and it is also why an author who mistypes one of
- * the fourteen legal values gets no word from anybody.
- *
- * So there is exactly one rule below that the game's checker does not have, it is a
- * HINT and never anything stronger, its rule id is namespaced `workshop/` so that
- * it can never be mistaken for the engine's, and the pane it appears in says in
- * words that the game will not say this. The right long-term home for it is the
- * SDK's own checker, where both the form and the text editor would get it from one
- * place; that is recorded in PLANNED.md rather than solved here, because the SDK is
- * not this repository.
- *
- * ------------------------------------------------------------------
  * PLACING A FINDING IN THE TEXT
  * ------------------------------------------------------------------
  *
@@ -59,10 +40,8 @@ import type {
   AuthoringApi,
   AuthoringFinding,
   ComposedRecords,
-  FieldShape,
   FindingLevel,
   JsonRecord,
-  JsonValue,
 } from "../host/authoring.js";
 import { buildDraft } from "./build.js";
 import type { Draft } from "./draft.js";
@@ -194,8 +173,6 @@ export function lintFile(
   for (const problem of refusals) {
     out.push({ level: "error", rule: "project/refused", message: problem });
   }
-
-  if (path !== MANIFEST) out.push(...vocabulary(api, stem, body, index, text));
 
   return { findings: sortLint(out), elsewhere, checked: true };
 }
@@ -428,123 +405,4 @@ function recordAnchor(body: JsonRecord, label: string): readonly (string | numbe
 
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/* ------------------------------------------------------------------ *
- * The workshop's own one rule                                         *
- * ------------------------------------------------------------------ */
-
-/** The rule id every finding the game's checker would not make carries. */
-export const VOCABULARY_RULE = "workshop/vocabulary";
-
-/**
- * A value outside the closed set core's own records use for that field.
- *
- * A HINT, ALWAYS, for the reason the SDK gives: a mod coining a new value is doing
- * something legal, and half the interesting mods do. What it catches is the other
- * case, which is a typo in one of a handful of words - a `type` of `swrod`, a
- * `graphics` colour that is not a colour - and which no other check in the workshop
- * can see, because it is a perfectly good string of the right type in a field that
- * exists.
- *
- * ONLY OVER WHAT IS LITERALLY IN THE FILE: the records the file adds and the records
- * it replaces. A field patch is checked by the engine's checker on the COMPOSED
- * record, where it belongs, and a composed record has no line in this text to point
- * at.
- */
-function vocabulary(
-  api: AuthoringApi,
-  file: string,
-  body: JsonRecord,
-  index: ReadonlyMap<string, number>,
-  text: string,
-): readonly LintFinding[] {
-  const blueprint = api.blueprintFor(file);
-  if (blueprint === undefined) return [];
-  const out: LintFinding[] = [];
-
-  const visit = (record: JsonRecord, at: readonly (string | number)[]): void => {
-    walk(record, blueprint.fields, at, (path, shape, value) => {
-      const allowed = shape.values;
-      if (allowed === undefined || allowed.length === 0) return;
-      if (typeof value !== "string" && typeof value !== "boolean") return;
-      if (allowed.includes(value)) return;
-      /* The path is built by walking the parsed text, so it is in the index by
-       * construction; the floor is the record it came from, in case a key spelled
-       * with an escape sequence read back differently. */
-      const offset = nearestOffset(index, path, 2);
-      const where = offset === undefined ? {} : positionAt(text, offset);
-      const shown = allowed.slice(0, 12).map((one) => String(one)).join(", ");
-      out.push({
-        level: "hint",
-        rule: VOCABULARY_RULE,
-        field: String(path[path.length - 1] ?? ""),
-        message:
-          `${JSON.stringify(value)} is not one of the ${allowed.length} values core's own ${file} records use ` +
-          `here (${shown}${allowed.length > 12 ? ", and more" : ""}). That is allowed - a mod may coin a new one - ` +
-          `and the game's own checker will not mention it, so this is the workshop's word and not the game's.`,
-        ...where,
-      });
-    });
-  };
-
-  const added = body["records"];
-  if (Array.isArray(added)) {
-    added.forEach((entry, n) => {
-      if (isRecord(entry)) visit(entry, ["records", n]);
-    });
-  }
-  const replaced = body["replaces"];
-  if (isRecord(replaced)) {
-    for (const [ref, entry] of Object.entries(replaced)) {
-      if (isRecord(entry)) visit(entry, ["replaces", ref]);
-    }
-  }
-
-  return out;
-}
-
-/**
- * Walk a record beside the shape core measured for it, scalar by scalar.
- *
- * A field the blueprint has never seen is walked past rather than descended into,
- * because there is nothing to compare it with. The engine's checker is what has an
- * opinion about a field core does not use.
- */
-function walk(
-  value: JsonValue,
-  fields: Readonly<Record<string, FieldShape>>,
-  at: readonly (string | number)[],
-  found: (path: readonly (string | number)[], shape: FieldShape, value: JsonValue) => void,
-): void {
-  if (!isRecord(value)) return;
-  for (const [key, child] of Object.entries(value)) {
-    const shape = fields[key];
-    if (shape === undefined) continue;
-    const path = [...at, key];
-    descend(child, shape, path, found);
-  }
-}
-
-function descend(
-  value: JsonValue,
-  shape: FieldShape,
-  path: readonly (string | number)[],
-  found: (path: readonly (string | number)[], shape: FieldShape, value: JsonValue) => void,
-): void {
-  if (Array.isArray(value)) {
-    const items = shape.items;
-    value.forEach((entry, n) => {
-      /* A list of plain strings is the flags case, and the vocabulary belongs to the
-       * list itself rather than to a measured shape for its entries. */
-      if (items === undefined) found([...path, n], shape, entry);
-      else descend(entry, items, [...path, n], found);
-    });
-    return;
-  }
-  if (isRecord(value)) {
-    if (shape.fields !== undefined) walk(value, shape.fields, path, found);
-    return;
-  }
-  found(path, shape, value);
 }

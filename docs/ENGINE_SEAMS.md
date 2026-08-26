@@ -1,20 +1,24 @@
 # The engine seams this mod needs
 
-Five seams, each stated as a shape rather than a wish: what it is called, what
-capability gates it, what it takes, what it returns, and what the mod does when
-it is absent. Every one of them has a fallback, and the fallback is what runs on
-an engine that lacks the seam, so the workshop is openable and every screen
-renders. What the fallbacks cannot do is written down beside each seam and again
-in `PLANNED.md`.
+Five seam decisions, each stated as a shape rather than a wish: what it is called,
+what capability gates it, what it takes, what it returns, and what the mod does
+when it is absent. Seams 1, 2, 4 and 5 are in Neo Angband 1.0.0. The install half
+of seam 3 is deliberately not requested; its reload half is in the engine for a
+mod that stages session content. The compatibility fallbacks remain so the
+standalone preview and a partial test context still render every screen.
 
-Seams 4 and 5 are in the engine and are declared in `manifest.json`; that is why
-the declared range starts at 0.26.0, since a capability string the running engine
-does not recognise refuses the whole mod. Seams 1 to 3 are read through the same
-accessors and are still absent, which is what the fallbacks are for.
+The declared engine range starts at 1.0.0, where the complete production path
+used by this release exists. The manifest declares the capabilities for seams 4
+and 5 plus its `ui:region.create` entry point. Seams 1 and 2 need no capability.
 
-The seams are ordered by how much they cost to leave out. Seam 1 is the only one
-whose absence keeps authoring based on demonstration content rather than the
-game's live content.
+The production route for this mod is concrete. `main.ts` finishes boot, calls
+`setModRegistries(booted.registries)` and
+`setModComposedRecords(composedObjects(composedRecords()))`, then builds
+`displayCandidateContext` over `modPluginContext`. `installRegions` uses that
+context builder when it invokes this plugin's `regions(ctx)` declaration. The
+tap handler closes over the same context and passes it to `openWorkshop`, so the
+SDK and the composed records reach a `facet: "plugin"` mod using
+`ui:region.create`; there is no separate region-only context path.
 
 **Reloading was not one of these when this was first written, and pretending it
 was cost the try-it loop three steps.** Composing content takes a reload, so a mod
@@ -47,7 +51,7 @@ Two rules apply to all five:
 
 ---
 
-## Seam 1. `ctx.authoring` - the mod SDK, handed in
+## Seam 1. `ctx.authoring` - the mod SDK, handed in - LANDED
 
 **Capability: none.** These are pure functions over data the mod already holds.
 There is nothing to gate: no game state is reachable through them, no registry is
@@ -58,11 +62,9 @@ published npm package.
 /**
  * The mod SDK's public barrel, handed in the way `core` is handed in.
  *
- * Absent on a host that predates the seam, and absent for the same reason
- * `registries` is absent during content composition: there is no honest answer
- * yet rather than an empty one.
+ * Always present on the Neo Angband 1.0.0 plugin context.
  */
-readonly authoring?: ModAuthoringApi;
+readonly authoring: ModAuthoringApi;
 
 export type ModAuthoringApi = typeof import("@rpgm-tools/neo-angband-mod-sdk");
 ```
@@ -97,26 +99,26 @@ rather than guessed at:
 | `danglingReferences`, `normalizeRef` | naming what else references a record before it is removed |
 | `compareSemver`, `satisfies` | the engine range the emitted mod declares |
 
-**Without it.** `src/host/authoring-stub.ts` implements the same interface over a
-hand-written record set of a few dozen records and a hand-written blueprint for
-four content kinds. Every screen renders and every gesture works; the numbers are
-a demonstration and the workshop says so in a banner it does not let the player
-dismiss. It cannot draft against core's real 3279 records, so no suggestion and
-no peer table is evidence about the real game, and `emit` produces files that are
-structurally valid based on the fixture rather than the live game content.
+**Production wiring.** `mod-context.ts` imports the SDK namespace once and places
+it on every `modPluginContext` result unconditionally. Unlike composed records,
+it does not wait for game boot because its functions are pure over caller-owned
+data. `mod-authoring-surface.test.ts` pins the barrel and
+`mod-authoring-seam.node.test.ts` calls it through the context.
 
-**One extension this seam would carry, if it lands.** `RecordBlueprint` measures a
-closed set of values for a field where core's data has one, and `checkRecords`
-reads it for nothing: `values` is used to pick a placeholder and never to check
-one. The header in `authoring.ts` explains why, and the reasoning holds - a mod
-coining a new tval or a new slay code is doing something legal, so an unlisted
-value can never be an error. It can be a HINT, and today it is not one, which
-leaves an author who mistyped one of twenty-six colour codes with nothing to read.
-The workshop says it instead, under its own `workshop/` rule id and with the pane
-declaring that the game will not repeat it, which is honest and is not where the
-rule belongs: the same measurement is now read by two consumers that each decide
-for themselves what it means. An advisory `field/vocabulary` rule inside
-`checkRecords` would give the form and the text editor one answer instead of two.
+**Without it.** A standalone or compatibility context can still omit the field
+from ModForge's narrower `BuilderCtx`. `src/host/authoring-stub.ts` then implements
+the same interface over a hand-written record set of a few dozen records and a
+hand-written blueprint for four content kinds. Every screen renders and every
+gesture works; the numbers are a demonstration and the workshop says so in a
+banner it does not let the player dismiss. This is not the production path on a
+supported game.
+
+**The advisory extension also landed.** `RecordBlueprint` measures a closed set
+of values for a field where core's data has one. `checkRecords` now reports an
+unlisted value as the `field/vocabulary` hint. It is never an error because a mod
+may legally coin a new tval or slay code, but it still catches a misspelled member
+of an existing vocabulary. ModForge calls that checker over the composed draft
+and no longer keeps a second `workshop/vocabulary` implementation.
 
 **Rejected alternative, recorded so it is not proposed again.** The mod could
 ship its own copy of the measured statistics, regenerated from the installed SDK
@@ -128,7 +130,7 @@ worse than no validator, because it would be believed.
 
 ---
 
-## Seam 2. `ctx.composedRecords` - the records the game was built from
+## Seam 2. `ctx.composedRecords` - the records the game was built from - LANDED
 
 **Capability: none.** It is the same content the player already has, in the shape
 it was read in. `ctx.registries` already publishes the bound result of exactly
@@ -156,11 +158,14 @@ bound to nothing. A peer table built from bound races could not answer "what doe
 `base` say on the dogs near depth 3", because `base` is not a field on a bound
 race.
 
-**Where it already exists in the host.** `packages/web/src/pack.ts` composes it
-and memoises the result as `memo.composed`, alongside `packs`, `dropped` and
-`refused`. `composedObjects(composed.records)` is the SDK's own narrowing of
-`Record<string, unknown[]>` to `ComposedRecords` and is exported from the barrel,
-so the conversion is one call and belongs on the host's side of the seam.
+**Production wiring.** `packages/web/src/pack.ts` composes it and memoises the
+result as `memo.composed`, alongside `packs`, `dropped` and `refused`. After the
+game has booted, `main.ts` calls
+`setModComposedRecords(composedObjects(composedRecords()))` beside the bound
+registry latch. Every later `modPluginContext` reads that latch, including the
+context `installRegions` gives ModForge. `composedObjects` is the SDK's own
+narrowing of `Record<string, unknown[]>` to `ComposedRecords`, so the host and the
+authoring functions agree about which passthrough elements are records.
 
 **One property the workshop depends on.** Mod-added records must be in it on the
 same terms as core's, exactly as they are in `ctx.registries`. Basing a new sword
@@ -169,12 +174,21 @@ dependency at the moment the base is chosen. It can only do that if it can see
 the other mod's records and knows who owns them, which the provenance field on a
 composed record already carries.
 
-**Without it.** The stub's record set stands in. Everything renders; nothing is
-evidence.
+**Without it.** During content composition, or in a standalone or partial test
+context, the field is honestly absent and ModForge's stub record set stands in.
+Everything renders; nothing from that fallback is presented as evidence about
+the running game. On the supported in-game path it is present before regions are
+installed.
 
 ---
 
-## Seam 3. `ctx.installMod` - install the bytes
+## Seam 3. `ctx.installMod` - install the bytes - DECLINED; reload LANDED
+
+The install contract below records the evaluated shape, but ModForge does not ask
+for the capability and the engine does not expose this field. The session-loading
+door already supplies the authoring loop without granting a mod permission to make
+another mod permanent. `ctx.reloadGame`, also recorded in this section, did land
+for callers holding `mod:session` or `mod:install`.
 
 **Capability: `mod:install`.** New string, new arm in `parseCapability`, new arm
 in `grantCovers`, new arm in `describeCapability` with elevated consent text. The

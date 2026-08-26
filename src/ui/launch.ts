@@ -197,7 +197,7 @@ export function mountLaunch(overlay: Overlay, opts: LaunchOptions): Dismissable 
       clearAuto();
       fill(
         body,
-        h("div", { class: "mb-launch-readme mb-prose" }, ...readmeElements()),
+        h("div", { class: "mb-launch-readme mb-readme-card mb-prose" }, ...readmeElements()),
         h("div", { class: "mb-launch-actions" }, button({ label: "Back", onClick: showFront }), enterButton()),
       );
     },

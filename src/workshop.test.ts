@@ -17,9 +17,12 @@
  */
 
 import { afterEach, describe, expect, it } from "vitest";
+import * as REAL_AUTHORING from "@rpgm-tools/neo-angband-mod-sdk";
 import { openWorkshop } from "./workshop.js";
 import type { WorkshopHandle } from "./workshop.js";
 import type { BuilderCtx } from "./host/context.js";
+import { STUB_AUTHORING } from "./host/authoring-stub.js";
+import { STUB_RECORDS } from "./host/stub-content.js";
 
 let open: WorkshopHandle | undefined;
 
@@ -222,6 +225,12 @@ describe("opening the workshop", () => {
     expect(buttonNames().some((name) => name.toLowerCase().includes("dismiss"))).toBe(false);
   });
 
+  it("hides the demonstration banner when both live-data seams are present", () => {
+    open = openWorkshop(ctx({ authoring: STUB_AUTHORING, composedRecords: STUB_RECORDS }), document);
+    const banner = shadow().querySelector<HTMLElement>(".mb-banner");
+    expect(banner?.style.display).toBe("none");
+  });
+
   it("opens on the guide the first time, and on the mod list once it has been read", () => {
     open = openWorkshop(ctx(), document);
     expect(screenText()).toContain("Make something for Angband");
@@ -277,6 +286,7 @@ describe("the launch screen and the exit screen", () => {
     control("Enter the workshop").click();
     control("About").click();
     expect(screenText()).toContain("What ModForge is");
+    expect(shadow().querySelector(".mb-readme-card")).not.toBeNull();
   });
 
   it("cancels ModForge entirely on Escape from the title screen, rather than opening the workshop", () => {
@@ -356,6 +366,59 @@ describe("the player's journey", () => {
     if (!wolf) throw new Error("the base list has no grey wolf");
     wolf.click();
   }
+
+  it("links a retune breadcrumb directly back to the kind picker", () => {
+    open = openWorkshop(ctx(), document);
+    control("Take me to my mods").click();
+    const idBox = shadow().querySelector<HTMLInputElement>('input[type="text"]');
+    if (!idBox) throw new Error("no id box on the mod list");
+    type(idBox, "navigation-test");
+    control("Start a new mod").click();
+    control("Add or change something").click();
+
+    const families = [...shadow().querySelectorAll<HTMLElement>(".mb-kind")].find((el) =>
+      (el.textContent ?? "").includes("Creature families"),
+    );
+    const retune = [...(families?.querySelectorAll<HTMLButtonElement>("button") ?? [])].find((button) =>
+      (button.textContent ?? "").includes("Retune many"),
+    );
+    if (!retune) throw new Error("the Creature families card has no Retune many button");
+    retune.click();
+
+    expect(buttonNames()).toContain("What are you making");
+    control("What are you making").click();
+    expect(screenText()).toContain("What are you making?");
+  });
+
+  it("gives a genuinely empty retune an explicit route to another kind", () => {
+    open = openWorkshop(
+      ctx({
+        authoring: REAL_AUTHORING as unknown as NonNullable<BuilderCtx["authoring"]>,
+        composedRecords: { brand: [{ code: "TEST", name: "test brand" }] },
+      }),
+      document,
+    );
+    control("Take me to my mods").click();
+    const idBox = shadow().querySelector<HTMLInputElement>('input[type="text"]');
+    if (!idBox) throw new Error("no id box on the mod list");
+    type(idBox, "empty-retune-test");
+    control("Start a new mod").click();
+    control("Add or change something").click();
+
+    const brands = [...shadow().querySelectorAll<HTMLElement>(".mb-kind")].find((el) =>
+      (el.textContent ?? "").includes("Brands and slays"),
+    );
+    const retune = [...(brands?.querySelectorAll<HTMLButtonElement>("button") ?? [])].find((button) =>
+      (button.textContent ?? "").includes("Retune many"),
+    );
+    if (!retune) throw new Error("the Brands and slays card has no Retune many button");
+    retune.click();
+
+    expect(screenText()).toContain("Nothing to retune here");
+    expect(screenText()).toContain("Choose another kind to keep going");
+    control("Choose another kind").click();
+    expect(screenText()).toContain("What are you making?");
+  });
 
   it("drafts a record from the base, with real values rather than blanks", () => {
     walkToTheEditor();

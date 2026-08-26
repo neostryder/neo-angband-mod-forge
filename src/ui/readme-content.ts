@@ -55,17 +55,19 @@ export const README_SECTIONS: readonly ReadmeSection[] = [
     ],
   },
   {
-    title: "What it is not yet",
+    title: "The game it reads",
     paragraphs: [
-      "The numbers shown today come from the workshop's own demonstration content rather than from the game's " +
-        "real records, until the engine grows the seams this mod is built against. The banner on every screen " +
-        "says so, and nothing dismisses it.",
+      "On Neo Angband 1.0.0 the workshop reads the authoring SDK and the complete set of records composed for " +
+        "this running game, including enabled content mods. Its suggestions, comparisons and checks are about " +
+        "what is actually loaded.",
+      "A small demonstration set remains for the standalone preview and partial test hosts. If either live-data " +
+        "surface is missing, an undismissable banner says so. That banner is hidden on the normal in-game path.",
     ],
   },
   {
     title: "Reading more",
     paragraphs: [
-      "The full README, the seven written tutorials, and every engine seam this mod is waiting on live in the " +
+      "The full README, the seven written tutorials, and every engine seam decision live in the " +
         "repository this mod shipped from: neo-angband-mod-forge, on GitHub.",
     ],
   },

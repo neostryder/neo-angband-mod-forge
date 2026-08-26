@@ -12,6 +12,15 @@ import type { View, Workshop } from "../view.js";
 
 export function aboutScreen(shop: Workshop): View {
   void shop;
-  const el = h("div", { class: "mb-main mb-prose" }, h("h2", { text: "About ModForge" }), ...readmeElements());
+  const el = h(
+    "div",
+    { class: "mb-main" },
+    h(
+      "section",
+      { class: "mb-readme-card mb-prose" },
+      h("h2", { text: "About ModForge" }),
+      ...readmeElements(),
+    ),
+  );
   return { el, update: () => undefined, dispose: () => undefined };
 }

@@ -14,12 +14,14 @@
  */
 
 import { describe, expect, it } from "vitest";
+import * as REAL_AUTHORING from "@rpgm-tools/neo-angband-mod-sdk";
+import type { AuthoringApi } from "../host/authoring.js";
 import { STUB_AUTHORING } from "../host/authoring-stub.js";
 import { STUB_RECORDS } from "../host/stub-content.js";
 import { buildDraft } from "./build.js";
 import type { Draft } from "./draft.js";
 import { newDraft } from "./draft.js";
-import { jsonIndex, lintFile, VOCABULARY_RULE } from "./lint.js";
+import { jsonIndex, lintFile } from "./lint.js";
 import { writeFileText } from "./files.js";
 
 const api = STUB_AUTHORING;
@@ -118,29 +120,20 @@ describe("the checks are the same checks", () => {
   });
 });
 
-describe("the vocabulary hint, which is the workshop's own", () => {
-  it("names a value outside the set core uses, as a hint and no more", () => {
-    const text = monsterFile({ name: "spooky rat", base: "rodnet" });
-    const found = lint(text).findings.find((f) => f.rule === VOCABULARY_RULE);
+describe("the SDK's vocabulary hint", () => {
+  it("arrives through the same checker and is placed on the misspelled value", () => {
+    const text = monsterFile({ name: "spooky rat", base: "rodent", color: "zzz", depth: 3 });
+    const found = lintFile(
+      REAL_AUTHORING as unknown as AuthoringApi,
+      { ...draft(), author: "tester" },
+      STUB_RECORDS,
+      "monster.json",
+      text,
+    ).findings.find((f) => f.rule === "field/vocabulary");
     expect(found?.level).toBe("hint");
-    expect(found?.message).toContain("rodnet");
-    /* The rule id is namespaced so that nothing can mistake it for the engine's,
-     * and the message says the game will not repeat it. */
-    expect(found?.rule.startsWith("workshop/")).toBe(true);
-    expect(found?.message).toContain("the game");
+    expect(found?.message).toContain("zzz");
     const line = text.split("\n")[(found?.line ?? 1) - 1] ?? "";
-    expect(line).toContain('"base"');
-  });
-
-  it("says nothing about a value that is in the set", () => {
-    const text = monsterFile({ name: "spooky rat", base: "rodent" });
-    expect(lint(text).findings.some((f) => f.rule === VOCABULARY_RULE)).toBe(false);
-  });
-
-  it("says nothing about a field core has no closed set for", () => {
-    const text = monsterFile({ name: "a name nothing else has", base: "rodent" });
-    const named = lint(text).findings.filter((f) => f.rule === VOCABULARY_RULE && f.field === "name");
-    expect(named).toEqual([]);
+    expect(line).toContain('"color"');
   });
 });
 
