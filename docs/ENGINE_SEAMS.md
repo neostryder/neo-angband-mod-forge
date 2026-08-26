@@ -13,7 +13,8 @@ does not recognise refuses the whole mod. Seams 1 to 3 are read through the same
 accessors and are still absent, which is what the fallbacks are for.
 
 The seams are ordered by how much they cost to leave out. Seam 1 is the only one
-whose absence makes the workshop a demonstration rather than a tool.
+whose absence keeps authoring based on demonstration content rather than the
+game's live content.
 
 **Reloading was not one of these when this was first written, and pretending it
 was cost the try-it loop three steps.** Composing content takes a reload, so a mod
@@ -102,7 +103,7 @@ four content kinds. Every screen renders and every gesture works; the numbers ar
 a demonstration and the workshop says so in a banner it does not let the player
 dismiss. It cannot draft against core's real 3279 records, so no suggestion and
 no peer table is evidence about the real game, and `emit` produces files that are
-structurally right and content that is not worth installing.
+structurally valid based on the fixture rather than the live game content.
 
 **One extension this seam would carry, if it lands.** `RecordBlueprint` measures a
 closed set of values for a field where core's data has one, and `checkRecords`
@@ -403,7 +404,8 @@ pointer button it has seen go down without a matching release while it owns
 input, and sends the game an honest keyup or mouseup for one on acquire and on
 release, so the game is never left believing something is held that it can no
 longer hear the release of. That narrows the edge case; it does not close it.
-Recorded in `PLANNED.md` under the same heading, LANDED, with what still is not.
+Implemented in `src/ui/overlay.ts`, with the remaining browser-level edge case
+described above.
 
 **A menu-row dispatch seam.** Not needed. The way in is a region the mod paints
 and taps, declared with `ui:region.create`, which exists.
@@ -416,7 +418,6 @@ now `string | Uint8Array` rather than only `string`, which is a change entirely
 on this repository's side of the boundary and asks the engine for nothing new.
 A tile, a font or a sound is a hand-carried extra whose bytes are held exactly
 as given, through the file editor, the project builder's emit path and the zip
-writer alike; a record file and the manifest stay text, unaffected. See
-`PLANNED.md` under the same heading for what still is not covered - loading a
-shipped binary asset back into the running game is a question about that
+writer alike; a record file and the manifest stay text, unaffected. Loading a
+shipped binary asset back into the running game remains a question about an
 engine seam, not about whether the workshop can emit the bytes.

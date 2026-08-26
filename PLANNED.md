@@ -77,21 +77,6 @@ evidence. Full detail, including the rejected alternative of shipping a
 regenerated copy of the game's statistics inside the mod, is in
 `docs/ENGINE_SEAMS.md`. Tracked as neo-angband#41.
 
-### Trying a mod without keeping it - LANDED
-
-`ctx.loadModForSession` behind `mod:session` (seam 5), and the "Forge and try it
-now" button on the review screen. The mod is held for the session, composes on the
-next reload exactly as an installed pack does, and is gone when the game is closed
-- so the build-look-change loop leaves nothing in the library.
-
-Two things about it that are properties of the feature rather than of this mod,
-and are written down because a player will read the button as a safety feature:
-trying it is not a preview, so a character who plays it keeps whatever the pack
-did to them; and the archive's lifetime is a strong convention rather than a
-boundary, since a browser that restores a closed window restores session storage
-with it. The game's own `docs/PLANNED.md` carries the save-reproducibility gap
-behind the first of those.
-
 ### Installing without leaving the workshop - DECLINED
 
 `ctx.installMod` behind a new `mod:install` capability (seam 3). Not asked for, and
@@ -128,46 +113,6 @@ weakest possible reason to ask for one.
 The download button stays, and it is the honest end of the loop: a finished mod is a
 file the author can read, keep, hand-edit and push to a repository, and a mod that
 only ever existed inside the browser's storage is none of those.
-
-### Testing what you built, in the game - LANDED
-
-`ctx.wizard` behind a new `debug:wizard` capability (seam 4), and it landed in a
-different shape from the one asked for. The ask was the wired `WizardDeps` bundle,
-for the workshop to pass back into the `wiz*` functions on `ctx.core` itself; what
-shipped is a surface of methods that refuses every command until the session has
-been cut loose from its save.
-
-The reasoning for the bundle was sound as far as it went and is recorded in
-`docs/ENGINE_SEAMS.md`. What it could not do is stop a mistake in this repository
-from reaching somebody's character: those functions are gated on a flag in a bag
-the caller assembles, so the only thing between a bug here and a cheated character
-written over a real save was this repository's own care. The method surface puts
-that rule in the host, where it is enforced rather than intended.
-
-One refusal went away with it. The old design would not act until the character had
-already taken Angband's permanent debug mark, and would not take that mark for
-anybody, because it costs the character its place on the high score list forever.
-Detaching the session first is a smaller thing to spend and is spent in the open,
-so the mark now lands on a character that has stopped being written down.
-
-### The overlay's held-key state - LANDED, and still not the whole of it
-
-The narrower ask recorded here was to clear held input state on overlay
-acquire and release, rather than the whole `ui:dom.overlay` capability
-`docs/ENGINE_SEAMS.md` declines to request. That ask is now built: the overlay
-tracks every key and pointer button it has seen go down without a matching
-release while it owns input, and sends the game an honest keyup or mouseup for
-one the moment it discovers an already-repeating key or gives up ownership of
-one, in `src/ui/overlay.ts`. Tracked as neo-angband#49.
-
-What it does not do is stop the browser's own hardware auto-repeat from
-generating another keydown for a key that is still physically held the instant
-after the overlay's listeners come off - that repeat is not driven by anything
-in this mod's script, and no amount of listener bookkeeping reaches it. The
-correction here keeps the game from believing a key is held that it can no
-longer hear the release of; it does not, and cannot, guarantee that a single
-further move is impossible in every timing. That residual gap is what a real
-`ui:dom.overlay` seam would still be for, and it remains not requested.
 
 ---
 
@@ -219,20 +164,6 @@ quotes, comments and brackets and is not a syntax check.
 
 The written path is still real and still the place to learn:
 `docs/modding/tutorials/05-hook-behaviour.md` runs code in ten lines.
-
-### Tile packs, sounds, fonts and other binary resources
-
-Not an engine seam after all: `EmittedFile.contents` is now `string | Uint8Array`,
-so the project builder's emit path and the file editor can both carry a tile, a
-font or a sound as its exact bytes rather than as whatever text was typed at a
-path that happens to end in `.png`. A record file and the manifest are unaffected
-and stay text. In the tree; pending write-up in `CHANGELOG.md` at the next release.
-Tracked as neo-angband#46.
-
-A new monster or object with no tile still falls back to its letter, and
-`neo-linoleum` still derives a tile for mod-added content from its kin - that is
-about what the running game does with a shipped asset, not about whether this
-workshop can emit one, and is unaffected by the above.
 
 ### A tile filler of the workshop's own - DECLINED
 
@@ -322,13 +253,6 @@ what moved. Tracked as neo-angband#51.
 ---
 
 ## The interface
-
-### A record with no widget for its shape - LANDED, and worth reading twice
-
-Every container offers a JSON box that parses on commit, so no shape in forty-odd
-record files is unreachable. That is not a gap left open; it is what makes an
-editor over arbitrary records honest. A field the author cannot edit at all is
-worse than a field they have to edit as text.
 
 ### Reordering by dragging - DECLINED
 

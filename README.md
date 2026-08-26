@@ -16,7 +16,7 @@ hand-edited and brought back.
 
 ## Status
 
-**Early. The workshop opens, every screen works, the mod it emits is a real mod,
+**Available today. The workshop opens, every screen works, the mod it emits is a real mod,
 and you can load that mod into the running game for the rest of the session.**
 What it is not yet is connected to the game's own content: four of the five engine
 seams it wants do not exist, so the numbers on screen come from the workshop's own
@@ -29,9 +29,10 @@ It needs Neo Angband 0.26.0 or newer, because the capability behind the session
 load arrived there and a mod declaring one the running game does not know is
 refused outright.
 
-That state is deliberate rather than premature. A tool that refuses to open until
-an engine change lands is a tool nobody can look at, and looking at it is how the
-seams get specified correctly.
+The missing seams are an explicit compatibility boundary rather than a reason to
+hide the workshop: it remains openable and fully usable for drafting, reviewing,
+and emitting a mod, while the banner identifies the places where its demonstration
+content stands in for the game's live content.
 
 ## What it does
 
