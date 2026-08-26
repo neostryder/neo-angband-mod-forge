@@ -12,6 +12,24 @@ Anything planned, deferred or merely intended goes in `PLANNED.md` instead, and
 never here: a reader who did not write the entry cannot tell an intention from a
 feature, so they go looking for the feature.
 
+## Unreleased
+
+### Added
+
+- **A launch screen, an exit screen, and an in-app README (neo-angband#126).**
+  Entering ModForge previously dropped straight into the workshop's mod list
+  with no transition, and exiting simply closed the shell with no
+  acknowledgement. Both now get a native HTML5 screen - shadow-DOM overlays
+  matching the pattern already used elsewhere in the shell - and the exit
+  screen's README summary is reachable without leaving the tool.
+- **A sections seam (neo-angband#47).** A record file's `sections` block
+  reached the emitted folder exactly as written, but the draft model had no
+  way to represent a section: the composer never saw it, and the review
+  screen's verdict did not cover it. A section now gets a manifest entry and
+  its content is grouped under it, so the composer and review screen model
+  it the same way they model other content types. Additive SDK work with no
+  change to the plugin ABI.
+
 ## 0.1.6
 
 ### Added

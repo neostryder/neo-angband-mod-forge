@@ -33,49 +33,11 @@ The fourth exit is the difference between this file and the game's own
 cannot reach something has not failed to do the work; it has run out of surface,
 and saying which surface is the whole of the useful information.
 
-Last reviewed: 2026-08-24.
-
----
-
-## Release
-
-### A screenshots pass - NOT BUILT
-
-Tagged releases now exist (`manifest.json` and `CHANGELOG.md` track them the
-same way every other first-party mod does), but no screenshots pass exists
-anywhere in the documentation. Held for after the authoring seams land, since a
-screenshots pass against the fixture stub would document a mod whose authoring
-surface is a demonstration rather than a tool.
-Tracked as neo-angband#44, dependent on neo-angband#41.
-
----
-
-## Test creation
-
-### Scaffolding tests for the plugin an author wrote by hand
-
-Nothing tells a third-party author how to write a standalone test for a
-hand-written `plugin.js` outside this monorepo, since the one worked example
-(`docs/modding/tutorials/05-hook-behaviour.md`) runs the plugin through the
-engine's own internal sample-mod suite. Held for after the authoring seams
-(`ctx.authoring`, `ctx.composedRecords`) land, since what a test needs to assert
-against is exactly what those two seams also unlock, making this a third
-consumer of the same door rather than a separate one. Tracked as
-neo-angband#45, dependent on neo-angband#41.
+Last reviewed: 2026-08-26.
 
 ---
 
 ## The engine seams
-
-### Drafting, validating and emitting against the game's own content - NEEDS A SEAM
-
-`ctx.authoring` (seam 1) and `ctx.composedRecords` (seam 2) would let the
-workshop draft, validate and emit against the game's real 3279 records instead
-of the hand-written fixture in `src/host/authoring-stub.ts`, which renders every
-screen but returns a `hint` on every call saying it is a demonstration and not
-evidence. Full detail, including the rejected alternative of shipping a
-regenerated copy of the game's statistics inside the mod, is in
-`docs/ENGINE_SEAMS.md`. Tracked as neo-angband#41.
 
 ### Installing without leaving the workshop - DECLINED
 
@@ -173,14 +135,6 @@ a filler here would be correct and would also be a second answer to a question
 sibling mod is better citizenship. The cost is stated plainly: the shortest path
 from nothing to a monster with a picture is three installs and a reload, and the
 workshop says so rather than implying the tile story is solved.
-
-### Sections, so somebody else can switch half your mod off - NEEDS A SEAM
-
-A section needs a manifest entry and the content grouped under it, and the
-project builder writes neither. A record file's `sections` block can already be
-typed into the file editor and reaches the emitted folder exactly as written,
-but the draft cannot model a section, so the composer never sees it and the
-review screen's verdict is not a verdict on it. Tracked as neo-angband#47.
 
 ### The coarse whole-record patch kind - DECLINED
 
