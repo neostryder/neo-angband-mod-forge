@@ -183,19 +183,6 @@ needs. What would change the argument is a mod that was MADE here, exported, and
 edited by hand once: that person has a real use for bringing it back, and no way
 to say so yet.
 
-### Anything that is not text - NEEDS A SEAM
-
-The same seam the emitter needs: a path ending in `.png` can be created here and
-will hold whatever text is typed into it, which is not a picture. Tracked as
-neo-angband#46.
-
-### The closed-vocabulary check belongs in the SDK - NEEDS A SEAM
-
-`RECORD_BLUEPRINTS` measures a closed set of values that `checkRecords` never
-checks, so the record screen's dropdown and the file editor's hint are two
-consumers of one measurement that can already disagree about the same field.
-An advisory rule inside `checkRecords` itself would give both one shared
-answer. Tracked as neo-angband#48.
 
 ### Searching across files, and a diff - NOT BUILT
 

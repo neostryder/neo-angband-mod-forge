@@ -18,7 +18,7 @@ hand-edited and brought back.
 
 **Available today. The workshop opens, every screen works, the mod it emits is a real mod,
 and you can load that mod into the running game for the rest of the session.**
-What it is not yet is connected to the game's own content: four of the five engine
+What it is not yet is connected to the game's own content: two of the five engine
 seams it wants do not exist, so the numbers on screen come from the workshop's own
 demonstration content rather than from the 3279 records the game actually runs on.
 The workshop says so in a banner it will not let you dismiss, and
