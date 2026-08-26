@@ -80,7 +80,7 @@ regenerated copy of the game's statistics inside the mod, is in
 ### Installing without leaving the workshop - DECLINED
 
 `ctx.installMod` behind a new `mod:install` capability (seam 3). Not asked for, and
-the "Forge and install" button stays inert by design rather than waiting on a door.
+the ModForge "Forge and install" button stays inert by design rather than waiting on a door.
 
 The workshop writes the same bytes to a file the player downloads, and the mod
 manager's existing `Import a zip` accepts exactly those bytes. Two extra actions,
