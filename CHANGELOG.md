@@ -14,6 +14,8 @@ feature, so they go looking for the feature.
 
 ## Unreleased
 
+## 1.0.0 - 2026-08-26
+
 ### Added
 
 - **A launch screen, an exit screen, and an in-app README (neo-angband#126).**

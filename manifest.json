@@ -1,14 +1,14 @@
 {
   "id": "forge",
   "name": "ModForge",
-  "version": "0.1.6",
+  "version": "1.0.0",
   "shape": "plugin",
   "facets": [
     "plugin"
   ],
   "modApi": 1,
   "group": "interface",
-  "engine": ">=0.26.0",
+  "engine": ">=1.0.0",
   "dependencies": {
     "core": "*"
   },
