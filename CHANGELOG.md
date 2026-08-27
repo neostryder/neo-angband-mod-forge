@@ -12,7 +12,19 @@ Anything planned, deferred or merely intended goes in `PLANNED.md` instead, and
 never here: a reader who did not write the entry cannot tell an intention from a
 feature, so they go looking for the feature.
 
-## Unreleased
+## [1.1.0] - 2026-08-26
+
+### Added
+
+- **The real Neo Angband SDK docs are readable inside ModForge.** A build-time
+  sync embeds the complete front-door overview, tutorial index and seven-tutorial
+  beginner path, together with the complete requirements, authoring, plugin and
+  compatibility references. The reader uses the workshop's line-numbered Markdown
+  view with find, while leaving the larger engine lifecycle, design, reach and
+  region-input records out of the shipped plugin.
+- **The documentation has real doors.** The title screen, title bar, Guide cards,
+  About screen and `Start a plugin.js` flow now open the relevant tutorial or API
+  reference instead of naming a path that cannot be opened in the game.
 
 ### Changed
 
@@ -44,6 +56,11 @@ feature, so they go looking for the feature.
   cannot take.
 
 ### Fixed
+
+- **The workshop no longer claims it cannot start code, carry assets, or round-trip
+  sections.** Its Guide and supporting copy now say what it actually does: create a
+  working `plugin.js` entry template, keep imported binary bytes, and model sections
+  through the draft and review. The file-model comment now matches that behavior.
 
 - **Two cards that could not be opened can be opened.** The Test panel's "What
   you know" shipped collapsed and had nothing wired to unfold it, so "Learn every
