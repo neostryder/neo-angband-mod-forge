@@ -8308,31 +8308,38 @@ var THEME_CSS = `
   /* The type scale. Named for the job, because a rule that says 12.5px says
    * nothing about why, and three rules that each say a different fraction of a
    * pixel are three rules nobody can keep in step. */
-  --fs-micro: 11px;   /* a rule id, a count, a measured share */
-  --fs-small: 12px;   /* a note, a tag, a table cell, a breadcrumb */
-  --fs-ui: 13px;      /* anything the reader operates: controls and list rows */
-  --fs-body: 14px;    /* running text */
-  --fs-title: 15px;   /* the title on a card */
-  --fs-head: 17px;    /* a heading inside a screen */
-  --fs-screen: 20px;  /* the screen's own title */
-  --fs-brand: 28px;   /* the illuminated initial */
-  --fs-hero: 34px;    /* the launch mark, and an empty state's glyph */
-  --fs-mark: 42px;    /* the launch screen's own initial, and nothing else */
+  /* The workshop is a desktop surface as well as a phone-width one. Fixed
+   * pixels made every control look like a postage stamp in a 4K Electron
+   * window, even though the overlay itself filled the viewport. The minimums
+   * preserve the 1280px treatment; the viewport terms give a larger window
+   * proportionately larger, still-capped type rather than an empty black sea. */
+  --fs-micro: clamp(11px, 0.58vw, 22px);   /* a rule id, a count, a measured share */
+  --fs-small: clamp(12px, 0.64vw, 24px);   /* a note, a tag, a table cell, a breadcrumb */
+  --fs-ui: clamp(13px, 0.70vw, 26px);      /* anything the reader operates: controls and list rows */
+  --fs-body: clamp(14px, 0.78vw, 28px);    /* running text */
+  --fs-title: clamp(15px, 0.84vw, 30px);   /* the title on a card */
+  --fs-head: clamp(17px, 0.95vw, 34px);    /* a heading inside a screen */
+  --fs-screen: clamp(20px, 1.12vw, 40px);  /* the screen's own title */
+  --fs-brand: clamp(28px, 1.56vw, 56px);   /* the illuminated initial */
+  --fs-hero: clamp(34px, 1.90vw, 68px);    /* the launch mark, and an empty state's glyph */
+  --fs-mark: clamp(42px, 2.34vw, 84px);    /* the launch screen's own initial, and nothing else */
 
   --r-sm: 3px;
   --r: 5px;
   --r-lg: 9px;
-  --gap: 12px;
-  --pad: 16px;
+  --gap: clamp(12px, 0.75vw, 28px);
+  --pad: clamp(16px, 1vw, 36px);
   /* One indent for the titlebar, the breadcrumb, the banner, the content and the
    * status bar, so the window has a single left edge instead of five. */
-  --gutter: 16px;
+  --gutter: clamp(16px, 1vw, 36px);
   /* How wide a screen that is one column lets itself get. A form whose text
    * fields are a thousand pixels wide is a form nobody laid out. */
-  --page: 900px;
+  --page: clamp(900px, 58vw, 2200px);
   /* How wide one control gets, so a select holding the word "add" stops being
    * the widest thing on the screen. */
-  --control: 560px;
+  --control: clamp(560px, 46vw, 1180px);
+  --rail: clamp(200px, 16vw, 420px);
+  --aside: clamp(240px, 20vw, 480px);
 
   --shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
   --inset: inset 0 1px 0 rgba(255, 255, 255, 0.045);
@@ -8385,7 +8392,7 @@ var THEME_CSS = `
   background: var(--scrim);
   display: grid;
   place-items: stretch;
-  padding: clamp(0px, 2vmin, 26px);
+  padding: clamp(0px, 1.5vmin, 36px);
   font-family: var(--font-body);
   font-size: var(--fs-body);
   line-height: 1.45;
@@ -8539,10 +8546,10 @@ var THEME_CSS = `
 
 .mb-cols {
   display: grid;
-  grid-template-columns: minmax(200px, 250px) minmax(0, 1fr) minmax(240px, 320px);
+  grid-template-columns: minmax(200px, var(--rail)) minmax(0, 1fr) minmax(240px, var(--aside));
   min-height: 0;
 }
-.mb-cols.mb-cols-2 { grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); }
+.mb-cols.mb-cols-2 { grid-template-columns: minmax(0, 1fr) minmax(260px, var(--aside)); }
 .mb-cols.mb-cols-1 { grid-template-columns: minmax(0, 1fr); }
 
 .mb-rail, .mb-main, .mb-aside {
@@ -8558,15 +8565,22 @@ var THEME_CSS = `
 /* A SCREEN THAT IS ONE COLUMN IS A PAGE, AND A PAGE HAS A MEASURE. Only the
  * direct child of the body is one, which is what tells a whole-screen main apart
  * from the middle column of the record editor - that one is already narrow and
- * capping it again would take width it needs. Left, not centred: the titlebar,
- * the breadcrumb and the status bar all start at the gutter, and a centred
- * column would be the only thing on screen that does not. */
-.mb-body > .mb-main { max-width: var(--page); }
+ * capping it again would take width it needs. Its measure grows with a desktop
+ * viewport and is centred inside the frame, so a 4K workshop does not leave all
+ * of its useful content stranded in the top-left corner. */
+.mb-body > .mb-main { width: min(100%, var(--page)); margin-inline: auto; }
 
 @media (max-width: 1080px) {
   .mb-cols, .mb-cols.mb-cols-2 { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr auto; }
   .mb-rail { border-right: 0; border-bottom: 1px solid var(--edge); max-height: 26vh; }
   .mb-aside { border-left: 0; border-top: 1px solid var(--edge); max-height: 34vh; }
+}
+
+@media (max-width: 720px) {
+  .mb-scrim { padding: 0; }
+  .mb-frame { border-radius: 0; }
+  .mb-titlebar { grid-template-columns: auto minmax(0, 1fr); }
+  .mb-titleacts { grid-column: 1 / -1; flex-wrap: wrap; justify-content: flex-start; }
 }
 
 /* ---------------------------------------------------------------- *

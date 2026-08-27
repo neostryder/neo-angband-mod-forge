@@ -54,8 +54,8 @@ describe("the stylesheet", () => {
     }
   });
 
-  it("sizes every rule from the scale rather than from a made-up fraction", () => {
-    const scale = new Set([...THEME_CSS.matchAll(/--fs-[a-z]+:\s*([0-9.]+px)/g)].map((m) => m[1] as string));
+  it("sizes every rule from the responsive type scale rather than from a made-up fraction", () => {
+    const scale = new Set([...THEME_CSS.matchAll(/--fs-[a-z]+:\s*([^;]+)/g)].map((m) => m[1] as string));
     expect(scale.size).toBeGreaterThan(6);
     /* The two exceptions are the file editor's own text and its line numbers, and
      * they are exceptions because `editor.ts` does pixel arithmetic against those
@@ -63,6 +63,15 @@ describe("the stylesheet", () => {
     const literals = [...THEME_CSS.matchAll(/font-size:\s*([0-9.]+px)/g)].map((m) => m[1] as string);
     const strays = [...new Set(literals)].filter((size) => size !== "12px");
     expect(strays, "a font size that is not on the scale").toEqual([]);
+  });
+
+  it("centres a single-column page and lets its measure grow on a large viewport", () => {
+    const tokens = THEME_CSS.slice(THEME_CSS.indexOf(":host {"), THEME_CSS.indexOf("\n}", THEME_CSS.indexOf(":host {")));
+    expect(tokens).toContain("--page: clamp(900px, 58vw, 2200px)");
+    const page = THEME_CSS.slice(THEME_CSS.indexOf("\n.mb-body > .mb-main {"));
+    const block = page.slice(0, page.indexOf("}"));
+    expect(block).toContain("width: min(100%, var(--page))");
+    expect(block).toContain("margin-inline: auto");
   });
 
   it("gives the frame one grid row per child, so the content takes the slack", () => {
@@ -98,7 +107,7 @@ describe("the stylesheet", () => {
 });
 
 /** Token prefixes that carry a metric rather than a colour. */
-const NOT_A_COLOUR = ["--font", "--fs-", "--r", "--gap", "--pad", "--gutter", "--page", "--control", "--motion"];
+const NOT_A_COLOUR = ["--font", "--fs-", "--r", "--gap", "--pad", "--gutter", "--page", "--control", "--rail", "--aside", "--motion"];
 
 function tokens(css: string, selector: string): Set<string> {
   const at = css.indexOf(selector);
