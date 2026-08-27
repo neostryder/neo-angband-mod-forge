@@ -21,14 +21,14 @@
  *                      owns nothing the folder does not.
  *
  * The first two round-trip. A record file is `{records, fieldPatches, replaces,
- * removes}` and every one of those is a `Change`, so the mapping is total in both
- * directions and the raw text is not a second representation - it is the same
- * representation, printed.
+ * removes, sections}`: the first four are `Change`s and a section groups those
+ * same changes, so the mapping is total in both directions and the raw text is
+ * not a second representation - it is the same representation, printed.
  *
- * WHAT DOES NOT ROUND-TRIP IS REFUSED RATHER THAN DROPPED. A record file may carry
- * `sections`, which this draft cannot model (see PLANNED.md), so a file with one is
- * refused with the reason on it. Silently discarding a key the author typed is the
- * behaviour that makes a raw editor untrustworthy, and it only has to happen once.
+ * A RECORD-FILE KEY THE DRAFT DOES NOT MODEL IS KEPT RATHER THAN DROPPED. It ships
+ * unchanged in `fileExtras`, and the file editor and review screen say that it was
+ * not checked. `sections` is not one of those keys: the draft models it, emits it,
+ * and includes it in the review.
  *
  * A MANIFEST KEY THE WORKSHOP DOES NOT MODEL IS KEPT, which is the opposite call
  * and the right one for the opposite reason: the game's manifest validator passes
@@ -131,9 +131,9 @@ export function sessionRefusal(draft: Draft): string | undefined {
  *
  * Shown wherever those files are, and it is not a warning about a mistake. It is
  * the boundary of what the review screen's verdict covers: the composer and the
- * validator run over what the draft models, so a `sections` block the author typed
- * ships unchecked. A blind spot that is declared is a different thing from one that
- * is not, and this is what declares it.
+ * validator run over what the draft models, so an unmodelled record-file key ships
+ * unchecked. A blind spot that is declared is a different thing from one that is
+ * not, and this is what declares it.
  */
 export function unread(draft: Draft): readonly { readonly path: string; readonly keys: readonly string[] }[] {
   return Object.entries(draft.fileExtras ?? {})
@@ -448,7 +448,7 @@ function writeManifest(draft: Draft, text: string): WriteOutcome {
   return { ok: true, draft: { ...next, manifestExtras: extras } };
 }
 
-/** The keys a record file may carry, all four of which are `Change`s. */
+/** The record-file keys this draft models: four direct contributions and named sections of them. */
 const CONTRIBUTIONS = ["records", "fieldPatches", "replaces", "removes", "sections"] as const;
 
 function writeRecordFile(draft: Draft, file: string, text: string): WriteOutcome {
@@ -461,15 +461,10 @@ function writeRecordFile(draft: Draft, file: string, text: string): WriteOutcome
     if (!parsed.ok) return parsed;
     const raw = parsed.value;
 
-    /* A KEY THE DRAFT CANNOT MODEL IS CARRIED, NOT REFUSED, and the choice went the
-     * other way first. Refusing was tidier: the workshop would only ever hold what
-     * it could compose and check. What it also meant was a file the editor could
-     * open and never save - and the whole point of an editor over arbitrary text is
-     * that there is no such file. `sections` is the case that exists today, and it
-     * is the most obviously wanted thing no screen offers, so the version that
-     * refuses is the version that says no to the one request it was most likely to
-     * get. What is owed instead is saying that nothing in here is checked, which
-     * `unread` exists to do. */
+    /* A KEY THE DRAFT CANNOT MODEL IS CARRIED, NOT REFUSED. Refusing would make a
+     * file the editor can open and never save. `sections` is modeled below; every
+     * other unmodeled key stays in `fileExtras`, and `unread` marks the review
+     * boundary rather than silently dropping the author's text. */
     for (const [key, value] of Object.entries(raw)) {
       if (!(CONTRIBUTIONS as readonly string[]).includes(key)) spare[key] = value;
     }

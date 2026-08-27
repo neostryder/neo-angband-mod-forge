@@ -116,12 +116,11 @@ literal template with substituted values, which is a much smaller promise than
 
 **The other half of this is now LANDED, and it is the half that mattered.** A
 `plugin.js` does not have to be compiled from anything: the ABI wants an ES module
-with no bare imports and a validated default export, and that is a file a person
-can type. The file editor carries one, the manifest grows the `plugin` facet and
-the `modApi` number from the same condition that notices the file, and the emitted
-folder is a code mod. What the workshop does not do is write the code, which is
-the part that needed a compiler and the part an author was always going to want to
-do themselves.
+with no bare imports and a validated default export, and the file editor starts one
+with a working entry template. The manifest grows the `plugin` facet and the
+`modApi` number from the same condition that notices the file, and the emitted
+folder is a code mod. What the workshop does not do is write custom behaviour or
+compile TypeScript, which are the parts an author still decides for themselves.
 
 Two consequences, both stated where they happen rather than here. A mod that ships
 a script cannot be tried for a session, because that door takes content only. And

@@ -6,7 +6,8 @@ Pick something that already exists - a monster, a sword, a shop, a spell - and t
 workshop shows you what it is made of, what its neighbours in the game carry for
 every number, and what would have to change to make the thing you had in mind.
 When you are happy it packs the result up: try it in this session to play it
-straight away, install it to keep it, or save it as a file to hand to somebody.
+straight away, or save it as a file to hand to somebody or add through the Mods
+screen.
 
 It never asks you what JSON is. It also never hides it: every screen can show you
 the exact file it is about to write, and a mod it built can be taken away,
@@ -154,14 +155,13 @@ door at the far end of them.
 
 ## What it does not do, and why
 
-**It does not write code for you.** It will carry a `plugin.js` you wrote, and it
-will not produce one: a mod written in TypeScript becomes a module through a
-bundler that runs in Node, and there is no bundler in a browser tab. Everything a
-first mod is likely to be - a monster, a sword, a rebalanced spell, an item in a
-shop, an artifact - is content and needs no build step at all.
-`docs/modding/PLUGINS.md` in the game's own repository is the path for a mod that
-does run code, and `docs/modding/tutorials/05-hook-behaviour.md` is ten lines of
-it.
+**It does not write your plugin's behaviour for you.** `Start a plugin.js` puts a
+working entry template in the mod, but the decisions inside it remain yours. A mod
+written in TypeScript becomes a module through a bundler that runs in Node, and
+there is no bundler in a browser tab. Everything a first mod is likely to be - a
+monster, a sword, a rebalanced spell, an item in a shop, an artifact - is content
+and needs no build step at all. The workshop's Docs screen carries the SDK's
+complete `PLUGINS.md` reference and tutorial 5, the ten-line behaviour hook.
 
 **It does not preview or validate a picture, a sound or a font.** A tile, a font
 or a sound can be loaded from disk in the file editor and is carried in the
@@ -196,7 +196,7 @@ what each released version changed.
 A tab reading `Build a mod` appears in the bottom corner of the main screen. Tap
 it. The workshop opens over the game, takes the keyboard while it is open, and
 gives it back when you close it. Nothing you do in there touches the game until
-you install what you built.
+you try the mod for this session or add its saved file through the Mods screen.
 
 Escape backs out of the innermost thing: a tooltip, then a level of nesting inside
 a record, then the screen, then the workshop. Nothing on that ladder discards
@@ -254,12 +254,13 @@ tutorial 3 has to find the same ideas under the same names.
 
 If you would rather have a text editor open, that path is real and it is not
 second class. A mod is a folder with a text file in it, and it will always be.
-These four live in the game's own repository, not this one:
+These SDK documents are bundled under Docs in the workshop, copied at build time
+from the game's generated SDK package:
 
-- `docs/modding/tutorials/` builds seven mods from nothing, in a text editor.
-- `docs/modding/PLUGINS.md` is how a mod runs code.
-- `docs/modding/AUTHORING.md` is the library this workshop itself calls.
-- `docs/modding/MOD_COMPATIBILITY.md` is what surviving a game update takes.
+- `tutorials/` builds seven mods from nothing, in a text editor.
+- `PLUGINS.md` is how a mod runs code.
+- `AUTHORING.md` is the library this workshop itself calls.
+- `MOD_COMPATIBILITY.md` is what surviving a game update takes.
 
 This checkout also has [`docs/PLUGIN_TESTING.md`](docs/PLUGIN_TESTING.md), which
 shows how a third-party author tests the committed `plugin.js` against real
