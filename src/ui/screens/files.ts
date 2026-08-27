@@ -11,18 +11,18 @@
  * WHICH IS WHY IT EARNS ITS PLACE rather than being a power-user indulgence. Three
  * things the wizard screens cannot do are ordinary here:
  *
- *  1. A SCRIPT. The workshop cannot write a `plugin.js` - that needs a compiler and
- *     there is not one in a browser - but an author can, and a hand-written ES
- *     module needs no build step at all. The manifest grows the plugin facet and the
- *     ABI number by itself, because a mod that ships code without declaring it
- *     installs, loads and does nothing.
+ *  1. A SCRIPT. The workshop starts `plugin.js` with a working entry template, and
+ *     an author writes the behaviour from there. A hand-written ES module needs no
+ *     build step at all. The manifest grows the plugin facet and the ABI number by
+ *     itself, because a mod that ships code without declaring it installs, loads and
+ *     does nothing.
  *  2. A MANIFEST KEY NO SCREEN OFFERS. Capabilities, rules a player can switch,
  *     optional dependencies. The game's validator passes an unknown key through, so
  *     these are real, and they survive every later save.
- *  3. SECTIONS, and anything else a record file can carry that the draft cannot
- *     model. Carried through to the emitted folder unread, with the fact that it is
- *     unread said on this screen, because a blind spot that is declared is a
- *     different thing from one that is not.
+ *  3. SECTIONS, which round-trip into the draft and the emitted folder, plus any
+ *     other record-file key the draft cannot model. Those other keys are carried
+ *     through unread, with that boundary said on this screen, because a blind spot
+ *     that is declared is a different thing from one that is not.
  *
  * WHAT IT IS NOT is a replacement for the screens that explain themselves. A first
  * mod made here is a first mod made without the evidence table, without the
@@ -119,6 +119,13 @@ export function filesScreen(shop: Workshop, path: string): View {
       "installs and then does nothing.",
     onClick: () => shop.acts.createFile(PLUGIN, PLUGIN_TEMPLATE),
   });
+  const pluginDocs = button({
+    label: "Read the plugin API",
+    tiny: true,
+    kind: "ghost",
+    tip: "Open the real SDK reference before you add behaviour to plugin.js.",
+    onClick: () => shop.acts.go({ at: "docs", doc: "plugins" }),
+  });
 
   /**
    * A tile, a font, a sound: a file whose bytes are not text at all, so there is
@@ -151,7 +158,7 @@ export function filesScreen(shop: Workshop, path: string): View {
     list,
     h("div", { class: "mb-ed-new" }, newName, add),
     newProblem,
-    h("div", { class: "mb-row-actions" }, plugin),
+    h("div", { class: "mb-row-actions" }, plugin, pluginDocs),
     loadRow,
     size,
   );

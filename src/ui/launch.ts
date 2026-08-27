@@ -132,6 +132,8 @@ export interface LaunchOptions {
   readonly onEnter: () => void;
   /** The player backed out instead - Escape, before ever entering. */
   readonly onCancel: () => void;
+  /** Open the bundled SDK documentation from the title screen. */
+  readonly onDocs?: () => void;
   readonly timers?: TimerDeps;
 }
 
@@ -188,6 +190,14 @@ export function mountLaunch(overlay: Overlay, opts: LaunchOptions): Dismissable 
    * visit to the front view, after a trip to the README. */
   const enterButton = (): HTMLButtonElement =>
     button({ label: "Enter the workshop", kind: "primary", onClick: () => finish(opts.onEnter) });
+  const docsButton = (): HTMLButtonElement =>
+    button({
+      label: "Read the SDK docs",
+      kind: "ghost",
+      onClick: () => {
+        if (opts.onDocs !== undefined) finish(opts.onDocs);
+      },
+    });
 
   let enterBtn = enterButton();
   const readmeBtn = button({
@@ -198,16 +208,30 @@ export function mountLaunch(overlay: Overlay, opts: LaunchOptions): Dismissable 
       fill(
         body,
         h("div", { class: "mb-launch-readme mb-readme-card mb-prose" }, ...readmeElements()),
-        h("div", { class: "mb-launch-actions" }, button({ label: "Back", onClick: showFront }), enterButton()),
+        h(
+          "div",
+          { class: "mb-launch-actions" },
+          button({ label: "Back", onClick: showFront }),
+          enterButton(),
+          opts.onDocs === undefined ? null : docsButton(),
+        ),
       );
     },
   });
 
-  const body = h("div", { class: "mb-launch-card" }, illum, title, tagline, h("div", { class: "mb-launch-actions" }, enterBtn, readmeBtn));
+  const body = h("div", { class: "mb-launch-card" });
   function showFront(): void {
     enterBtn = enterButton();
-    fill(body, illum, title, tagline, h("div", { class: "mb-launch-actions" }, enterBtn, readmeBtn));
+    fill(
+      body,
+      illum,
+      title,
+      tagline,
+      h("div", { class: "mb-launch-actions" }, enterBtn, readmeBtn, opts.onDocs === undefined ? null : docsButton()),
+    );
   }
+
+  showFront();
 
   const skip = button({ label: "Skip", kind: "ghost", tiny: true, onClick: () => finish(opts.onEnter) });
   skip.classList.add("mb-launch-skip");

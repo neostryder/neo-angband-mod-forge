@@ -9,9 +9,9 @@
 import { h } from "../dom.js";
 import { readmeElements } from "../readme-content.js";
 import type { View, Workshop } from "../view.js";
+import { button } from "../widgets.js";
 
 export function aboutScreen(shop: Workshop): View {
-  void shop;
   const el = h(
     "div",
     { class: "mb-main" },
@@ -20,6 +20,15 @@ export function aboutScreen(shop: Workshop): View {
       { class: "mb-readme-card mb-prose" },
       h("h2", { text: "About ModForge" }),
       ...readmeElements(),
+      h(
+        "div",
+        { class: "mb-row-actions" },
+        button({
+          label: "Read the Neo Angband SDK docs",
+          kind: "primary",
+          onClick: () => shop.acts.go({ at: "docs", doc: "tutorial-01" }),
+        }),
+      ),
     ),
   );
   return { el, update: () => undefined, dispose: () => undefined };

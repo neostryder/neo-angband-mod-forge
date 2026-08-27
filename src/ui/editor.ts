@@ -178,6 +178,8 @@ export interface CodeEditorOptions {
   readonly doc: Document;
   readonly lang: Language;
   readonly text: string;
+  /** Show text with the editor's line numbers and tokenizer, without changing it. */
+  readonly readOnly?: boolean;
   /** Called on every change, so the screen can hold the unsaved text. */
   readonly onInput: (text: string) => void;
   /** Called for the save chord, so the screen decides what saving means. */
@@ -195,6 +197,7 @@ export function codeEditor(options: CodeEditorOptions): CodeEditor {
   area.spellcheck = false;
   area.wrap = "off";
   area.value = options.text;
+  area.readOnly = options.readOnly === true;
   area.setAttribute("aria-label", "The file, as text");
   /* Marked so the shell can tell that a chord it would otherwise claim - the
    * textarea's own undo - belongs to the browser while the caret is in here. */
@@ -640,7 +643,7 @@ export function codeEditor(options: CodeEditorOptions): CodeEditor {
         return true;
       }
       if (chord && key.toLowerCase() === "s") {
-        options.onSave();
+        if (options.readOnly !== true) options.onSave();
         return true;
       }
       if (chord && key.toLowerCase() === "g") {
@@ -656,6 +659,7 @@ export function codeEditor(options: CodeEditorOptions): CodeEditor {
         }
         return false;
       }
+      if (options.readOnly === true) return false;
       if (key === "Tab" && !event.altKey) {
         indent(event.shiftKey);
         return true;

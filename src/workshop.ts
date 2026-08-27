@@ -116,6 +116,10 @@ export function openWorkshop(ctx: BuilderCtx, doc: Document | undefined): Worksh
       launchHandle = undefined;
       handle.close();
     },
+    onDocs: () => {
+      launchHandle = undefined;
+      acts.go({ at: "docs", doc: "tutorial-01" });
+    },
   });
 
   /* THE TITLE SCREEN NEVER DELAYS THE WORKSHOP MOUNTING, even though it

@@ -20,6 +20,7 @@
  */
 
 import { h } from "../dom.js";
+import type { SdkDocId } from "../sdk-docs-content.js";
 import type { View, Workshop } from "../view.js";
 import { button, card } from "../widgets.js";
 
@@ -30,6 +31,7 @@ interface Lesson {
   readonly body: readonly string[];
   readonly cta: string;
   readonly tutorial: string;
+  readonly doc: SdkDocId;
   readonly start: (shop: Workshop) => void;
 }
 
@@ -44,6 +46,7 @@ const LESSONS: readonly Lesson[] = [
     ],
     cta: "Change something",
     tutorial: "tutorials/01-tweak-a-value.md",
+    doc: "tutorial-01",
     start: (shop) => shop.acts.go({ at: "kinds" }),
   },
   {
@@ -56,6 +59,7 @@ const LESSONS: readonly Lesson[] = [
     ],
     cta: "Make something new",
     tutorial: "tutorials/02-add-an-item.md",
+    doc: "tutorial-02",
     start: (shop) => shop.acts.go({ at: "kinds" }),
   },
   {
@@ -68,6 +72,7 @@ const LESSONS: readonly Lesson[] = [
     ],
     cta: "Build on something",
     tutorial: "tutorials/07-add-an-artifact.md",
+    doc: "tutorial-07",
     start: (shop) => shop.acts.go({ at: "kinds" }),
   },
   {
@@ -80,6 +85,7 @@ const LESSONS: readonly Lesson[] = [
     ],
     cta: "Retune a set",
     tutorial: "tutorials/01-tweak-a-value.md",
+    doc: "tutorial-01",
     start: (shop) => shop.acts.go({ at: "kinds" }),
   },
 ];
@@ -99,8 +105,8 @@ export function tourScreen(shop: Workshop): View {
     }),
     h("p", {
       text:
-        "Nothing you do in here touches the game until you install what you built, and nothing you install is " +
-        "permanent: a mod can be switched off, and switching it off gives you the base game back exactly as it was.",
+        "Nothing you do in here touches the game until you try the mod for this session or add its saved file through " +
+        "the Mods screen. A mod can be switched off, and switching it off gives you the base game back exactly as it was.",
     }),
   );
 
@@ -112,12 +118,13 @@ export function tourScreen(shop: Workshop): View {
         "div",
         { class: "mb-row-actions" },
         button({ label: lesson.cta, kind: "primary", onClick: () => lesson.start(shop) }),
-        h("span", {
-          class: "mb-label-meta",
-          text: `The written version of this is docs/modding/${lesson.tutorial}`,
+        button({
+          label: `Read tutorial ${lesson.badge}`,
+          kind: "ghost",
+          onClick: () => shop.acts.go({ at: "docs", doc: lesson.doc }),
           tip:
-            "The game's own tutorial for the same idea, for reading rather than clicking. It builds the same mod " +
-            "with a text editor and pins the finished version with a test.",
+            `Open the real SDK document: ${lesson.tutorial}. It builds the same mod with a text editor and pins ` +
+            "the finished version with a test.",
         }),
       ),
     );
@@ -126,7 +133,7 @@ export function tourScreen(shop: Workshop): View {
 
   const advanced = card({
     title: "Or do it by hand",
-    note: "Everything the workshop cannot reach, and where to read about it",
+    note: "The SDK path for code and the details behind the workshop",
     badge: "+",
     open: true,
   });
@@ -134,17 +141,18 @@ export function tourScreen(shop: Workshop): View {
   advanced.body.append(
     h("p", {
       text:
-        "The workshop writes content: records, and adjustments to records. It does not write code, it cannot " +
-        "ship a picture or a sound, and it does not write the switchable sections that let somebody else turn " +
-        "half your mod off. Those are all real and all documented, and none of them needs the workshop.",
+        "The workshop guides record changes, starts a working plugin.js entry point, imports tiles, fonts and sounds " +
+        "as their real bytes, and round-trips sections from record files. It does not invent your plugin's behaviour, " +
+        "preview or validate an asset, or offer a visual editor for sections. The SDK docs below are the path for all " +
+        "of those details.",
     }),
     h(
       "ul",
       null,
-      h("li", null, h("code", { text: "docs/modding/tutorials/" }), " builds seven mods from nothing, in a text editor."),
-      h("li", null, h("code", { text: "docs/modding/PLUGINS.md" }), " is how a mod runs code."),
-      h("li", null, h("code", { text: "docs/modding/AUTHORING.md" }), " is the library the workshop itself calls."),
-      h("li", null, h("code", { text: "docs/modding/MOD_COMPATIBILITY.md" }), " is what surviving a game update takes."),
+      h("li", null, button({ label: "Read the seven tutorials", onClick: () => shop.acts.go({ at: "docs", doc: "tutorials" }) })),
+      h("li", null, button({ label: "Read the plugin API", onClick: () => shop.acts.go({ at: "docs", doc: "plugins" }) })),
+      h("li", null, button({ label: "Read the authoring API", onClick: () => shop.acts.go({ at: "docs", doc: "authoring" }) })),
+      h("li", null, button({ label: "Read compatibility guidance", onClick: () => shop.acts.go({ at: "docs", doc: "compatibility" }) })),
     ),
     h("p", {
       text:

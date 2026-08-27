@@ -31,6 +31,7 @@ import type { Tooltips } from "./tooltip.js";
 import { aboutScreen } from "./screens/about.js";
 import { baseScreen } from "./screens/base.js";
 import { detailsScreen } from "./screens/details.js";
+import { docsScreen } from "./screens/docs.js";
 import { filesScreen } from "./screens/files.js";
 import { kindsScreen } from "./screens/kinds.js";
 import { modsScreen } from "./screens/mods.js";
@@ -103,6 +104,13 @@ export function mountApp(deps: AppDeps): App {
     tip: "The four things people usually make, and where the written tutorials for the same ideas are.",
     onClick: () => deps.acts.go({ at: "tour" }),
   });
+  const docs = button({
+    label: "Docs",
+    kind: "ghost",
+    tiny: true,
+    tip: "The SDK's real beginner tutorials and advanced authoring references, bundled into this workshop.",
+    onClick: () => deps.acts.go({ at: "docs", doc: "tutorial-01" }),
+  });
   const about = button({
     label: "About",
     kind: "ghost",
@@ -127,6 +135,7 @@ export function mountApp(deps: AppDeps): App {
       { class: "mb-titleacts" },
       h("label", { class: "mb-switch", tip: "An ink-on-parchment treatment, for anybody who prefers it." }, parchment, h("span", { text: "parchment" })),
       guide,
+      docs,
       about,
       undo,
       redo,
@@ -174,6 +183,8 @@ export function mountApp(deps: AppDeps): App {
         return testScreen(shop);
       case "files":
         return filesScreen(shop, route.path);
+      case "docs":
+        return docsScreen(shop, route.doc);
       case "about":
         return aboutScreen(shop);
     }
@@ -273,7 +284,7 @@ export function mountApp(deps: AppDeps): App {
         on: { click: () => deps.acts.go({ at: "mods" }) },
       }),
     ];
-    if (name !== undefined && state.route.at !== "mods" && state.route.at !== "tour") {
+    if (name !== undefined && state.route.at !== "mods" && state.route.at !== "tour" && state.route.at !== "docs") {
       out.push(h("span", { class: "mb-crumb-sep", text: ">" }));
       out.push(
         h("button", {
@@ -372,7 +383,7 @@ export function mountApp(deps: AppDeps): App {
         deps.acts.close();
         return true;
       }
-      if (route.at === "details" || state.openId === undefined) {
+      if (route.at === "docs" || route.at === "details" || state.openId === undefined) {
         deps.acts.go({ at: "mods" });
         return true;
       }
@@ -414,6 +425,7 @@ export function mountApp(deps: AppDeps): App {
 
 function subtitleFor(state: AppState, name: string | undefined): string {
   if (state.route.at === "tour") return "What people usually make, and where each one is written down";
+  if (state.route.at === "docs") return "The Neo Angband SDK tutorials and authoring references";
   if (name === undefined) return "Make your own mod, without leaving the game";
   const size = Object.keys(state.drafts).length;
   return `${name} - ${size} unfinished mod${size === 1 ? "" : "s"} in this install`;
@@ -447,6 +459,8 @@ function leafName(route: Route): string | undefined {
       return "Test";
     case "files":
       return route.path === "" ? "Files" : route.path;
+    case "docs":
+      return "Docs";
     case "about":
       return "About";
     default:

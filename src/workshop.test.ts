@@ -281,12 +281,23 @@ describe("the launch screen and the exit screen", () => {
     control("Enter the workshop").click();
   });
 
+  it("opens the real beginner documentation from the title screen", () => {
+    open = openWorkshop(ctx(), document);
+    control("Read the SDK docs").click();
+    expect(screenText()).toContain("Tutorial 1: Change one thing");
+    const reader = shadow().querySelector<HTMLTextAreaElement>("textarea.mb-ed-area");
+    expect(reader?.readOnly).toBe(true);
+    expect(reader?.value).toContain("What you will make");
+  });
+
   it("stays reachable afterwards, as About in the titlebar", () => {
     open = openWorkshop(ctx(), document);
     control("Enter the workshop").click();
     control("About").click();
     expect(screenText()).toContain("What ModForge is");
     expect(shadow().querySelector(".mb-readme-card")).not.toBeNull();
+    control("Read the Neo Angband SDK docs").click();
+    expect(screenText()).toContain("Tutorial 1: Change one thing");
   });
 
   it("cancels ModForge entirely on Escape from the title screen, rather than opening the workshop", () => {
@@ -1234,7 +1245,7 @@ describe("editing the mod as files", () => {
     expect(screenText()).toContain("from the editor");
   });
 
-  it("writes a script the workshop itself cannot write, and declares it in the manifest", () => {
+  it("starts a plugin entry point and declares it in the manifest", () => {
     walkToAMod("code-mod");
     control("Edit the files directly").click();
     control("Start a plugin.js").click();
@@ -1252,6 +1263,14 @@ describe("editing the mod as files", () => {
     expect(manifest.facets).toContain("plugin");
     expect(manifest.facets).toContain(manifest.shape);
     expect(manifest.modApi).toBe(1);
+  });
+
+  it("opens the complete plugin API from the file editor", () => {
+    walkToAMod("plugin-docs");
+    control("Edit the files directly").click();
+    control("Read the plugin API").click();
+    expect(screenText()).toContain("Mod plugins: shipping CODE in a mod folder");
+    expect(shadow().querySelector<HTMLTextAreaElement>("textarea.mb-ed-area")?.readOnly).toBe(true);
   });
 
   it("turns off trying it for a session the moment a script exists, and says why", () => {

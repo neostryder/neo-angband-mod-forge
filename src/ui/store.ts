@@ -28,6 +28,7 @@
 
 import type { ProjectBuild } from "../host/authoring.js";
 import type { Draft } from "../model/draft.js";
+import type { SdkDocId } from "./sdk-docs-content.js";
 
 /** Which screen the workshop is on. */
 export type Route =
@@ -42,6 +43,8 @@ export type Route =
   | { readonly at: "test" }
   /** The file editor. An empty path means the list with nothing open. */
   | { readonly at: "files"; readonly path: string }
+  /** The bundled SDK tutorials and authoring references. */
+  | { readonly at: "docs"; readonly doc: SdkDocId }
   /** What ModForge is, in the tool's own words - also reachable from the launch screen. */
   | { readonly at: "about" };
 

@@ -26,6 +26,17 @@ import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
 const REL = join("packages", "mod-sdk", "bin", "neo-angband-mod-build.mjs");
+const syncDocs = fileURLToPath(new URL("./sync-sdk-docs.mjs", import.meta.url));
+
+/* The docs reader is source code just as much as plugin.ts is: update its generated
+ * module before either building plugin.js or checking that the committed artifact
+ * matches. This keeps an SDK documentation change from quietly producing a stale
+ * reader in a release. */
+try {
+  execFileSync(process.execPath, [syncDocs], { stdio: "inherit" });
+} catch (e) {
+  process.exit(typeof e.status === "number" ? e.status : 1);
+}
 
 const candidates = [];
 const explicit = process.env["NEO_ANGBAND_REPO"];

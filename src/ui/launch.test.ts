@@ -203,6 +203,29 @@ describe("mountLaunch", () => {
     overlay.close();
   });
 
+  it("opens the bundled SDK docs from the title screen", () => {
+    const overlay = freshOverlay();
+    const clock = fakeClock();
+    let opened = 0;
+    mountLaunch(overlay, {
+      firstRun: true,
+      onEnter: () => undefined,
+      onCancel: () => undefined,
+      onDocs: () => opened++,
+      timers: clock,
+    });
+
+    const docs = [...overlay.root.querySelectorAll<HTMLButtonElement>("button")].find(
+      (b) => (b.textContent ?? "").trim() === "Read the SDK docs",
+    );
+    if (!docs) throw new Error("no Read the SDK docs button");
+    docs.click();
+    expect(opened).toBe(1);
+    expect(panel(overlay, ".mb-launch")?.dataset["shown"]).toBe("0");
+
+    overlay.close();
+  });
+
   it("shows the README summary and returns to the front on Back", () => {
     const overlay = freshOverlay();
     const clock = fakeClock();

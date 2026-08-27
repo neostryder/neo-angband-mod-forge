@@ -67,8 +67,8 @@ export const README_SECTIONS: readonly ReadmeSection[] = [
   {
     title: "Reading more",
     paragraphs: [
-      "The full README, the seven written tutorials, and every engine seam decision live in the " +
-        "repository this mod shipped from: neo-angband-mod-forge, on GitHub.",
+      "The real SDK tutorials and authoring references are bundled under Docs in the workshop. The full ModForge " +
+        "README and engine seam decisions remain in the repository this mod shipped from: neo-angband-mod-forge.",
     ],
   },
 ];
