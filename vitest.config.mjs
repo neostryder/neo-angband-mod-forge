@@ -10,7 +10,7 @@
  * This mod needs the opposite case more than its siblings do, because it is
  * waiting on engine seams that do not exist yet (see PLANNED.md). So:
  *
- *   NEO_ANGBAND_LOCAL_CORE=1 npm test
+ *   NEO_ANGBAND_LOCAL_CORE=1 pnpm test
  *
  * A SECOND VARIABLE, not just the presence of the checkout. Most developers here
  * have the sibling checkout, so keying off that would silently swap the engine

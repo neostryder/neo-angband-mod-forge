@@ -305,9 +305,9 @@ The repository root is the mod folder: `manifest.json` and `plugin.js` sit besid
 the source they are built from, because that pair is what the game fetches.
 
 ```
-npm ci
-npm run verify     # typecheck, test, and prove the committed plugin.js is current
-npm run build      # rebuild plugin.js from the source
+pnpm install --frozen-lockfile
+pnpm verify     # typecheck, test, and prove the committed plugin.js is current
+pnpm build      # rebuild plugin.js from the source
 ```
 
 The tests boot the workshop into a synthetic document and drive it by clicking
@@ -319,13 +319,13 @@ records.
 To develop against an engine change that has not been released yet:
 
 ```
-NEO_ANGBAND_LOCAL_CORE=1 npm test
+NEO_ANGBAND_LOCAL_CORE=1 pnpm test
 ```
 
 To look at the workshop in a browser with no game at all:
 
 ```
-npm run preview
+pnpm preview
 ```
 
 That serves the repository on the loopback interface and opens a harness page which
