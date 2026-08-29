@@ -41,8 +41,16 @@ export type Route =
   | { readonly at: "rebalance"; readonly file: string }
   | { readonly at: "verdict" }
   | { readonly at: "test" }
-  /** The file editor. An empty path means the list with nothing open. */
-  | { readonly at: "files"; readonly path: string }
+  /**
+   * The file editor. An empty path means the list with nothing open. `line`
+   * is set only by a jump into a specific line - a cross-file search result -
+   * so the screen rebuilds and moves the caret there on arrival.
+   */
+  | { readonly at: "files"; readonly path: string; readonly line?: number }
+  /** Every match of the search box's query, across every file in the mod. */
+  | { readonly at: "search" }
+  /** Before and after for one file: the mod's saved text against the editor's unsaved one. */
+  | { readonly at: "diff"; readonly path: string }
   /** The bundled SDK tutorials and authoring references. */
   | { readonly at: "docs"; readonly doc: SdkDocId }
   /** What ModForge is, in the tool's own words - also reachable from the launch screen. */

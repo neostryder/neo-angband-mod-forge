@@ -74,7 +74,7 @@ export default {
 };
 `;
 
-export function filesScreen(shop: Workshop, path: string): View {
+export function filesScreen(shop: Workshop, path: string, line?: number): View {
   const main = h("div", { class: "mb-main" });
   const aside = h("div", { class: "mb-aside" });
   const el = h("div", { class: "mb-cols mb-cols-2" }, main, aside);
@@ -126,6 +126,13 @@ export function filesScreen(shop: Workshop, path: string): View {
     tip: "Open the real SDK reference before you add behaviour to plugin.js.",
     onClick: () => shop.acts.go({ at: "docs", doc: "plugins" }),
   });
+  const searchAll = button({
+    label: "Search every file",
+    tiny: true,
+    kind: "ghost",
+    tip: "Look for a word or a name across every file this mod would write, not just the one open here.",
+    onClick: () => shop.acts.go({ at: "search" }),
+  });
 
   /**
    * A tile, a font, a sound: a file whose bytes are not text at all, so there is
@@ -160,6 +167,7 @@ export function filesScreen(shop: Workshop, path: string): View {
     newProblem,
     h("div", { class: "mb-row-actions" }, plugin, pluginDocs),
     loadRow,
+    h("div", { class: "mb-row-actions" }, searchAll),
     size,
   );
   aside.appendChild(listSection.el);
@@ -198,6 +206,13 @@ export function filesScreen(shop: Workshop, path: string): View {
     tip: "Throws away what is in the editor and shows the file as the mod has it now.",
     onClick: () => shop.acts.revertFile(path),
   });
+  const diff = button({
+    label: "See the changes",
+    tiny: true,
+    kind: "ghost",
+    tip: "Compares what is in the editor now against the mod's saved file, line by line.",
+    onClick: () => shop.acts.go({ at: "diff", path }),
+  });
   const remove = button({
     label: "Delete",
     kind: "danger",
@@ -221,7 +236,7 @@ export function filesScreen(shop: Workshop, path: string): View {
         "mod contains, so the way to empty one is to drop the changes behind it.";
   };
 
-  const bar = h("div", { class: "mb-row-actions" }, save, overwrite, revert, h("span", { class: "mb-spacer" }), caret, dirty, remove);
+  const bar = h("div", { class: "mb-row-actions" }, save, overwrite, revert, diff, h("span", { class: "mb-spacer" }), caret, dirty, remove);
 
   const problems = h("div", { class: "mb-ed-problems" });
   const checkNote = h("div", { class: "mb-why" });
@@ -323,6 +338,7 @@ export function filesScreen(shop: Workshop, path: string): View {
       onInput: (text) => shop.acts.editFile(path, text),
       onSave: () => shop.acts.saveFile(path),
       onCaret: (line, column) => setText(caret, `line ${line}, column ${column}`),
+      onSearchAll: () => shop.acts.go({ at: "search" }),
     });
     host.appendChild(editor.el);
     main.append(title, about, goneRow, bar, host, binaryPanel, problems, checkNote);
@@ -420,6 +436,7 @@ export function filesScreen(shop: Workshop, path: string): View {
       dirty.dataset["tone"] = "";
       save.disabled = true;
       revert.disabled = true;
+      diff.disabled = true;
       overwrite.disabled = true;
       overwrite.style.display = "none";
       setDeletable(classify(shop.api, path) === "extra");
@@ -441,6 +458,7 @@ export function filesScreen(shop: Workshop, path: string): View {
       save.disabled = true;
       overwrite.disabled = true;
       revert.disabled = true;
+      diff.disabled = true;
       setDeletable(false);
       goneRow.style.display = "";
       bar.style.display = "none";
@@ -461,6 +479,7 @@ export function filesScreen(shop: Workshop, path: string): View {
 
     save.disabled = !changed;
     revert.disabled = !changed;
+    diff.disabled = !changed;
     setDeletable(classify(shop.api, path) === "extra");
     overwrite.style.display = stale ? "" : "none";
 
@@ -512,6 +531,9 @@ export function filesScreen(shop: Workshop, path: string): View {
    * where it was. */
   const openedFile = path === "" ? undefined : projectFiles(shop.api, draft).find((entry) => entry.path === path);
   if (openedFile === undefined || !isBinary(openedFile.contents)) editor?.focus();
+  /* A jump from a cross-file search result: land on the line the match was on,
+   * once the editor above has something in it to land in. */
+  if (line !== undefined) editor?.goTo(line);
 
   return {
     el,

@@ -91,6 +91,13 @@ Tab and Shift-Tab to indent and outdent, `Ctrl+F` to find, `Ctrl+S` to save the
 file, and a line and column readout. `Ctrl+Z` in the editor is the browser's own
 undo over your typing; `Ctrl+Z` anywhere else is the workshop's undo over the mod.
 
+**`Ctrl+Shift+F`, or the find bar's own "Search everywhere" button, searches
+every file the mod would write, not just the one open.** The result screen
+shows the file, the line and a snippet for every match, and clicking one opens
+that file's editor at the line it is on. **"See the changes" on the toolbar**
+compares what is in the editor against what the mod has saved for that file,
+line by line, in the same +/- reading a terminal `diff` gives.
+
 **Brackets and quotes close themselves**, and the rules that stop that being a
 nuisance are worth knowing. A pair only appears where a closer could go - at the
 end of a line, before whitespace, or before something that already closes - so

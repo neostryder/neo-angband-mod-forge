@@ -292,16 +292,23 @@ export class Actions {
    * Unsaved work is still never thrown away for the crime of clicking a name twice:
    * a dirty buffer is kept as it was, and the stale check on save is what tells the
    * reader that the mod moved underneath it.
+   *
+   * `line` IS THE JUMP A CROSS-FILE SEARCH RESULT MAKES. It rides along in the
+   * route rather than being poked at the editor directly, because the editor
+   * for this path may not exist yet - the file screen builds one fresh on
+   * every route change, and folding the destination line into the route is
+   * what lets that fresh editor land on it as it is built.
    */
-  openFile(path: string): void {
+  openFile(path: string, line?: number): void {
     const draft = openDraft(this.deps.store.get());
     if (!draft) return;
     const text = fileText(this.deps.api, draft, path);
+    const route: Route = line === undefined ? { at: "files", path } : { at: "files", path, line };
     this.deps.store.view((state) => {
       const held = state.buffers[path];
       const dirty = held !== undefined && held.text !== held.from;
-      if (text === undefined || dirty) return { route: { at: "files", path } };
-      return { route: { at: "files", path }, buffers: { ...state.buffers, [path]: { text, from: text } } };
+      if (text === undefined || dirty) return { route };
+      return { route, buffers: { ...state.buffers, [path]: { text, from: text } } };
     });
   }
 

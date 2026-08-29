@@ -2657,16 +2657,23 @@ var Actions = class {
    * Unsaved work is still never thrown away for the crime of clicking a name twice:
    * a dirty buffer is kept as it was, and the stale check on save is what tells the
    * reader that the mod moved underneath it.
+   *
+   * `line` IS THE JUMP A CROSS-FILE SEARCH RESULT MAKES. It rides along in the
+   * route rather than being poked at the editor directly, because the editor
+   * for this path may not exist yet - the file screen builds one fresh on
+   * every route change, and folding the destination line into the route is
+   * what lets that fresh editor land on it as it is built.
    */
-  openFile(path) {
+  openFile(path, line) {
     const draft = openDraft(this.deps.store.get());
     if (!draft) return;
     const text = fileText(this.deps.api, draft, path);
+    const route = line === void 0 ? { at: "files", path } : { at: "files", path, line };
     this.deps.store.view((state) => {
       const held = state.buffers[path];
       const dirty = held !== void 0 && held.text !== held.from;
-      if (text === void 0 || dirty) return { route: { at: "files", path } };
-      return { route: { at: "files", path }, buffers: { ...state.buffers, [path]: { text, from: text } } };
+      if (text === void 0 || dirty) return { route };
+      return { route, buffers: { ...state.buffers, [path]: { text, from: text } } };
     });
   }
   /** The reader typed. Held outside the document until they save it. */
@@ -4025,6 +4032,167 @@ function detailsScreen(shop) {
   };
 }
 
+// src/model/diff.ts
+var CELL_CEILING = 4e6;
+function diffLines(before, after) {
+  const a = before === "" ? [] : before.split("\n");
+  const b = after === "" ? [] : after.split("\n");
+  const n = a.length;
+  const m = b.length;
+  if (n * m > CELL_CEILING) {
+    const ops2 = [
+      ...a.map((text, i2) => ({ kind: "remove", text, beforeLine: i2 + 1 })),
+      ...b.map((text, i2) => ({ kind: "add", text, afterLine: i2 + 1 }))
+    ];
+    return { ops: ops2, truncated: true };
+  }
+  const dp = [];
+  for (let i2 = 0; i2 <= n; i2++) dp.push(new Uint32Array(m + 1));
+  for (let i2 = n - 1; i2 >= 0; i2--) {
+    for (let j2 = m - 1; j2 >= 0; j2--) {
+      dp[i2][j2] = a[i2] === b[j2] ? dp[i2 + 1][j2 + 1] + 1 : Math.max(dp[i2 + 1][j2], dp[i2][j2 + 1]);
+    }
+  }
+  const ops = [];
+  let i = 0;
+  let j = 0;
+  while (i < n && j < m) {
+    if (a[i] === b[j]) {
+      ops.push({ kind: "same", text: a[i], beforeLine: i + 1, afterLine: j + 1 });
+      i++;
+      j++;
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      ops.push({ kind: "remove", text: a[i], beforeLine: i + 1 });
+      i++;
+    } else {
+      ops.push({ kind: "add", text: b[j], afterLine: j + 1 });
+      j++;
+    }
+  }
+  while (i < n) {
+    ops.push({ kind: "remove", text: a[i], beforeLine: i + 1 });
+    i++;
+  }
+  while (j < m) {
+    ops.push({ kind: "add", text: b[j], afterLine: j + 1 });
+    j++;
+  }
+  return { ops, truncated: false };
+}
+function diffSummary(ops) {
+  let added = 0;
+  let removed = 0;
+  for (const op of ops) {
+    if (op.kind === "add") added++;
+    else if (op.kind === "remove") removed++;
+  }
+  return { added, removed };
+}
+var DIFF_CONTEXT = 3;
+function diffRows(ops, context = DIFF_CONTEXT) {
+  const n = ops.length;
+  const keep = new Array(n).fill(false);
+  for (let i2 = 0; i2 < n; i2++) {
+    if (ops[i2].kind === "same") continue;
+    for (let k = Math.max(0, i2 - context); k <= Math.min(n - 1, i2 + context); k++) keep[k] = true;
+  }
+  const rows = [];
+  let i = 0;
+  while (i < n) {
+    if (!keep[i]) {
+      let j = i;
+      while (j < n && !keep[j]) j++;
+      rows.push({ kind: "gap", count: j - i });
+      i = j;
+      continue;
+    }
+    const op = ops[i];
+    rows.push(
+      op.kind === "same" ? { kind: "context", text: op.text, beforeLine: op.beforeLine, afterLine: op.afterLine } : op.kind === "add" ? { kind: "add", text: op.text, afterLine: op.afterLine } : { kind: "remove", text: op.text, beforeLine: op.beforeLine }
+    );
+    i++;
+  }
+  return rows;
+}
+
+// src/ui/screens/diff.ts
+function diffScreen(shop, path) {
+  const main = h("div", { class: "mb-main" });
+  const draft = openDraft(shop.store.get());
+  if (!draft) {
+    main.appendChild(
+      empty(
+        "?",
+        "No mod is open",
+        "There is nothing to compare until a mod is open.",
+        button({ label: "Go to my mods", kind: "primary", onClick: () => shop.acts.go({ at: "mods" }) })
+      )
+    );
+    return { el: main, update: () => void 0, dispose: () => void 0 };
+  }
+  const back = button({ label: "Back to the file", onClick: () => shop.acts.go({ at: "files", path }) });
+  const headline = h("div", { class: "mb-prose" });
+  const summary = h("div", { class: "mb-why" });
+  const body = h("div", { class: "mb-diff" });
+  main.append(
+    h("div", { class: "mb-row-actions" }, back),
+    headline,
+    summary,
+    body
+  );
+  const render = (state) => {
+    const current = openDraft(state);
+    if (!current) return;
+    const file = projectFiles(shop.api, current).find((entry) => entry.path === path);
+    if (file === void 0) {
+      headline.replaceChildren(h("h2", { text: path }));
+      summary.textContent = "That file is not in the mod any more, so there is nothing left to compare.";
+      body.replaceChildren();
+      return;
+    }
+    headline.replaceChildren(h("h2", { text: path }));
+    if (isBinary(file.contents)) {
+      summary.textContent = "This file holds raw bytes, not text, so there is nothing here to diff.";
+      body.replaceChildren();
+      return;
+    }
+    const before = file.contents;
+    const after = state.buffers[path]?.text ?? before;
+    if (after === before) {
+      summary.textContent = "There is nothing unsaved to compare: the editor's text and the mod's saved file are the same right now.";
+      body.replaceChildren();
+      return;
+    }
+    const { ops, truncated } = diffLines(before, after);
+    const { added, removed } = diffSummary(ops);
+    const counts = `${added} line${added === 1 ? "" : "s"} added, ${removed} line${removed === 1 ? "" : "s"} removed`;
+    summary.textContent = truncated ? `${path} is too big to compare line by line, so the whole file is shown as removed and added below. ${counts}.` : `Comparing the mod's saved file against what is in the editor now. ${counts}.`;
+    body.replaceChildren(...diffRows(ops).map(rowEl));
+  };
+  render(shop.store.get());
+  return {
+    el: main,
+    update(next, prev) {
+      if (next.drafts !== prev.drafts || next.buffers !== prev.buffers || next.openId !== prev.openId) render(next);
+    },
+    dispose: () => void 0
+  };
+}
+function rowEl(row2) {
+  if (row2.kind === "gap") {
+    return h("div", { class: "mb-diff-gap", text: `... ${row2.count} unchanged line${row2.count === 1 ? "" : "s"} ...` });
+  }
+  const marker = row2.kind === "add" ? "+" : row2.kind === "remove" ? "-" : " ";
+  return h(
+    "div",
+    { class: "mb-diff-row", data: { kind: row2.kind } },
+    h("span", { class: "mb-diff-num", text: row2.beforeLine !== void 0 ? String(row2.beforeLine) : "" }),
+    h("span", { class: "mb-diff-num", text: row2.afterLine !== void 0 ? String(row2.afterLine) : "" }),
+    h("span", { class: "mb-diff-marker", text: marker }),
+    h("span", { class: "mb-diff-text", text: row2.text })
+  );
+}
+
 // src/model/syntax.ts
 function languageFor(path) {
   const dot = path.lastIndexOf(".");
@@ -4578,6 +4746,13 @@ function codeEditor(options) {
     h("button", { class: "mb-btn mb-tiny", type: "button", text: "Next", on: { click: () => step(1) } }),
     h("button", { class: "mb-btn mb-tiny", type: "button", text: "Previous", on: { click: () => step(-1) } }),
     findCount,
+    options.onSearchAll === void 0 ? null : h("button", {
+      class: "mb-btn mb-tiny mb-ghost",
+      type: "button",
+      text: "Search everywhere",
+      tip: "Look for this across every file in the mod, not just the one open here.",
+      on: { click: () => options.onSearchAll?.() }
+    }),
     h("button", { class: "mb-btn mb-tiny mb-ghost", type: "button", text: "Close", on: { click: () => showFind(false) } })
   );
   findBar.style.display = "none";
@@ -4881,6 +5056,11 @@ ${lead}${opens ? INDENT : ""}`);
         return true;
       }
       if (chord && key.toLowerCase() === "f") {
+        if (event.shiftKey) {
+          if (options.onSearchAll === void 0) return false;
+          options.onSearchAll();
+          return true;
+        }
         showFind(true);
         return true;
       }
@@ -5359,7 +5539,7 @@ export default {
   },
 };
 `;
-function filesScreen(shop, path) {
+function filesScreen(shop, path, line) {
   const main = h("div", { class: "mb-main" });
   const aside = h("div", { class: "mb-aside" });
   const el = h("div", { class: "mb-cols mb-cols-2" }, main, aside);
@@ -5402,6 +5582,13 @@ function filesScreen(shop, path) {
     tip: "Open the real SDK reference before you add behaviour to plugin.js.",
     onClick: () => shop.acts.go({ at: "docs", doc: "plugins" })
   });
+  const searchAll = button({
+    label: "Search every file",
+    tiny: true,
+    kind: "ghost",
+    tip: "Look for a word or a name across every file this mod would write, not just the one open here.",
+    onClick: () => shop.acts.go({ at: "search" })
+  });
   const loadFile = h("input", { type: "file" });
   loadFile.addEventListener("change", () => {
     const picked = loadFile.files?.[0];
@@ -5426,6 +5613,7 @@ function filesScreen(shop, path) {
     newProblem,
     h("div", { class: "mb-row-actions" }, plugin, pluginDocs),
     loadRow,
+    h("div", { class: "mb-row-actions" }, searchAll),
     size
   );
   aside.appendChild(listSection.el);
@@ -5457,6 +5645,13 @@ function filesScreen(shop, path) {
     tip: "Throws away what is in the editor and shows the file as the mod has it now.",
     onClick: () => shop.acts.revertFile(path)
   });
+  const diff = button({
+    label: "See the changes",
+    tiny: true,
+    kind: "ghost",
+    tip: "Compares what is in the editor now against the mod's saved file, line by line.",
+    onClick: () => shop.acts.go({ at: "diff", path })
+  });
   const remove = button({
     label: "Delete",
     kind: "danger",
@@ -5468,7 +5663,7 @@ function filesScreen(shop, path) {
     remove.disabled = !allowed;
     remove.dataset["tip"] = allowed ? "Takes this file out of the mod. Undo brings it back." : "Only a file of your own can be deleted here. The manifest and a record file are written from what the mod contains, so the way to empty one is to drop the changes behind it.";
   };
-  const bar = h("div", { class: "mb-row-actions" }, save, overwrite, revert, h("span", { class: "mb-spacer" }), caret, dirty, remove);
+  const bar = h("div", { class: "mb-row-actions" }, save, overwrite, revert, diff, h("span", { class: "mb-spacer" }), caret, dirty, remove);
   const problems = h("div", { class: "mb-ed-problems" });
   const checkNote = h("div", { class: "mb-why" });
   let editor;
@@ -5531,7 +5726,8 @@ function filesScreen(shop, path) {
       text: opened?.text ?? "",
       onInput: (text) => shop.acts.editFile(path, text),
       onSave: () => shop.acts.saveFile(path),
-      onCaret: (line, column) => setText(caret, `line ${line}, column ${column}`)
+      onCaret: (line2, column) => setText(caret, `line ${line2}, column ${column}`),
+      onSearchAll: () => shop.acts.go({ at: "search" })
     });
     host.appendChild(editor.el);
     main.append(title, about, goneRow, bar, host, binaryPanel, problems, checkNote);
@@ -5604,6 +5800,7 @@ function filesScreen(shop, path) {
       dirty.dataset["tone"] = "";
       save.disabled = true;
       revert.disabled = true;
+      diff.disabled = true;
       overwrite.disabled = true;
       overwrite.style.display = "none";
       setDeletable(classify(shop.api, path) === "extra");
@@ -5620,6 +5817,7 @@ function filesScreen(shop, path) {
       save.disabled = true;
       overwrite.disabled = true;
       revert.disabled = true;
+      diff.disabled = true;
       setDeletable(false);
       goneRow.style.display = "";
       bar.style.display = "none";
@@ -5637,6 +5835,7 @@ function filesScreen(shop, path) {
     dirty.dataset["tone"] = changed ? "mod" : "";
     save.disabled = !changed;
     revert.disabled = !changed;
+    diff.disabled = !changed;
     setDeletable(classify(shop.api, path) === "extra");
     overwrite.style.display = stale ? "" : "none";
     const notes = [aboutKind(classify(shop.api, path), path)];
@@ -5672,6 +5871,7 @@ function filesScreen(shop, path) {
   render(shop.store.get());
   const openedFile = path === "" ? void 0 : projectFiles(shop.api, draft).find((entry) => entry.path === path);
   if (openedFile === void 0 || !isBinary(openedFile.contents)) editor?.focus();
+  if (line !== void 0) editor?.goTo(line);
   return {
     el,
     update(next, prev) {
@@ -7012,6 +7212,109 @@ function middle(numbers) {
   return Math.round(((sorted[at - 1] ?? 0) + (sorted[at] ?? 0)) / 2);
 }
 
+// src/model/search.ts
+var MATCH_CEILING = 500;
+var SNIPPET_RADIUS = 60;
+function searchDraft(api, draft, buffers, query) {
+  const needle = query.trim().toLowerCase();
+  if (needle === "") return [];
+  const out = [];
+  for (const file of projectFiles(api, draft)) {
+    if (isBinary(file.contents)) continue;
+    const text = buffers[file.path]?.text ?? file.contents;
+    const lines = text.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const hay = line.toLowerCase();
+      let at = hay.indexOf(needle);
+      while (at >= 0) {
+        out.push({ path: file.path, line: i + 1, column: at + 1, snippet: snippetAround(line, at, needle.length) });
+        if (out.length >= MATCH_CEILING) return out;
+        at = hay.indexOf(needle, at + 1);
+      }
+    }
+  }
+  return out;
+}
+function snippetAround(line, at, needleLength) {
+  const trimmed = line.trim();
+  const shift = line.length - line.trimStart().length;
+  const shiftedAt = Math.max(0, at - shift);
+  const from = Math.max(0, shiftedAt - SNIPPET_RADIUS);
+  const to = Math.min(trimmed.length, shiftedAt + needleLength + SNIPPET_RADIUS);
+  const cut = trimmed.slice(from, to);
+  return `${from > 0 ? "..." : ""}${cut}${to < trimmed.length ? "..." : ""}`;
+}
+
+// src/ui/screens/search.ts
+function searchScreen(shop) {
+  const main = h("div", { class: "mb-main" });
+  const draft = openDraft(shop.store.get());
+  if (!draft) {
+    main.appendChild(
+      empty(
+        "?",
+        "No mod is open",
+        "Search looks across one mod's files, so there is nothing to search yet.",
+        button({ label: "Go to my mods", kind: "primary", onClick: () => shop.acts.go({ at: "mods" }) })
+      )
+    );
+    return { el: main, update: () => void 0, dispose: () => void 0 };
+  }
+  const search = searchBox("search every file in this mod", (value) => shop.acts.setFilter(value));
+  const count = h("div", { class: "mb-why" });
+  const list = h("div", { class: "mb-list" });
+  main.append(
+    h(
+      "div",
+      { class: "mb-prose" },
+      h("h2", { text: "Search this mod" }),
+      h("p", {
+        text: "Every text file this mod would write, searched at once. A match takes you straight into that file's editor, at the line it is on."
+      })
+    ),
+    search,
+    count,
+    list
+  );
+  const rowFor = (match) => listRow({
+    badge: "@",
+    name: `${match.path}:${match.line}`,
+    meta: match.snippet,
+    onClick: () => shop.acts.openFile(match.path, match.line)
+  });
+  const render = (query) => {
+    const current = openDraft(shop.store.get());
+    if (!current) return;
+    const needle = query.trim();
+    if (needle === "") {
+      setText(count, "Type something above to search every file this mod would write.");
+      fillList(list, [], empty("@", "Nothing yet", "Type a word or a name above to search every file in this mod."));
+      return;
+    }
+    const matches = searchDraft(shop.api, current, shop.store.get().buffers, needle);
+    setText(
+      count,
+      matches.length === 0 ? `Nothing found for "${needle}".` : matches.length >= MATCH_CEILING ? `Showing the first ${matches.length} matches for "${needle}". There may be more; a narrower search will find them.` : `${matches.length} match${matches.length === 1 ? "" : "es"} for "${needle}".`
+    );
+    fillList(
+      list,
+      matches.map(rowFor),
+      empty("?", "Nothing found", `No file in this mod has "${needle}" in it.`)
+    );
+  };
+  render(shop.store.get().filter);
+  return {
+    el: main,
+    update(next, prev) {
+      if (next.filter !== prev.filter || next.drafts !== prev.drafts || next.buffers !== prev.buffers) {
+        render(next.filter);
+      }
+    },
+    dispose: () => void 0
+  };
+}
+
 // src/host/spawn.ts
 var NO_CATALOGUE = { items: [], creatures: [], artifacts: [] };
 function packsInPlay(catalogue) {
@@ -7841,7 +8144,11 @@ function mountApp(deps) {
       case "test":
         return testScreen(shop);
       case "files":
-        return filesScreen(shop, route.path);
+        return filesScreen(shop, route.path, route.line);
+      case "search":
+        return searchScreen(shop);
+      case "diff":
+        return diffScreen(shop, route.path);
       case "docs":
         return docsScreen(shop, route.doc);
       case "about":
@@ -8051,6 +8358,10 @@ function leafName(route) {
       return "Test";
     case "files":
       return route.path === "" ? "Files" : route.path;
+    case "search":
+      return "Search";
+    case "diff":
+      return `Compare ${route.path}`;
     case "docs":
       return "Docs";
     case "about":
@@ -9390,6 +9701,53 @@ button.mb-ed-problem[data-level]:hover { background: color-mix(in srgb, var(--to
 .mb-ed-problem[data-level="hint"] { --tone: var(--focus); }
 .mb-ed-problem-text { flex: 1; min-width: 0; }
 .mb-ed-problem-rule { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--ink-faint); flex: none; }
+
+/* ---------------------------------------------------------------- *
+ * The diff view                                                     *
+ * ---------------------------------------------------------------- *
+ *
+ * THE SAME MONOSPACE NUMBERS AS THE EDITOR'S OWN GUTTER, because a diff is a
+ * second reading of the same file and a reader comparing the two by eye should
+ * not also have to reconcile two different type treatments.
+ */
+
+.mb-diff {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  line-height: 1.5;
+  border: 1px solid var(--edge);
+  border-radius: var(--r-sm);
+  background: var(--stone);
+  overflow: auto;
+  max-height: 64vh;
+}
+.mb-diff-row { display: flex; white-space: pre; }
+.mb-diff-num {
+  flex: none;
+  width: 42px;
+  padding: 0 6px;
+  text-align: right;
+  color: var(--ink-faint);
+  user-select: none;
+}
+.mb-diff-marker { flex: none; width: 16px; text-align: center; color: var(--ink-faint); user-select: none; }
+.mb-diff-text { flex: 1; min-width: 0; white-space: pre; overflow-x: auto; color: var(--ink-dim); }
+.mb-diff-row[data-kind="add"] { background: color-mix(in srgb, var(--good) 14%, transparent); }
+.mb-diff-row[data-kind="add"] .mb-diff-marker,
+.mb-diff-row[data-kind="add"] .mb-diff-text { color: var(--good); }
+.mb-diff-row[data-kind="remove"] { background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.mb-diff-row[data-kind="remove"] .mb-diff-marker,
+.mb-diff-row[data-kind="remove"] .mb-diff-text { color: var(--danger); }
+.mb-diff-gap {
+  padding: 3px 12px;
+  color: var(--ink-faint);
+  font-style: italic;
+  background: var(--surface-2);
+  border-top: 1px solid var(--edge);
+  border-bottom: 1px solid var(--edge);
+}
 
 /* ---------------------------------------------------------------- *
  * Empty states                                                      *

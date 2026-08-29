@@ -31,12 +31,14 @@ import type { Tooltips } from "./tooltip.js";
 import { aboutScreen } from "./screens/about.js";
 import { baseScreen } from "./screens/base.js";
 import { detailsScreen } from "./screens/details.js";
+import { diffScreen } from "./screens/diff.js";
 import { docsScreen } from "./screens/docs.js";
 import { filesScreen } from "./screens/files.js";
 import { kindsScreen } from "./screens/kinds.js";
 import { modsScreen } from "./screens/mods.js";
 import { rebalanceScreen } from "./screens/rebalance.js";
 import { recordScreen } from "./screens/record.js";
+import { searchScreen } from "./screens/search.js";
 import { testScreen } from "./screens/test.js";
 import { tourScreen } from "./screens/tour.js";
 import { verdictScreen } from "./screens/verdict.js";
@@ -182,7 +184,11 @@ export function mountApp(deps: AppDeps): App {
       case "test":
         return testScreen(shop);
       case "files":
-        return filesScreen(shop, route.path);
+        return filesScreen(shop, route.path, route.line);
+      case "search":
+        return searchScreen(shop);
+      case "diff":
+        return diffScreen(shop, route.path);
       case "docs":
         return docsScreen(shop, route.doc);
       case "about":
@@ -459,6 +465,10 @@ function leafName(route: Route): string | undefined {
       return "Test";
     case "files":
       return route.path === "" ? "Files" : route.path;
+    case "search":
+      return "Search";
+    case "diff":
+      return `Compare ${route.path}`;
     case "docs":
       return "Docs";
     case "about":
