@@ -12,7 +12,7 @@ Anything planned, deferred or merely intended goes in `PLANNED.md` instead, and
 never here: a reader who did not write the entry cannot tell an intention from a
 feature, so they go looking for the feature.
 
-## [Unreleased]
+## [1.2.0] - 2026-08-29
 
 ### Added
 

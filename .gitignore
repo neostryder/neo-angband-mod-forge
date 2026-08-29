@@ -3,3 +3,4 @@ node_modules/
 .neo-angband/
 .claude/
 package-lock.json
+output/
