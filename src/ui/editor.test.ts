@@ -41,8 +41,15 @@ interface Open {
   at(start: number, end?: number): void;
 }
 
-function open(text: string, lang: Language = "json"): Open {
-  const ed = codeEditor({ doc: document, lang, text, onInput: () => undefined, onSave: () => undefined });
+function open(text: string, lang: Language = "json", onSearchAll?: () => void): Open {
+  const ed = codeEditor({
+    doc: document,
+    lang,
+    text,
+    onInput: () => undefined,
+    onSave: () => undefined,
+    ...(onSearchAll === undefined ? {} : { onSearchAll }),
+  });
   editor = ed;
   document.body.appendChild(ed.el);
   const area = ed.el.querySelector("textarea");
@@ -207,6 +214,29 @@ describe("the auto-indent and the auto-close together", () => {
     it_.at(5);
     it_.press("Enter");
     expect(it_.area.value).toBe("  abc\n  ");
+  });
+});
+
+describe("leaving the file for a search across every one in the mod", () => {
+  it("claims Ctrl-Shift-F and calls the handler, when the screen offered one", () => {
+    let called = 0;
+    const it_ = open("", "json", () => {
+      called++;
+    });
+    expect(it_.press("F", { ctrlKey: true, shiftKey: true })).toBe(true);
+    expect(called).toBe(1);
+  });
+
+  it("leaves the chord alone when nothing was offered to search across", () => {
+    const it_ = open("");
+    expect(it_.press("F", { ctrlKey: true, shiftKey: true })).toBe(false);
+  });
+
+  it("still opens the local find bar for plain Ctrl-F, chord unchanged", () => {
+    const it_ = open("", "json", () => undefined);
+    expect(it_.press("f", { ctrlKey: true })).toBe(true);
+    const bar = it_.ed.el.querySelector(".mb-ed-find") as HTMLElement | null;
+    expect(bar?.style.display).not.toBe("none");
   });
 });
 

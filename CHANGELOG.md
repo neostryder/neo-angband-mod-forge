@@ -12,6 +12,22 @@ Anything planned, deferred or merely intended goes in `PLANNED.md` instead, and
 never here: a reader who did not write the entry cannot tell an intention from a
 feature, so they go looking for the feature.
 
+## [Unreleased]
+
+### Added
+
+- **Search looks across every file in the mod, not just the one open.** A
+  "Search every file" button on the file list, and Ctrl-Shift-F from inside the
+  editor, open a search screen that finds every occurrence of a word or a name
+  across every text file the mod would write - the file, the line and a snippet
+  for each - and a result opens straight into that file's editor at the line it
+  is on.
+- **A diff view compares a file's unsaved edits against what the mod would save
+  over them.** "See the changes" on the file editor's toolbar renders a
+  line-by-line, unified-diff-style reading of what pressing Save would actually
+  change, with a few lines of context kept around each edit and a long
+  unchanged run collapsed rather than scrolled past.
+
 ## [1.1.0] - 2026-08-26
 
 ### Added

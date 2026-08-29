@@ -187,14 +187,6 @@ needs. What would change the argument is a mod that was MADE here, exported, and
 edited by hand once: that person has a real use for bringing it back, and no way
 to say so yet.
 
-
-### Searching across files, and a diff - NOT BUILT
-
-Find works inside the file that is open. There is no search across the folder
-and no view of what a save changed, which matters most because a save on a
-record file rewrites the text into the emitter's own spelling without showing
-what moved. Tracked as neo-angband#51.
-
 ---
 
 ## The interface

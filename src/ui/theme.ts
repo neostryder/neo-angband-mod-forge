@@ -1170,6 +1170,53 @@ button.mb-ed-problem[data-level]:hover { background: color-mix(in srgb, var(--to
 .mb-ed-problem-rule { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--ink-faint); flex: none; }
 
 /* ---------------------------------------------------------------- *
+ * The diff view                                                     *
+ * ---------------------------------------------------------------- *
+ *
+ * THE SAME MONOSPACE NUMBERS AS THE EDITOR'S OWN GUTTER, because a diff is a
+ * second reading of the same file and a reader comparing the two by eye should
+ * not also have to reconcile two different type treatments.
+ */
+
+.mb-diff {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  line-height: 1.5;
+  border: 1px solid var(--edge);
+  border-radius: var(--r-sm);
+  background: var(--stone);
+  overflow: auto;
+  max-height: 64vh;
+}
+.mb-diff-row { display: flex; white-space: pre; }
+.mb-diff-num {
+  flex: none;
+  width: 42px;
+  padding: 0 6px;
+  text-align: right;
+  color: var(--ink-faint);
+  user-select: none;
+}
+.mb-diff-marker { flex: none; width: 16px; text-align: center; color: var(--ink-faint); user-select: none; }
+.mb-diff-text { flex: 1; min-width: 0; white-space: pre; overflow-x: auto; color: var(--ink-dim); }
+.mb-diff-row[data-kind="add"] { background: color-mix(in srgb, var(--good) 14%, transparent); }
+.mb-diff-row[data-kind="add"] .mb-diff-marker,
+.mb-diff-row[data-kind="add"] .mb-diff-text { color: var(--good); }
+.mb-diff-row[data-kind="remove"] { background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.mb-diff-row[data-kind="remove"] .mb-diff-marker,
+.mb-diff-row[data-kind="remove"] .mb-diff-text { color: var(--danger); }
+.mb-diff-gap {
+  padding: 3px 12px;
+  color: var(--ink-faint);
+  font-style: italic;
+  background: var(--surface-2);
+  border-top: 1px solid var(--edge);
+  border-bottom: 1px solid var(--edge);
+}
+
+/* ---------------------------------------------------------------- *
  * Empty states                                                      *
  * ---------------------------------------------------------------- *
  *

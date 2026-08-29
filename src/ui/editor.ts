@@ -186,6 +186,14 @@ export interface CodeEditorOptions {
   readonly onSave: () => void;
   /** Called when the caret moves, for the line and column readout. */
   readonly onCaret?: (line: number, column: number) => void;
+  /**
+   * Ctrl-Shift-F, and the find bar's own button for the same gesture: leave
+   * this file for a search across every file in the mod. Absent where there is
+   * nothing to search across - the read-only tutorial viewer in `docs.ts` hands
+   * over no callback, and the chord and the button both fall away rather than
+   * doing nothing when pressed.
+   */
+  readonly onSearchAll?: () => void;
 }
 
 export function codeEditor(options: CodeEditorOptions): CodeEditor {
@@ -215,6 +223,15 @@ export function codeEditor(options: CodeEditorOptions): CodeEditor {
     h("button", { class: "mb-btn mb-tiny", type: "button", text: "Next", on: { click: () => step(1) } }),
     h("button", { class: "mb-btn mb-tiny", type: "button", text: "Previous", on: { click: () => step(-1) } }),
     findCount,
+    options.onSearchAll === undefined
+      ? null
+      : h("button", {
+          class: "mb-btn mb-tiny mb-ghost",
+          type: "button",
+          text: "Search everywhere",
+          tip: "Look for this across every file in the mod, not just the one open here.",
+          on: { click: () => options.onSearchAll?.() },
+        }),
     h("button", { class: "mb-btn mb-tiny mb-ghost", type: "button", text: "Close", on: { click: () => showFind(false) } }),
   );
   findBar.style.display = "none";
@@ -639,6 +656,11 @@ export function codeEditor(options: CodeEditorOptions): CodeEditor {
         return true;
       }
       if (chord && key.toLowerCase() === "f") {
+        if (event.shiftKey) {
+          if (options.onSearchAll === undefined) return false;
+          options.onSearchAll();
+          return true;
+        }
         showFind(true);
         return true;
       }
