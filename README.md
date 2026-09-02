@@ -34,41 +34,41 @@ open but shows an undismissable banner identifying the fallback. That banner is
 hidden when the real SDK and composed records are present, which is the normal
 in-game path for every engine version this release supports.
 
-## What it does
+## Mod authoring features
 
-**Adds records.** A new monster, a new sword, a new potion, a new artifact, in any
+A new monster, a new sword, a new potion, or a new artifact can be added in any
 of the forty-odd record files the game composes one record at a time. You base it
 on something that already exists, and the workshop fills it in from what its
 comparables in the game actually carry rather than leaving it blank. It inherits
 shape and scale and none of its powers: a new orc arrives with the orc's hit
 points and armour and no attacks at all until you say otherwise.
 
-**Adjusts records the game already owns.** Your mod ships the difference rather
+For records the game already owns, your mod ships the difference rather
 than the record, so the base game keeps owning it and two mods adjusting different
 fields of the same record both work.
 
-**Retunes a whole set at once.** Every potion cheaper, every dragon faster, every
+You can retune a whole set at once: every potion cheaper, every dragon faster, every
 shop's purse deeper. Filter a file down to what you mean, choose one adjustment,
 and every record that matched gets its own entry.
 
-**Explains every number it chose.** Not "speed 120" but "speed 120, because every
-dog within seven levels of depth 3 has it". The evidence table beside the editor
-answers "is forty hit points a lot for a depth-three dog" with the game's own data
-rather than with a manual.
+Each suggested number includes its reason. The evidence table beside the editor
+answers "speed 120, because every dog within seven levels of depth 3 has it".
+It also answers "is forty hit points a lot for a depth-three dog" with the game's
+own data rather than with a manual.
 
-**Checks as you type.** A name that collides with something already loaded, a
+Checks run as you type. A name that collides with something already loaded, a
 field nothing in the file uses, a monster with no depth that would exist and never
 be met, a reference to something no loaded pack defines. Errors are separated from
 warnings and from advice, and clicking one takes you to the field it is about.
 
-**Writes the paperwork you would have got wrong.** A mod may only adjust a record
+A mod may only adjust a record
 whose owner it declares as a dependency, and a change refused for want of that
 declaration costs you the change and not the mod, silently. The workshop writes
 the dependency at the moment you pick the record. It also picks the load-order
 group from what you actually did, writes an engine range that is a minimum rather
 than a pin, and defaults the repository to an address that is obviously yours.
 
-**Prefers the change that survives other people.** Nudging a number writes "three
+Nudging a number writes "three
 more than whatever this is" rather than a fixed value, so it keeps meaning what you
 meant after a game update retunes it and after another mod adjusts it first.
 Ticking a flag writes "add this flag", so another mod adding a different flag to
@@ -80,7 +80,7 @@ Every screen above asks a question and writes the answer into a file. There is o
 more screen, reached with **Edit the files directly** from a mod's own page, that
 shows the files.
 
-**It is the same mod, printed.** Not a mode, not an import, not a second copy. A
+The file editor shows the same mod, not a mode, an import, or a second copy. A
 monster added on the record screen is in `monster.json` there; a number changed
 there is the number the record screen shows next time you open it. Saving a file
 parses the text back into the mod that every other screen edits, which is why the
@@ -91,14 +91,14 @@ Tab and Shift-Tab to indent and outdent, `Ctrl+F` to find, `Ctrl+S` to save the
 file, and a line and column readout. `Ctrl+Z` in the editor is the browser's own
 undo over your typing; `Ctrl+Z` anywhere else is the workshop's undo over the mod.
 
-**`Ctrl+Shift+F`, or the find bar's own "Search everywhere" button, searches
+`Ctrl+Shift+F`, or the find bar's own "Search everywhere" button, searches
 every file the mod would write, not just the one open.** The result screen
 shows the file, the line and a snippet for every match, and clicking one opens
 that file's editor at the line it is on. **"See the changes" on the toolbar**
 compares what is in the editor against what the mod has saved for that file,
 line by line, in the same +/- reading a terminal `diff` gives.
 
-**Brackets and quotes close themselves**, and the rules that stop that being a
+Brackets and quotes close themselves. The rules that stop that being a
 nuisance are worth knowing. A pair only appears where a closer could go - at the
 end of a line, before whitespace, or before something that already closes - so
 typing `(` in front of a word inserts one character and nothing else. Typing the
@@ -109,8 +109,8 @@ pair opens the block with the closer on its own line. JSON pairs the one quote i
 has and not an apostrophe; Markdown and plain text pair nothing at all, because
 prose is full of brackets that never close.
 
-**A record file is checked as you type, by the same checker the record screens
-use.** Not a weaker copy of it: the text is parsed through the same code a save
+Each record file is checked as you type by the same checker the record screens
+use. Not a weaker copy of it: the text is parsed through the same code a save
 goes through, composed on top of the game, and handed to the engine's own record
 checker, so a field whose value is the wrong type, a field name that is spelled
 wrong, a reference to something nothing defines and a record that will never be
@@ -123,25 +123,25 @@ same shape can be a typo in an existing vocabulary. The rule is
 `field/vocabulary`, and the message says that it is the SDK's advice rather than a
 load-time refusal.
 
-**Three things are only possible here**, and they are why it exists rather than
+Three things are only possible here, which is why this editor exists rather than
 being a viewer:
 
-- **A script.** `Start a plugin.js` writes a working entry point with nothing in
+- `Start a plugin.js` writes a working script entry point with nothing in
   it. A `plugin.js` needs no build step: it is an ES module with no bare imports
   and a default export, and the engine arrives as `ctx.core`. The manifest grows
   the `plugin` facet and the `modApi` number by itself, because a mod that ships
   code without declaring both installs and then does nothing.
-- **A manifest key nothing asks you about.** `capabilities`, `rules` a player can
+- The editor also accepts manifest keys that no screen asks about: `capabilities`, `rules` a player can
   switch on and off, `optionalDependencies`. The game passes a key it does not
   model straight through, so these work, and they survive every later save.
-- **Sections and anything else a record file can carry.** Written through to the
+- Sections and anything else a record file can carry are written through to the
   folder exactly as typed.
-- **A tile, a font or a sound.** Loaded from disk and carried as its exact bytes
+- A tile, a font, or a sound is loaded from disk and carried as its exact bytes
   rather than as text - there is nothing to type or colour in, so the panel that
   takes the place of the editor says so, and offers to replace the file with
   another one from disk instead.
 
-**What it will not pretend.** The check under a JSON file is the same parser the
+The JSON check uses the same parser the
 game uses, so a clean file is really clean. The record checks are only as good as
 the checker this game can lend the workshop: where it cannot lend one, a row at the
 top of the pane says so and does not go away, and everything below it is the
@@ -155,14 +155,14 @@ only - save it as a file and add it with `Import a zip`, which is the door that
 runs code and asks you first. The button says which of those you are looking at
 before you press it.
 
-**It is not the way in.** A first mod made here is a first mod made without the
+This is not the way in. A first mod made here is a first mod made without the
 evidence table, without the sentence saying where each suggested number came from,
 and without the check that runs as you type. Start with the screens. This is the
 door at the far end of them.
 
-## What it does not do, and why
+## Workshop limits
 
-**It does not write your plugin's behaviour for you.** `Start a plugin.js` puts a
+`Start a plugin.js` puts a
 working entry template in the mod, but the decisions inside it remain yours. A mod
 written in TypeScript becomes a module through a bundler that runs in Node, and
 there is no bundler in a browser tab. Everything a first mod is likely to be - a
@@ -170,22 +170,21 @@ monster, a sword, a rebalanced spell, an item in a shop, an artifact - is conten
 and needs no build step at all. The workshop's Docs screen carries the SDK's
 complete `PLUGINS.md` reference and tutorial 5, the ten-line behaviour hook.
 
-**It does not preview or validate a picture, a sound or a font.** A tile, a font
-or a sound can be loaded from disk in the file editor and is carried in the
+A tile, a font, or a sound can be loaded from disk in the file editor and is carried in the
 emitted mod as its exact bytes, but the workshop never looks inside one: nothing
 here shows what an image looks like, plays a sound, or checks that the bytes are
 actually a valid file of the kind the name suggests.
 
-**It does not open a mod you already have.** The editor edits the mod in the
+The editor does not open a mod you already have. It edits the mod in the
 workshop. A finished mod is a folder with a text editor and a repository behind
 it, which is a better place to work on one.
 
-**It does not offer `constants`, `visuals` or `history`.** Those three are
+The editor does not offer `constants`, `visuals`, or `history`. Those three are
 whole-file configuration rather than records with identities, so contributing one
 means "use mine instead of the game's", which the project builder promotes to a
 hard error. That is the format being honest about identity rather than a gap.
 
-**It does not draw a tile for what you make.** A new monster with no tile falls
+A new monster with no tile falls
 back to its letter. `neo-linoleum` derives a tile for mod-added content from its
 kin, and the tile door allows one filler per mod, so pointing at that mod is
 better citizenship than competing with it. It is not a dependency: a mod without
@@ -214,12 +213,12 @@ saves the open file into the mod when the caret is in the file editor.
 
 ## Getting the mod out
 
-**Save it as a file.** Always available. You get a zip, which the Mods screen's
+Save it as a file. This is always available. You get a zip, which the Mods screen's
 `Import a zip` accepts, and which you can also open, read, hand to somebody and
 push to a repository. This is the only copy of your work that exists outside the
 browser's storage, which is why the button is on every screen.
 
-**Try it in the game.** One button, on every screen a mod is open on. It forges the
+Try it in the game with one button on every screen where a mod is open. It forges the
 mod, loads it for the rest of the session without adding it to your mods, and
 reloads the game so it takes effect. It is forgotten when you close the game, so
 iterating costs you nothing in your library.
@@ -234,7 +233,7 @@ The reload is not optional and never was, because composing content always needs
 one. What changed is who does it: the workshop used to say "reload to play it" and
 leave you to find the Close button and press Ctrl-R.
 
-**Install it in place.** Deliberately absent. A mod that can put another mod into
+Install it in place is deliberately absent. A mod that can put another mod into
 your library is an elevated permission, and the only thing it would buy is a click
 the button above already saves. Permanence is worth visiting the mod manager for,
 and a mod on disk is one you can read, keep and hand to somebody.
@@ -248,7 +247,7 @@ own write path catches a quota error and logs it rather than failing. The worksh
 reads every write back and tells you at the moment one did not take, and it caps
 what it will try to store rather than discovering the limit.
 
-**So a mod saved as a file is the only save point the workshop will promise you.**
+A mod saved as a file is the only save point the workshop will promise you.
 It says so on the screen where it matters, and the button is one click from
 anywhere.
 
