@@ -17,6 +17,9 @@ import type { Seams } from "../host/seams.js";
 import type { Change, Draft } from "../model/draft.js";
 import { ID_RE, newDraft } from "../model/draft.js";
 import { buildDraft, emitDraft, manifestFor, zipDraft } from "../model/build.js";
+import type { ForkFolder, ForkOutcome, InstalledMod, RawFile } from "../model/fork.js";
+import { folderFromFiles, forkDraft, forkInstalled, installedMods } from "../model/fork.js";
+import { unzip } from "../model/unzip.js";
 import { deleteFile, fileText, pathProblem, sessionRefusal, writeFileBytes, writeFileText } from "../model/files.js";
 import type { DraftWriter } from "../model/persist.js";
 import { opNudge, opScale } from "../model/ops.js";
@@ -106,13 +109,25 @@ export class Actions {
    * Mods                                                            *
    * --------------------------------------------------------------- */
 
-  /** Whether an id can be used, and why not when it cannot. */
+  /**
+   * Whether an id can be used, and why not when it cannot.
+   *
+   * A MOD ALREADY IN THE GAME COUNTS, and that arm arrived with forking. The game
+   * treats an id as an identity, so a mod that reuses one installs over the mod
+   * that had it rather than beside it - which is a mistake somebody is far more
+   * likely to make while copying an existing mod than while naming a blank one,
+   * and is the same mistake either way. There is one answer to this question so
+   * that the two doors cannot give different ones.
+   */
   idProblem(id: string): string | undefined {
     if (id === "") return "A mod needs an id.";
     if (!ID_RE.test(id)) {
       return "An id is lower case, starts with a letter, and uses only letters, digits and hyphens.";
     }
     if (this.deps.store.get().drafts[id]) return "There is already an unfinished mod with that id.";
+    if (this.installedMods().some((mod) => mod.id === id)) {
+      return `${id} is already in this game. Two mods with one id install over each other, so pick another.`;
+    }
     return undefined;
   }
 
@@ -127,6 +142,88 @@ export class Actions {
   openMod(id: string): void {
     this.deps.store.view(() => ({ openId: id, route: { at: "details" } }));
     this.scheduleCheck();
+  }
+
+  /* --------------------------------------------------------------- *
+   * Forking                                                         *
+   * --------------------------------------------------------------- */
+
+  /**
+   * Every mod in the running game whose content a fork could take.
+   *
+   * Read from provenance on every call rather than cached, because the answer
+   * comes from the composed records the workshop was handed and those do not
+   * change while it is open. A cache would be a copy that could.
+   */
+  installedMods(): readonly InstalledMod[] {
+    return installedMods(this.deps.api, this.deps.records);
+  }
+
+  /** Fork a mod this game has installed, from the records it composed. */
+  forkInstalled(owner: string, id: string): ForkOutcome {
+    const problem = this.idProblem(id);
+    if (problem !== undefined) return this.tell({ ok: false, why: problem });
+    return this.adopt(forkInstalled(this.deps.api, this.deps.records, owner, this.forkOptions(id)), id);
+  }
+
+  /** Fork a mod folder picked from disk, file by file. */
+  forkFolder(files: readonly RawFile[], id: string): ForkOutcome {
+    const problem = this.idProblem(id);
+    if (problem !== undefined) return this.tell({ ok: false, why: problem });
+    return this.forkFrom(folderFromFiles(files), id);
+  }
+
+  /**
+   * Fork a mod supplied as a zip.
+   *
+   * The archive is opened here rather than handed to the game, because the doors
+   * the game lends a mod take bytes in order to INSTALL them. There is no seam
+   * that reads an archive and gives it back, so reading it is this repository's
+   * own `unzip`, and what comes out goes through the same fork as a picked folder.
+   */
+  async forkZip(bytes: Uint8Array, id: string): Promise<ForkOutcome> {
+    const problem = this.idProblem(id);
+    if (problem !== undefined) return this.tell({ ok: false, why: problem });
+    const read = await unzip(bytes);
+    if (!read.ok) return this.tell({ ok: false, why: read.why });
+    return this.forkFrom(
+      folderFromFiles(read.entries.map((entry) => ({ path: entry.path, contents: entry.contents }))),
+      id,
+    );
+  }
+
+  private forkFrom(folder: ForkFolder, id: string): ForkOutcome {
+    return this.adopt(forkDraft(this.deps.api, folder, { ...this.forkOptions(id), source: "file" }), id);
+  }
+
+  private forkOptions(id: string): { id: string; engine: string; now: string } {
+    return { id, engine: this.deps.seams.engine, now: new Date().toISOString() };
+  }
+
+  /**
+   * Put a finished fork in the workshop, and DO NOT navigate to it.
+   *
+   * The difference from `createMod`, which opens what it made, is the notes. A
+   * fork hands back several sentences about what it could not carry - a licence
+   * it does not know, a record two mods both adjust, an author field it blanked -
+   * and the status line is one line. Walking straight to the details screen would
+   * take the player away from the only place those sentences are shown, before
+   * they had been read. So the fork lands, gets selected, and says so where the
+   * player still is.
+   */
+  private adopt(outcome: ForkOutcome, id: string): ForkOutcome {
+    if (!outcome.ok) return this.tell(outcome);
+    this.deps.store.edit((drafts) => ({ ...drafts, [id]: outcome.draft }));
+    this.deps.store.view(() => ({ openId: id }));
+    this.persist();
+    this.scheduleCheck();
+    this.notice(`${id} is a fork you can edit. Read what it could not carry before you change anything.`, "good");
+    return outcome;
+  }
+
+  private tell(refusal: ForkOutcome & { ok: false }): ForkOutcome {
+    this.notice(refusal.why, "bad");
+    return refusal;
   }
 
   deleteMod(id: string): void {

@@ -74,6 +74,18 @@ meant after a game update retunes it and after another mod adjusts it first.
 Ticking a flag writes "add this flag", so another mod adding a different flag to
 the same record keeps its change and you keep yours.
 
+A mod that already exists can be forked into one of your own: one installed in
+this game, a mod folder picked off disk, or a mod saved as a zip. A fork owns its
+content outright rather than shipping a patch against somebody else's, so the mod
+it came from does not have to be installed for yours to work. It takes an id of
+its own before it can be taken, keeps the original's licence, and records what it
+was forked from in the manifest it ships. Whatever the fork could not carry is
+listed where you took it, because a fork is a copy with differences and the
+differences are the part worth reading. A mod at a repository address is not one
+of the ways in: resolving one is the game's own job and nothing hands that to a
+mod, so install it first and fork it from the list, or download its folder and
+pick that.
+
 ## When you outgrow the screens: editing the files
 
 Every screen above asks a question and writes the answer into a file. There is one
@@ -175,9 +187,11 @@ emitted mod as its exact bytes, but the workshop never looks inside one: nothing
 here shows what an image looks like, plays a sound, or checks that the bytes are
 actually a valid file of the kind the name suggests.
 
-The editor does not open a mod you already have. It edits the mod in the
-workshop. A finished mod is a folder with a text editor and a repository behind
-it, which is a better place to work on one.
+The editor opens a mod you already have only by FORKING it, which makes a
+separate mod with an id of its own. There is no way to edit an installed mod in
+place, and there is not going to be one: a mod on disk has a folder, a text
+editor and a repository behind it, and editing somebody's installed copy from
+inside a game would put the change somewhere no version of it is kept.
 
 The editor does not offer `constants`, `visuals`, or `history`. Those three are
 whole-file configuration rather than records with identities, so contributing one

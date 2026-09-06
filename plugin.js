@@ -1102,11 +1102,19 @@ function checkRecords(subject, all, options = {}) {
   const floor = LEVEL_ORDER[options.minLevel ?? "hint"] ?? 2;
   return out.filter((f) => (LEVEL_ORDER[f.level] ?? 2) <= floor).sort((a, b) => (LEVEL_ORDER[a.level] ?? 2) - (LEVEL_ORDER[b.level] ?? 2));
 }
+var PROVENANCE_KEY = "$from";
 function provenanceOf(record) {
   if (!isRecord(record)) return void 0;
-  const from = record["$from"];
-  if (isRecord(from) && typeof from["owner"] === "string") return { owner: from["owner"] };
-  return void 0;
+  const from = record[PROVENANCE_KEY];
+  if (!isRecord(from) || typeof from["owner"] !== "string" || from["owner"] === "") return void 0;
+  const modified = from["modifiedBy"];
+  const mods = Array.isArray(modified) ? modified.filter((m) => typeof m === "string") : [];
+  const was = from["was"];
+  return {
+    owner: from["owner"],
+    ...mods.length === 0 ? {} : { modifiedBy: mods },
+    ...isRecord(was) ? { was } : {}
+  };
 }
 function satisfies(version, range) {
   if (range.trim() === "*" || range.trim() === "") return true;
@@ -1146,6 +1154,7 @@ var STUB_AUTHORING = {
   PACK_GROUPS: PACK_GROUP_NAMES,
   slugify,
   provenanceOf,
+  PROVENANCE_KEY,
   satisfies
 };
 
@@ -2103,6 +2112,321 @@ function spliceFile(changes, file, replacement) {
   return [...before, ...replacement, ...others.slice(before.length)];
 }
 
+// src/model/fork.ts
+var FORKED_FROM = "forkedFrom";
+function forkDraft(api, folder, options) {
+  if (!ID_RE2.test(options.id)) {
+    return { ok: false, why: "A fork needs an id that is lower case, starts with a letter, and uses only letters, digits and hyphens." };
+  }
+  const rooted = rootFolder(folder);
+  const manifestText = rooted[MANIFEST];
+  if (manifestText !== void 0 && isBinary(manifestText)) {
+    return { ok: false, why: "That folder's manifest.json is not text, so it is not a mod folder." };
+  }
+  let manifest;
+  if (manifestText !== void 0) {
+    let parsed;
+    try {
+      parsed = JSON.parse(manifestText);
+    } catch (e) {
+      return { ok: false, why: `That mod's manifest.json is not valid JSON: ${e instanceof Error ? e.message : String(e)}` };
+    }
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return { ok: false, why: "That mod's manifest.json is not a JSON object, so it is not a manifest." };
+    }
+    manifest = parsed;
+  }
+  const sourceId = stringAt(manifest, "id") ?? options.sourceId;
+  if (sourceId === void 0 || sourceId === "") {
+    return {
+      ok: false,
+      why: "There is no manifest.json with an id in that folder, so there is no mod there to fork. A mod folder has manifest.json at its root."
+    };
+  }
+  if (sourceId === options.id) {
+    return {
+      ok: false,
+      why: `A fork needs an id of its own, and "${sourceId}" is the mod being forked. The game treats an id as an identity, so two mods sharing one would install over each other rather than sit side by side.`
+    };
+  }
+  const notes = [];
+  let draft = newDraft(options.id, options.engine, options.now);
+  const paths = Object.keys(rooted).filter((path) => path !== MANIFEST).sort();
+  let carried = 0;
+  for (const path of paths) {
+    const contents = rooted[path];
+    if (contents === void 0) continue;
+    const outcome = isBinary(contents) ? writeFileBytes(api, draft, path, contents) : writeFileText(api, draft, path, contents);
+    if (!outcome.ok) return { ok: false, why: `${path} could not be read: ${outcome.why}` };
+    draft = outcome.draft;
+    carried++;
+  }
+  if (carried === 0 && manifest === void 0) {
+    return { ok: false, why: `${sourceId} has nothing in the running game that can be forked.` };
+  }
+  if (manifest !== void 0) {
+    const { id: _id, repository: _repository, author: _author, ...rest } = manifest;
+    const text = `${JSON.stringify({ ...rest, [FORKED_FROM]: originOf(options.source, sourceId, manifest) }, null, 2)}
+`;
+    const outcome = writeFileText(api, draft, MANIFEST, text);
+    if (!outcome.ok) return { ok: false, why: `That mod's manifest.json could not be read: ${outcome.why}` };
+    draft = outcome.draft;
+  } else {
+    draft = {
+      ...draft,
+      manifestExtras: { ...draft.manifestExtras ?? {}, [FORKED_FROM]: originOf(options.source, sourceId, void 0) }
+    };
+  }
+  notes.push(...differences(sourceId, manifest, options.source));
+  return { ok: true, draft, notes };
+}
+function originOf(source, id, manifest) {
+  const version = stringAt(manifest, "version");
+  const author = stringAt(manifest, "author");
+  const repository = stringAt(manifest, "repository");
+  return {
+    source,
+    id,
+    ...version === void 0 ? {} : { version },
+    ...author === void 0 ? {} : { author },
+    ...repository === void 0 ? {} : { repository }
+  };
+}
+function differences(sourceId, manifest, source) {
+  const notes = [
+    `This is a fork of ${sourceId}. Its manifest records where it came from, so the original keeps its credit.`,
+    "The repository is your own local address rather than the original's, because an install pins a mod's origin and the update check would otherwise ask somebody else for your releases."
+  ];
+  if (manifest === void 0) {
+    notes.push(
+      `Nothing here can read ${sourceId}'s manifest, so this fork has none of its name, description, author or licence. Set the licence on the details screen before you share it: forking somebody's content does not come with permission to relicense it.`
+    );
+    return notes;
+  }
+  const license = stringAt(manifest, "license");
+  notes.push(
+    license === void 0 ? `${sourceId} declares no licence, so nothing says what you may do with its content. Ask its author before you share this.` : `${sourceId} is licensed ${license}, and the fork carries that licence because it carries that content.`
+  );
+  if (stringAt(manifest, "author") !== void 0) notes.push("The author field is blank, because the fork's author is you.");
+  if (source === "file") notes.push("The name still says the original's, which is worth changing before anybody sees both at once.");
+  return notes;
+}
+function folderFromFiles(files) {
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  const out = {};
+  for (const file of files) {
+    if (typeof file.contents === "string") {
+      out[file.path] = file.contents;
+      continue;
+    }
+    try {
+      out[file.path] = decoder.decode(file.contents);
+    } catch {
+      out[file.path] = file.contents;
+    }
+  }
+  return out;
+}
+function rootFolder(folder) {
+  if (folder[MANIFEST] !== void 0) return folder;
+  const prefixes = Object.keys(folder).filter((path) => path.endsWith(`/${MANIFEST}`) && path.split("/").length === 2).map((path) => path.slice(0, -MANIFEST.length));
+  const prefix = prefixes[0];
+  if (prefix === void 0 || prefixes.length > 1) return folder;
+  const out = {};
+  for (const [path, contents] of Object.entries(folder)) {
+    if (!path.startsWith(prefix)) continue;
+    out[path.slice(prefix.length)] = contents;
+  }
+  return out;
+}
+function installedMods(api, records) {
+  const tally = /* @__PURE__ */ new Map();
+  const of = (id) => {
+    const found = tally.get(id);
+    if (found) return found;
+    const fresh = { adds: 0, adjusts: 0, shared: 0 };
+    tally.set(id, fresh);
+    return fresh;
+  };
+  for (const list of Object.values(records)) {
+    for (const record of list) {
+      const provenance = api.provenanceOf(record);
+      if (!provenance) continue;
+      if (provenance.owner !== BASE) of(provenance.owner).adds++;
+      const modifiers = provenance.modifiedBy ?? [];
+      for (const id of modifiers) {
+        if (id === provenance.owner) continue;
+        if (modifiers.length === 1) of(id).adjusts++;
+        else of(id).shared++;
+      }
+    }
+  }
+  return [...tally.entries()].map(([id, counts]) => ({ id, ...counts })).sort((a, b) => a.id.localeCompare(b.id));
+}
+var BASE = "core";
+function folderFromInstalled(api, records, owner) {
+  const byFile = /* @__PURE__ */ new Map();
+  const of = (file) => {
+    const found = byFile.get(file);
+    if (found) return found;
+    const fresh = { records: [], replaces: {} };
+    byFile.set(file, fresh);
+    return fresh;
+  };
+  let restored = 0;
+  let shared = 0;
+  let unaddressable = 0;
+  for (const [file, list] of Object.entries(records)) {
+    for (const record of list) {
+      const provenance = api.provenanceOf(record);
+      if (!provenance) continue;
+      if (provenance.owner === owner) {
+        const own = { ...record, ...provenance.was ?? {} };
+        if (provenance.was !== void 0) restored++;
+        of(file).records.push(withoutProvenance(api, own));
+        continue;
+      }
+      const modifiers = provenance.modifiedBy ?? [];
+      if (!modifiers.includes(owner)) continue;
+      if (modifiers.length > 1) {
+        shared++;
+        continue;
+      }
+      const key = api.recordKey(file, record);
+      if (key === null) {
+        unaddressable++;
+        continue;
+      }
+      of(file).replaces[refFor(provenance.owner, key)] = withoutProvenance(api, record);
+    }
+  }
+  const folder = {};
+  for (const [file, contribution] of [...byFile.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    const body = {};
+    if (contribution.records.length > 0) body["records"] = contribution.records;
+    if (Object.keys(contribution.replaces).length > 0) body["replaces"] = contribution.replaces;
+    if (Object.keys(body).length === 0) continue;
+    folder[`${file}.json`] = `${JSON.stringify(body, null, 2)}
+`;
+  }
+  const notes = [];
+  if (restored > 0) {
+    notes.push(
+      `${restored} of ${owner}'s own records had been adjusted by another mod in this game, and the fork takes ${owner}'s version of them rather than the adjusted one.`
+    );
+  }
+  if (shared > 0) {
+    notes.push(
+      `${shared} record${shared === 1 ? "" : "s"} that ${owner} adjusts ${shared === 1 ? "is" : "are"} adjusted by another mod as well. A composed record carries the result rather than one entry per mod, so there is no way to take ${owner}'s share of it and ${shared === 1 ? "it is" : "they are"} left out.`
+    );
+  }
+  if (unaddressable > 0) {
+    notes.push(
+      `${unaddressable} record${unaddressable === 1 ? "" : "s"} ${owner} adjusts cannot be named by a reference, so ${unaddressable === 1 ? "it is" : "they are"} left out.`
+    );
+  }
+  return { folder, notes };
+}
+function forkInstalled(api, records, owner, options) {
+  const read = folderFromInstalled(api, records, owner);
+  const outcome = forkDraft(api, read.folder, { ...options, source: "installed", sourceId: owner });
+  if (!outcome.ok) return outcome;
+  return { ok: true, draft: outcome.draft, notes: [...outcome.notes, ...read.notes] };
+}
+function withoutProvenance(api, record) {
+  const { [api.PROVENANCE_KEY]: _stamp, ...rest } = record;
+  return rest;
+}
+function stringAt(record, key) {
+  const value = record?.[key];
+  return typeof value === "string" && value !== "" ? value : void 0;
+}
+
+// src/model/unzip.ts
+var LOCAL_HEADER = 67324752;
+var CENTRAL_HEADER = 33639248;
+var END_OF_DIRECTORY = 101010256;
+var ZIP64_MARKER = 4294967295;
+async function unzip(bytes) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const end = findEndOfDirectory(view);
+  if (end < 0) {
+    return { ok: false, why: "That file is not a zip: it has no central directory at the end of it." };
+  }
+  const count = view.getUint16(end + 10, true);
+  const directoryAt = view.getUint32(end + 16, true);
+  if (directoryAt >= bytes.length) {
+    return { ok: false, why: "That zip's directory points past the end of the file, so it is truncated or damaged." };
+  }
+  const entries = [];
+  let at = directoryAt;
+  for (let i = 0; i < count; i++) {
+    if (at + 46 > bytes.length || view.getUint32(at, true) !== CENTRAL_HEADER) {
+      return { ok: false, why: `That zip's directory ends after ${i} of its ${count} files, so it is damaged.` };
+    }
+    const method = view.getUint16(at + 10, true);
+    const compressed = view.getUint32(at + 20, true);
+    const uncompressed = view.getUint32(at + 24, true);
+    const nameLength = view.getUint16(at + 28, true);
+    const extraLength = view.getUint16(at + 30, true);
+    const commentLength = view.getUint16(at + 32, true);
+    const localAt = view.getUint32(at + 42, true);
+    const name = new TextDecoder().decode(bytes.subarray(at + 46, at + 46 + nameLength));
+    at += 46 + nameLength + extraLength + commentLength;
+    if (name.endsWith("/")) continue;
+    if (compressed === ZIP64_MARKER || uncompressed === ZIP64_MARKER || localAt === ZIP64_MARKER) {
+      return {
+        ok: false,
+        why: `${name} is stored in the zip64 extension, which this reader does not open. A mod folder is small enough not to need it, so this is probably not a mod.`
+      };
+    }
+    if (method !== 0 && method !== 8) {
+      return {
+        ok: false,
+        why: `${name} is compressed with method ${method}, which is neither stored nor deflate. Repack the mod as an ordinary zip, or pick its folder instead.`
+      };
+    }
+    if (localAt + 30 > bytes.length || view.getUint32(localAt, true) !== LOCAL_HEADER) {
+      return { ok: false, why: `That zip says ${name} is at a place that does not hold a file, so it is damaged.` };
+    }
+    const dataAt = localAt + 30 + view.getUint16(localAt + 26, true) + view.getUint16(localAt + 28, true);
+    if (dataAt + compressed > bytes.length) {
+      return { ok: false, why: `${name} runs past the end of that zip, so it is truncated.` };
+    }
+    const raw = bytes.subarray(dataAt, dataAt + compressed);
+    if (method === 0) {
+      entries.push({ path: name, contents: raw.slice() });
+      continue;
+    }
+    const inflated = await inflate(raw);
+    if (!inflated.ok) return { ok: false, why: `${name} could not be unpacked: ${inflated.why}` };
+    entries.push({ path: name, contents: inflated.bytes });
+  }
+  return { ok: true, entries };
+}
+function findEndOfDirectory(view) {
+  const floor = Math.max(0, view.byteLength - 22 - 65535);
+  for (let at = view.byteLength - 22; at >= floor; at--) {
+    if (view.getUint32(at, true) === END_OF_DIRECTORY) return at;
+  }
+  return -1;
+}
+async function inflate(raw) {
+  const Decompressor = globalThis.DecompressionStream;
+  if (Decompressor === void 0) {
+    return {
+      ok: false,
+      why: "this browser cannot unpack a compressed zip. Pick the mod's folder instead of its zip."
+    };
+  }
+  try {
+    const stream = new Blob([raw]).stream().pipeThrough(new Decompressor("deflate-raw"));
+    return { ok: true, bytes: new Uint8Array(await new Response(stream).arrayBuffer()) };
+  } catch (e) {
+    return { ok: false, why: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 // src/model/ops.ts
 function isCommutative2(op) {
   return op === "addFlag" || op === "removeFlag" || op === "append";
@@ -2488,13 +2812,25 @@ var Actions = class {
   /* --------------------------------------------------------------- *
    * Mods                                                            *
    * --------------------------------------------------------------- */
-  /** Whether an id can be used, and why not when it cannot. */
+  /**
+   * Whether an id can be used, and why not when it cannot.
+   *
+   * A MOD ALREADY IN THE GAME COUNTS, and that arm arrived with forking. The game
+   * treats an id as an identity, so a mod that reuses one installs over the mod
+   * that had it rather than beside it - which is a mistake somebody is far more
+   * likely to make while copying an existing mod than while naming a blank one,
+   * and is the same mistake either way. There is one answer to this question so
+   * that the two doors cannot give different ones.
+   */
   idProblem(id) {
     if (id === "") return "A mod needs an id.";
     if (!ID_RE2.test(id)) {
       return "An id is lower case, starts with a letter, and uses only letters, digits and hyphens.";
     }
     if (this.deps.store.get().drafts[id]) return "There is already an unfinished mod with that id.";
+    if (this.installedMods().some((mod) => mod.id === id)) {
+      return `${id} is already in this game. Two mods with one id install over each other, so pick another.`;
+    }
     return void 0;
   }
   createMod(id) {
@@ -2507,6 +2843,79 @@ var Actions = class {
   openMod(id) {
     this.deps.store.view(() => ({ openId: id, route: { at: "details" } }));
     this.scheduleCheck();
+  }
+  /* --------------------------------------------------------------- *
+   * Forking                                                         *
+   * --------------------------------------------------------------- */
+  /**
+   * Every mod in the running game whose content a fork could take.
+   *
+   * Read from provenance on every call rather than cached, because the answer
+   * comes from the composed records the workshop was handed and those do not
+   * change while it is open. A cache would be a copy that could.
+   */
+  installedMods() {
+    return installedMods(this.deps.api, this.deps.records);
+  }
+  /** Fork a mod this game has installed, from the records it composed. */
+  forkInstalled(owner, id) {
+    const problem = this.idProblem(id);
+    if (problem !== void 0) return this.tell({ ok: false, why: problem });
+    return this.adopt(forkInstalled(this.deps.api, this.deps.records, owner, this.forkOptions(id)), id);
+  }
+  /** Fork a mod folder picked from disk, file by file. */
+  forkFolder(files, id) {
+    const problem = this.idProblem(id);
+    if (problem !== void 0) return this.tell({ ok: false, why: problem });
+    return this.forkFrom(folderFromFiles(files), id);
+  }
+  /**
+   * Fork a mod supplied as a zip.
+   *
+   * The archive is opened here rather than handed to the game, because the doors
+   * the game lends a mod take bytes in order to INSTALL them. There is no seam
+   * that reads an archive and gives it back, so reading it is this repository's
+   * own `unzip`, and what comes out goes through the same fork as a picked folder.
+   */
+  async forkZip(bytes, id) {
+    const problem = this.idProblem(id);
+    if (problem !== void 0) return this.tell({ ok: false, why: problem });
+    const read = await unzip(bytes);
+    if (!read.ok) return this.tell({ ok: false, why: read.why });
+    return this.forkFrom(
+      folderFromFiles(read.entries.map((entry) => ({ path: entry.path, contents: entry.contents }))),
+      id
+    );
+  }
+  forkFrom(folder, id) {
+    return this.adopt(forkDraft(this.deps.api, folder, { ...this.forkOptions(id), source: "file" }), id);
+  }
+  forkOptions(id) {
+    return { id, engine: this.deps.seams.engine, now: (/* @__PURE__ */ new Date()).toISOString() };
+  }
+  /**
+   * Put a finished fork in the workshop, and DO NOT navigate to it.
+   *
+   * The difference from `createMod`, which opens what it made, is the notes. A
+   * fork hands back several sentences about what it could not carry - a licence
+   * it does not know, a record two mods both adjust, an author field it blanked -
+   * and the status line is one line. Walking straight to the details screen would
+   * take the player away from the only place those sentences are shown, before
+   * they had been read. So the fork lands, gets selected, and says so where the
+   * player still is.
+   */
+  adopt(outcome, id) {
+    if (!outcome.ok) return this.tell(outcome);
+    this.deps.store.edit((drafts) => ({ ...drafts, [id]: outcome.draft }));
+    this.deps.store.view(() => ({ openId: id }));
+    this.persist();
+    this.scheduleCheck();
+    this.notice(`${id} is a fork you can edit. Read what it could not carry before you change anything.`, "good");
+    return outcome;
+  }
+  tell(refusal) {
+    this.notice(refusal.why, "bad");
+    return refusal;
   }
   deleteMod(id) {
     this.deps.store.edit((drafts) => {
@@ -6088,6 +6497,7 @@ function modsScreen(shop) {
       )
     )
   );
+  const fork = forkCard(shop);
   const unfinishedCard = card({
     title: "Unfinished",
     note: "kept in this install's settings, not in any character's save",
@@ -6095,7 +6505,7 @@ function modsScreen(shop) {
     open: true
   });
   unfinishedCard.body.appendChild(list);
-  const el = h("div", { class: "mb-main" }, startCard.el, unfinishedCard.el);
+  const el = h("div", { class: "mb-main" }, startCard.el, fork.el, unfinishedCard.el);
   let lastDrafts;
   const render = (state) => {
     const drafts = Object.values(state.drafts).sort((a, b) => b.touched.localeCompare(a.touched));
@@ -6156,6 +6566,143 @@ function modsScreen(shop) {
     },
     dispose: () => void 0
   };
+}
+function forkCard(shop) {
+  const idBox = h("input", { type: "text", class: "mb-mono", placeholder: "an id, like my-own-qol", spellcheck: false });
+  const problem = h("div", { class: "mb-why" });
+  const notes = h("div", { class: "mb-fork-notes" });
+  const list = h("div", { class: "mb-list" });
+  const clearProblem = () => {
+    setText(problem, "");
+    idBox.removeAttribute("aria-invalid");
+  };
+  idBox.addEventListener("input", clearProblem);
+  const refuse = (why) => {
+    setText(problem, why);
+    idBox.setAttribute("aria-invalid", "true");
+  };
+  const take = (run) => {
+    const id = idBox.value.trim();
+    const why = shop.acts.idProblem(id);
+    if (why !== void 0) {
+      refuse(why);
+      fill(notes);
+      return;
+    }
+    clearProblem();
+    void Promise.resolve(run(id)).then((outcome) => {
+      if (!outcome.ok) {
+        refuse(outcome.why);
+        fill(notes);
+        return;
+      }
+      idBox.value = "";
+      fill(
+        notes,
+        h("div", { class: "mb-why", text: `${id} is in the workshop. What the fork did and did not carry:` }),
+        ...outcome.notes.map((note) => h("div", { class: "mb-why", text: note })),
+        h(
+          "div",
+          { class: "mb-row-actions" },
+          button({ label: `Open ${id}`, kind: "primary", onClick: () => shop.acts.openMod(id) })
+        )
+      );
+    });
+  };
+  const readPicked = async (picked) => Promise.all(
+    picked.map(async (file) => ({
+      /* `webkitRelativePath` is how a directory pick reports where a file sat
+       * inside the folder that was chosen, and it is empty for a single file. */
+      path: file.webkitRelativePath === "" ? file.name : file.webkitRelativePath,
+      contents: new Uint8Array(await file.arrayBuffer())
+    }))
+  );
+  const folderInput = h("input", { type: "file" });
+  folderInput.setAttribute("webkitdirectory", "");
+  folderInput.setAttribute("multiple", "");
+  folderInput.addEventListener("change", () => {
+    const picked = [...folderInput.files ?? []];
+    if (picked.length === 0) return;
+    folderInput.value = "";
+    take(async (id) => shop.acts.forkFolder(await readPicked(picked), id));
+  });
+  const zipInput = h("input", { type: "file" });
+  zipInput.addEventListener("change", () => {
+    const picked = zipInput.files?.[0];
+    if (!picked) return;
+    zipInput.value = "";
+    take(async (id) => shop.acts.forkZip(new Uint8Array(await picked.arrayBuffer()), id));
+  });
+  const forkCardEl = card({
+    title: "Fork one that exists",
+    note: "a copy of somebody's mod, as a mod of your own",
+    tip: "A fork owns its content outright: the records become yours, with your id on them, and the mod you took them from does not have to be installed for yours to work. That is a different thing from adjusting somebody's record, which ships the difference and leaves the record theirs.",
+    open: true
+  });
+  forkCardEl.body.append(
+    h(
+      "div",
+      { class: "mb-field" },
+      h(
+        "label",
+        { class: "mb-label" },
+        h("span", { class: "mb-label-name", text: "id" }),
+        h("span", { class: "mb-label-meta", text: "the fork's own" })
+      ),
+      h(
+        "div",
+        { class: "mb-control" },
+        idBox,
+        h("div", {
+          class: "mb-why",
+          text: "A fork needs an id of its own before it can be taken. The game treats an id as an identity, so a fork that kept the original's would install over it rather than beside it."
+        }),
+        problem
+      )
+    ),
+    h("div", { class: "mb-why", text: "A mod in this game:" }),
+    list,
+    h("label", { class: "mb-why" }, "A mod folder on disk: ", folderInput),
+    h("label", { class: "mb-why" }, "Or a mod saved as a zip: ", zipInput),
+    h("div", {
+      class: "mb-why",
+      text: "A mod at a repository address cannot be forked from here. Resolving one is the game's own job - it picks the tag, reads the manifest and decides which files are the mod - and nothing hands that to a mod, so a second copy of it here would accept mods the install door refuses. Install the mod first and fork it from the list above, or download its folder and pick it."
+    }),
+    notes
+  );
+  const listMods = () => {
+    const mods = shop.acts.installedMods();
+    fillList(
+      list,
+      mods.map((mod) => {
+        const parts = [];
+        if (mod.adds > 0) parts.push(`${mod.adds} of its own`);
+        if (mod.adjusts > 0) parts.push(`${mod.adjusts} adjusted`);
+        if (mod.shared > 0) parts.push(`${mod.shared} shared with another mod`);
+        const row2 = listRow({
+          badge: mod.id.charAt(0).toUpperCase(),
+          name: mod.id,
+          meta: parts.length === 0 ? "nothing a fork could take" : parts.join(", "),
+          onClick: () => take((id) => shop.acts.forkInstalled(mod.id, id))
+        });
+        const act = button({
+          label: "Fork it",
+          tiny: true,
+          tip: `Take ${mod.id}'s content as a mod of your own. Its manifest is not readable from here, so the name and the licence do not come with it.`,
+          onClick: () => take((id) => shop.acts.forkInstalled(mod.id, id))
+        });
+        act.addEventListener("click", (event) => event.stopPropagation());
+        row2.querySelector(".mb-row-acts")?.appendChild(act);
+        return row2;
+      }),
+      h("div", {
+        class: "mb-why",
+        text: "No mod in this game has content of its own to fork. Only what a mod adds or adjusts is visible here, and the base game is not a mod."
+      })
+    );
+  };
+  listMods();
+  return { el: forkCardEl.el };
 }
 
 // src/ui/screens/rebalance.ts
@@ -9009,6 +9556,19 @@ button.mb-card-head:active { background: color-mix(in srgb, var(--gold) 13%, tra
   font-style: italic;
 }
 .mb-why b { font-style: normal; color: var(--gold); font-weight: 600; }
+
+/* What a fork could not carry, listed under the card that took it. Set apart
+   from the controls above it because it is an outcome to read rather than
+   another thing to press. */
+.mb-fork-notes:not(:empty) {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--gold-dim);
+  background: var(--surface-2);
+}
 
 .mb-mark {
   display: inline-grid;

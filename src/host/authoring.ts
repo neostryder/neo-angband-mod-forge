@@ -267,6 +267,20 @@ export interface ProjectLike {
 export interface RecordProvenance {
   readonly owner: string;
   readonly modifiedBy?: readonly string[];
+  /**
+   * The owner's own values for every top-level field composition changed, absent
+   * when composition changed none.
+   *
+   * WHAT IT IS FOR HERE. A composed record is the owner's definition with every
+   * later pack's patches already applied, so copying one is copying somebody
+   * else's adjustments along with it. Spreading `was` back over the record undoes
+   * exactly those, which is how forking an installed mod recovers what that mod
+   * itself shipped rather than what the whole load order agreed on.
+   *
+   * It carries the fields the DEFINER wrote, so a field a patch invented is not in
+   * it and survives the restore. `fork.ts` says so where that matters.
+   */
+  readonly was?: Readonly<Record<string, JsonValue>>;
 }
 
 /** How one record file derives a record's identity. */
@@ -321,6 +335,15 @@ export interface AuthoringApi {
 
   /* Provenance: which pack owns a composed record. Absent means core's. */
   provenanceOf(record: unknown): RecordProvenance | undefined;
+  /**
+   * The reserved key a composed record carries its provenance under.
+   *
+   * Named rather than spelled out because forking has to REMOVE it: a record
+   * copied out of the composed set still says who composed it, and a fork's
+   * records are the fork's own. Writing "$from" here would be a second copy of a
+   * string the SDK already owns, and the copy is the one that goes stale.
+   */
+  readonly PROVENANCE_KEY: string;
 
   /* Semver, for the engine range the emitted mod declares. */
   satisfies(version: string, range: string): boolean;

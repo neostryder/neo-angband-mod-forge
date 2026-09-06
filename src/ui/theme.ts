@@ -477,6 +477,19 @@ button.mb-card-head:active { background: color-mix(in srgb, var(--gold) 13%, tra
 }
 .mb-why b { font-style: normal; color: var(--gold); font-weight: 600; }
 
+/* What a fork could not carry, listed under the card that took it. Set apart
+   from the controls above it because it is an outcome to read rather than
+   another thing to press. */
+.mb-fork-notes:not(:empty) {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--gold-dim);
+  background: var(--surface-2);
+}
+
 .mb-mark {
   display: inline-grid;
   place-items: center;

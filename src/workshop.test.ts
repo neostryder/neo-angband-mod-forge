@@ -1387,3 +1387,114 @@ describe("editing the mod as files", () => {
     expect(screenText()).toContain("not a syntax check");
   });
 });
+
+/* ------------------------------------------------------------------ *
+ * Forking                                                             *
+ * ------------------------------------------------------------------ */
+
+describe("forking a mod that already exists", () => {
+  /** The composed set as a game with one mod in it hands it over. */
+  const WITH_A_MOD = {
+    monster: [
+      ...STUB_RECORDS["monster"] ?? [],
+      {
+        name: "tidy kobold",
+        base: "kobold",
+        color: "y",
+        speed: 110,
+        "hit-points": 12,
+        "armor-class": 16,
+        depth: 4,
+        rarity: 1,
+        experience: 6,
+        $from: { owner: "neo-qol" },
+      },
+    ],
+  };
+
+  /** Open on the mod list, past the guide, with one forkable mod in the game. */
+  function atTheModList(): void {
+    const prefs = fakePrefs();
+    prefs.set({ v: 1, drafts: {}, seenTour: true });
+    open = openWorkshop(ctx({ prefs, authoring: STUB_AUTHORING, composedRecords: WITH_A_MOD }), document);
+  }
+
+  /** The fork card's own id box, which is the second text field on the screen. */
+  function forkIdBox(): HTMLInputElement {
+    const boxes = [...shadow().querySelectorAll<HTMLInputElement>('input[type="text"]')];
+    const box = boxes[1];
+    if (!box) throw new Error(`no fork id box on the mod list. Text fields here: ${boxes.length}`);
+    return box;
+  }
+
+  it("offers every mod in the game, with what a fork of it could take", () => {
+    atTheModList();
+    expect(screenText()).toContain("Fork one that exists");
+    expect(screenText()).toContain("neo-qol");
+    expect(screenText()).toContain("1 of its own");
+  });
+
+  it("says plainly why a repository address is not one of the ways in", () => {
+    atTheModList();
+    expect(screenText()).toContain("repository address cannot be forked from here");
+    expect(screenText()).toContain("Install the mod first");
+  });
+
+  it("refuses to take a fork without an id of its own", () => {
+    atTheModList();
+    control("Fork it").click();
+    expect(screenText()).toContain("A mod needs an id");
+  });
+
+  it("refuses an id a mod in the game already uses", () => {
+    atTheModList();
+    type(forkIdBox(), "neo-qol");
+    control("Fork it").click();
+    expect(screenText()).toContain("already in this game");
+  });
+
+  it("takes one fork from the row's own button, not two", async () => {
+    /* The action button sits inside the row's button, so its click bubbles to the
+     * row. Unstopped, the row would fork again with an id the first fork had just
+     * taken, and the refusal would replace what the first one reported. */
+    atTheModList();
+    type(forkIdBox(), "my-own-qol");
+    const inner = [...shadow().querySelectorAll<HTMLButtonElement>("button.mb-btn")].find(
+      (b) => (b.textContent ?? "").trim() === "Fork it",
+    );
+    if (!inner) throw new Error("no Fork it button inside the row");
+    inner.click();
+    await settle();
+
+    expect(screenText()).toContain("fork of neo-qol");
+    expect(screenText()).not.toContain("already an unfinished mod");
+  });
+
+  it("forks it into an editable mod, and says what did not come with it", async () => {
+    atTheModList();
+    type(forkIdBox(), "my-own-qol");
+    control("Fork it").click();
+    await settle();
+
+    expect(screenText()).toContain("fork of neo-qol");
+    expect(screenText()).toContain("licence");
+    expect(buttonNames()).toContain("Open my-own-qol");
+
+    control("Open my-own-qol").click();
+    control("Edit the files directly").click();
+    const files = [...shadow().querySelectorAll<HTMLElement>(".mb-listrow")].map(
+      (row) => row.querySelector(".mb-listrow-name")?.textContent ?? "",
+    );
+    expect(files).toContain("monster.json");
+
+    [...shadow().querySelectorAll<HTMLElement>(".mb-listrow")]
+      .find((row) => (row.querySelector(".mb-listrow-name")?.textContent ?? "") === "monster.json")
+      ?.click();
+    const area = shadow().querySelector<HTMLTextAreaElement>("textarea.mb-ed-area");
+    expect(area?.value).toContain("tidy kobold");
+    /* The fork's own record, not a patch against somebody else's, and with no
+     * stamp saying who composed it. */
+    expect(area?.value).toContain('"records"');
+    expect(area?.value).not.toContain("$from");
+  });
+});
