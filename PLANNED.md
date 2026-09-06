@@ -33,7 +33,7 @@ The fourth exit is the difference between this file and the game's own
 cannot reach something has not failed to do the work; it has run out of surface,
 and saying which surface is the whole of the useful information.
 
-Last reviewed: 2026-08-26.
+Last reviewed: 2026-09-06.
 
 ---
 
@@ -42,7 +42,8 @@ Last reviewed: 2026-08-26.
 The authoring SDK and composed-record seams are LANDED in Neo Angband 1.0.0 and
 therefore have no open entry here. `docs/ENGINE_SEAMS.md` records their production
 wiring. What remains in this section is the install decision, which is declined
-rather than waiting on implementation.
+rather than waiting on implementation, and the two halves of forking that a mod
+cannot reach at all.
 
 ### Installing without leaving the workshop - DECLINED
 
@@ -80,6 +81,49 @@ weakest possible reason to ask for one.
 The download button stays, and it is the honest end of the loop: a finished mod is a
 file the author can read, keep, hand-edit and push to a repository, and a mod that
 only ever existed inside the browser's storage is none of those.
+
+---
+
+### Forking a mod from a repository address - NEEDS A SEAM
+
+The third intake route named in neo-angband#113. A mod at `owner/repo` cannot be
+forked from here, and building it anyway would be worse than not having it.
+
+Resolving a repository to a mod is a real piece of work the game already owns:
+picking the tag from the tag list, filtering it by the update channel the player
+is on, reading `manifest.json` at each candidate tag until one is compatible with
+the running engine, then deciding which of the repository's files ARE the mod -
+from a declared `payload` when the manifest has one, and otherwise from the
+repository's own file listing filtered by a deny-list. None of that is on `ctx`.
+A copy of it in this repository would be a second answer to a question the install
+door already answers, and the copy is the one that goes stale: a fork taken
+through it would accept mods the install door refuses, and be believed, which is
+the same argument that keeps this mod from reimplementing the record validator.
+
+The seam that would reach it is `ctx.readMod`, specified in
+`docs/ENGINE_SEAMS.md` under seam 6.
+
+**What the workshop does in the meantime**, said on the fork card rather than
+implied: install the mod through the mod manager's own repository door and fork it
+from the list of mods in the game, or download its folder and pick that. The first
+of those loses the source's manifest, for the reason in the next entry. The second
+loses nothing.
+
+### A forked mod's name, licence and author, when it was forked from the game - NEEDS A SEAM
+
+Forking a mod installed in this game reads its content from `ctx.composedRecords`,
+where every record names the pack that owns it. That is enough to take the
+content and not enough to take the manifest: nothing hands a mod the list of
+installed mods or their manifests, so a fork taken this way arrives with no name,
+no description, no author and - the one that matters - no licence.
+
+The fork says so, in as many words, and says that the licence has to be set before
+the mod is shared. That is the honest version and it is not a substitute: an
+author who does not know what licence the mod they forked was under cannot pick
+one, and the answer is on disk in a file this mod cannot read.
+
+The same `ctx.readMod` seam closes this, since a mod read by id would carry its
+manifest with it. Specified in `docs/ENGINE_SEAMS.md` under seam 6.
 
 ---
 
@@ -174,20 +218,19 @@ bare novel key is not a mod's to coin at all.
 
 ## The file editor
 
-### A second editor for a mod nobody is holding - DECLINED
+### A second editor for a mod nobody is holding - LANDED, as forking
 
-An author with a finished mod on disk cannot open it here: the editor edits the
-draft, and there is no import. The zip the workshop writes can be hand-edited and
-brought back through the mod manager, which is the loop that exists, and reading a
-mod back into a draft is the same shape as writing one out - `files.ts` does the
-hard half already. It is declined rather than planned because the reason to want
-it is thin. A mod that has left the workshop is a mod with a repository and a text
-editor behind it, and a second, worse editor inside a game is not what that author
-needs. What would change the argument is a mod that was MADE here, exported, and
-edited by hand once: that person has a real use for bringing it back, and no way
-to say so yet.
+The argument this entry ended on was that the case for reading a mod back is a mod
+that was MADE here, exported and edited by hand once. That case is real, and it is
+now served - not as an editor that opens somebody's installed mod in place, which
+remains declined and remains the wrong shape, but as a FORK. A mod installed in
+this game, a folder picked off disk, or a zip becomes a separate draft with an id
+of its own, and the mod it came from is untouched.
 
----
+Reading a mod back really was the same shape as writing one out: `files.ts` does
+the hard half, and `fork.ts` goes through it rather than around it, so a record
+file the fork reads is parsed by the same function that parses one the author
+typed. See `CHANGELOG.md`.
 
 ## The interface
 

@@ -1,11 +1,12 @@
 # The engine seams this mod needs
 
-Five seam decisions, each stated as a shape rather than a wish: what it is called,
+Six seam decisions, each stated as a shape rather than a wish: what it is called,
 what capability gates it, what it takes, what it returns, and what the mod does
 when it is absent. Seams 1, 2, 4 and 5 are in Neo Angband 1.0.0. The install half
 of seam 3 is deliberately not requested; its reload half is in the engine for a
-mod that stages session content. The compatibility fallbacks remain so the
-standalone preview and a partial test context still render every screen.
+mod that stages session content. Seam 6 is asked for and does not exist yet. The
+compatibility fallbacks remain so the standalone preview and a partial test
+context still render every screen.
 
 The declared engine range starts at 1.0.0, where the complete production path
 used by this release exists. The manifest declares the capabilities for seams 4
@@ -393,6 +394,84 @@ one, so the note under the button says the other half in the same breath.
 Without it, the Try button is present, disabled, and says that this game has
 no way to load a mod for one session, so trying one means installing it - which
 is the loop that already worked, spelled out rather than implied.
+
+## Seam 6. `ctx.readMod` - a mod, read rather than installed
+
+Forking needs a mod's files without putting that mod anywhere. Every door the
+engine lends a mod today takes bytes in order to INSTALL them, and every door that
+turns a reference into bytes is the host's own. So the one thing a fork wants -
+"give me what that mod is, and change nothing" - has no shape on `ctx` at all.
+
+```ts
+/**
+ * Read a mod without installing it: one already installed here, or one at a
+ * repository address, resolved exactly as the mod manager's own door resolves it.
+ *
+ * The `installed` arm needs no capability. It returns what the mod manager
+ * already shows the player about a mod they already have, and less about its
+ * content than `ctx.composedRecords` does. The `repository` arm is gated by
+ * `mod:read`, because that one goes to the network on the player's behalf.
+ */
+readonly readMod?: (ref: ReadModRef) => Promise<ReadModResult>;
+
+export type ReadModRef =
+  | { readonly kind: "installed"; readonly id: string }
+  | { readonly kind: "repository"; readonly address: string };
+
+export type ReadModResult =
+  | {
+      readonly ok: true;
+      readonly manifest: PackManifest;
+      /** Every file the mod folder carries, by path relative to its root. */
+      readonly files: Readonly<Record<string, Uint8Array>>;
+      /** Where it came from, in the same words an install would pin. */
+      readonly origin: string;
+    }
+  | { readonly ok: false; readonly problem: string };
+```
+
+The shape has these properties.
+
+- **It returns the folder, not a draft.** Turning a mod folder into an editable
+  draft is this repository's work and is done: `src/model/fork.ts` reads a folder
+  through the same `files.ts` parser that reads a file the author typed. What it
+  cannot do is get the folder.
+- **`manifest` is separate from `files` even though `files` contains it**, because
+  the manifest the host validated is the manifest the host would install, and a
+  second parse here could disagree with it about a key. The mod reads the parsed
+  one and ships the raw one.
+- **`problem` is one whole sentence, the host's own.** A repository that refuses,
+  a tag that no engine here can run, a mod the standards check would fail: a fork
+  must fail with the same words an install fails with, or a player learns two
+  vocabularies for one concept.
+- **No `force`, no `replace`, nothing that writes.** This seam reads. The fork it
+  feeds is a new mod with an id of its own, and nothing about it touches the mod
+  it read.
+
+Without it, the workshop does two different partial things, and neither is a
+substitute for the seam.
+
+For a mod ALREADY INSTALLED, it reads the content out of `ctx.composedRecords`.
+Every composed record names the pack that owns it and the packs that have touched
+it, so the set of mods in the game and the records each one contributed can be
+recovered from provenance alone, and a record another mod has since patched can be
+restored to its owner's own version from the same stamp. What provenance cannot
+carry is anything a manifest says, so a fork taken this way arrives with no name,
+no description, no author, and no LICENCE - which is the one that matters, since
+forking somebody's content does not come with permission to relicense it. The
+workshop says so in as many words and asks for a licence before the mod is shared.
+
+For a mod at a REPOSITORY ADDRESS, it refuses, and says to install the mod first
+or to download its folder and pick it. Resolving a repository is a real piece of
+work the host already owns - the tag list, the update channel filter, the manifest
+read at each candidate tag until one is compatible, the declared `payload` or the
+repository's file listing filtered by a deny-list - and none of it is on `ctx`.
+Nothing stops a plugin making the same network requests itself, since a plugin
+runs in the page. What stops this one is that a second implementation of that
+resolution would disagree with the first, quietly, in the direction of accepting a
+mod the install door would refuse. That is the same reasoning that keeps this mod
+from shipping its own copy of the record validator under seam 1: a reimplementation
+that disagrees with the game's own is worse than none, because it is believed.
 
 ## What is deliberately not asked for
 

@@ -1004,11 +1004,30 @@ function checkRecords(subject: ComposedRecords, all: ComposedRecords, options: C
     .sort((a, b) => (LEVEL_ORDER[a.level] ?? 2) - (LEVEL_ORDER[b.level] ?? 2));
 }
 
+/**
+ * The provenance stamped on a composed record, shape-checked the way the SDK's
+ * own reader checks it.
+ *
+ * EVERY FIELD, NOT JUST THE OWNER. `modifiedBy` decides whether a fork can tell
+ * one pack's adjustment of a record apart from another's, and `was` is what lets
+ * it recover the owner's own definition, so a stub that returned the owner alone
+ * would make both of those paths untestable here.
+ */
+/** The SDK's own reserved key, transcribed. See `AuthoringApi.PROVENANCE_KEY`. */
+const PROVENANCE_KEY = "$from";
+
 function provenanceOf(record: unknown): RecordProvenance | undefined {
   if (!isRecord(record)) return undefined;
-  const from = record["$from"];
-  if (isRecord(from) && typeof from["owner"] === "string") return { owner: from["owner"] };
-  return undefined;
+  const from = record[PROVENANCE_KEY];
+  if (!isRecord(from) || typeof from["owner"] !== "string" || from["owner"] === "") return undefined;
+  const modified = from["modifiedBy"];
+  const mods = Array.isArray(modified) ? modified.filter((m): m is string => typeof m === "string") : [];
+  const was = from["was"];
+  return {
+    owner: from["owner"],
+    ...(mods.length === 0 ? {} : { modifiedBy: mods }),
+    ...(isRecord(was) ? { was } : {}),
+  };
 }
 
 function satisfies(version: string, range: string): boolean {
@@ -1054,5 +1073,6 @@ export const STUB_AUTHORING: AuthoringApi = {
   PACK_GROUPS: PACK_GROUP_NAMES,
   slugify,
   provenanceOf,
+  PROVENANCE_KEY,
   satisfies,
 };

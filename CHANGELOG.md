@@ -22,6 +22,33 @@ what kind of change it is. Lists appear in this order and each is omitted
 when empty for a release: Added, Changed, Removed, Fixed. Earlier entries
 were not retagged.
 
+## [Unreleased]
+
+### Added
+
+- [Visible] [UI] **A mod that already exists can be forked into a draft of your
+  own.** A new card on the mod list starts a mod from one installed in this game,
+  from a mod folder picked off disk, or from a mod saved as a zip. A fork owns
+  its content outright rather than shipping a patch against somebody else's: the
+  records become the fork's own, so the mod it came from does not have to be
+  installed for the fork to work. It takes an id of its own before it can be
+  taken, keeps the source's licence, name and description, blanks the author,
+  writes a local repository address rather than inheriting one that would point
+  the update check at somebody else's releases, and records what it was forked
+  from in the manifest it ships. Everything the fork could not carry is listed
+  under the card that took it: a licence that is not readable, a record two mods
+  both adjust, an original's version of a record another mod had changed. A mod
+  at a repository address is not one of the ways in, and the card says why and
+  what to do instead.
+- [Visible] [UI] **The workshop reads a zip as well as writing one.** A mod saved
+  as a zip, whether this workshop wrote it or another tool did, opens into a fork.
+
+### Changed
+
+- [Visible] [UI] **An id a mod in this game already uses is refused when naming a
+  mod.** Two mods with one id install over each other rather than side by side,
+  which was previously only caught against unfinished work in the workshop.
+
 ## [1.2.0] - 2026-08-29
 
 ### Added
