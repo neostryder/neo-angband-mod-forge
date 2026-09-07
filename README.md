@@ -295,6 +295,8 @@ one rule here that is never bent.
 
 Three, in the mod manager:
 
+See the [settings reference](SETTINGS.md) for every flag, its default, and when a change takes effect.
+
 | Setting | Default | What it does |
 | --- | --- | --- |
 | Show the workshop tab | on | The tab in the corner, which is the only way in. |
