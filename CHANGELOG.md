@@ -24,6 +24,8 @@ were not retagged.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-06
+
 ### Added
 
 - [Visible] [UI] **A mod that already exists can be forked into a draft of your
