@@ -25,19 +25,22 @@
       "flag": "builder.showTab",
       "title": "Show the workshop tab",
       "description": "Puts a small tab in the corner of the main screen. Tapping it opens the workshop. On by default, because the tab is the only way in, and a workshop you cannot open is not one.",
-      "default": true
+      "default": true,
+      "requiresReload": true
     },
     {
       "flag": "builder.keepDrafts",
       "title": "Remember work in progress",
       "description": "Keeps unfinished mods between sessions, in this install's own settings rather than in any character's save. Off means the workshop starts empty every time and the only way to keep something is to finish it. On by default, and worth knowing that the store it uses can quietly run out of room, so a finished mod is the only save point the workshop can promise.",
-      "default": true
+      "default": true,
+      "requiresReload": true
     },
     {
       "flag": "builder.cheatSpawn",
       "title": "Let me test what I built, in the game",
       "description": "Adds a Test panel that arranges the game around the thing you just made, using the game's own debug commands: put one in front of you, go to the depth it belongs at, be the level it is balanced for, carry the gold a shop would want for it, map the level so you can find it. Off by default, and it stays off until you say otherwise for one reason: not one control on that panel works until the panel has stopped this session being saved, which cannot be undone. Your character on disk keeps whatever their last save left, and nothing after that is written - so testing can never spoil a character you are keeping, but a session you test in is a session you are throwing away. The panel names the character and says all of this before the button that spends it.",
-      "default": false
+      "default": false,
+      "requiresReload": true
     }
   ],
   "repository": "https://github.com/neostryder/neo-angband-mod-forge"
