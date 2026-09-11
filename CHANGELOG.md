@@ -24,6 +24,10 @@ were not retagged.
 
 ## [Unreleased]
 
+### Fixed
+
+- [Visible] [Modding-API] **Toggling "Show the workshop tab," "Remember work in progress," or "Let me test what I built, in the game" mid-run now correctly prompts a reload instead of silently doing nothing** (neostryder/neo-angband#186).
+
 ## [1.3.0] - 2026-09-06
 
 ### Added
