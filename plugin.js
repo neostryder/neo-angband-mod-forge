@@ -3735,6 +3735,7 @@ function listRow(options) {
       ...tag.tip === void 0 ? {} : { tip: tag.tip }
     })
   );
+  const acts = h("span", { class: "mb-row-acts" }, tags);
   return h(
     "button",
     {
@@ -3742,7 +3743,13 @@ function listRow(options) {
       type: "button",
       aria: { selected: options.selected === true ? "true" : "false" },
       ...options.tip === void 0 ? {} : { tip: options.tip },
-      on: { click: options.onClick }
+      on: {
+        click: (event) => {
+          const target = event.target;
+          if (target instanceof Element && (target === acts || acts.contains(target))) return;
+          options.onClick();
+        }
+      }
     },
     options.badge === void 0 ? h("span", { class: "mb-badge", text: " " }) : h("span", { class: "mb-badge", text: options.badge }),
     h(
@@ -3751,7 +3758,7 @@ function listRow(options) {
       h("span", { class: "mb-listrow-name", text: options.name }),
       options.meta === void 0 ? null : h("span", { class: "mb-listrow-meta", text: options.meta })
     ),
-    h("span", { class: "mb-row-acts" }, tags)
+    acts
   );
 }
 function searchBox(placeholder2, onInput) {

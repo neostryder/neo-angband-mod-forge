@@ -136,7 +136,20 @@ export function button(options: {
   });
 }
 
-/** A row in a list: a badge, a name, a note, and optional tags on the right. */
+/**
+ * A row in a list: a badge, a name, a note, and optional tags on the right.
+ *
+ * `.mb-row-acts` IS INSIDE THE ROW'S OWN BUTTON, because that is where a caller
+ * wants an action to sit, and an action button appended into it later (a caller
+ * does this after the fact, via `querySelector(".mb-row-acts")`) is a `<button>`
+ * nested inside this one's `<button>`. A click there is a click on the row too,
+ * by ordinary bubbling, so without a check here every action a row carries would
+ * also fire the row's own `onClick` right behind it - reopening, reselecting, or
+ * (for an action that deletes what the row shows) reopening something already
+ * gone. Filtering by where the click actually landed belongs here rather than at
+ * each call site, so every row action any caller appends is covered by
+ * construction instead of by whichever call sites remembered to guard it.
+ */
 export function listRow(options: {
   readonly badge?: string;
   readonly name: string;
@@ -154,6 +167,7 @@ export function listRow(options: {
       ...(tag.tip === undefined ? {} : { tip: tag.tip }),
     }),
   );
+  const acts = h("span", { class: "mb-row-acts" }, tags);
   return h(
     "button",
     {
@@ -161,7 +175,13 @@ export function listRow(options: {
       type: "button",
       aria: { selected: options.selected === true ? "true" : "false" },
       ...(options.tip === undefined ? {} : { tip: options.tip }),
-      on: { click: options.onClick },
+      on: {
+        click: (event) => {
+          const target = event.target;
+          if (target instanceof Element && (target === acts || acts.contains(target))) return;
+          options.onClick();
+        },
+      },
     },
     options.badge === undefined ? h("span", { class: "mb-badge", text: " " }) : h("span", { class: "mb-badge", text: options.badge }),
     h(
@@ -170,7 +190,7 @@ export function listRow(options: {
       h("span", { class: "mb-listrow-name", text: options.name }),
       options.meta === undefined ? null : h("span", { class: "mb-listrow-meta", text: options.meta }),
     ),
-    h("span", { class: "mb-row-acts" }, tags),
+    acts,
   );
 }
 
