@@ -24,6 +24,8 @@ were not retagged.
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-09-20
+
 ### Fixed
 
 - [Visible] [UI] **A click on a row's own action button no longer also fires the row.** Deleting an unfinished mod from the list, for one, no longer reopens the draft just deleted (#170).
