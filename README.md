@@ -17,193 +17,66 @@ hand-edited and brought back.
 
 ## Status
 
-**Available today. The workshop opens, every screen works, the mod it emits is a real mod,
-and you can load that mod into the running game for the rest of the session.**
-On Neo Angband 1.0.0 it is connected to the game's own authoring SDK and the full
-set of records composed for the running session, including enabled content mods.
-Suggestions, peer tables, validation and the content-kind list therefore describe
-the game the player is actually running. [docs/ENGINE_SEAMS.md](docs/ENGINE_SEAMS.md)
-records the production path and all five seam decisions precisely.
+ModForge works today: the workshop opens, every screen works, the mod it writes is a real mod, and you can load that mod into the running game for the rest of the session.
 
-It needs Neo Angband 1.0.0 or newer. That release carries both live-authoring
-seams as well as the session-load and test surfaces ModForge uses.
+It needs Neo Angband 1.0.0 or newer. That release gives the workshop everything it uses: the game's own authoring tools, the full set of records the current session was built from (including any content mods you have enabled), loading a mod for one session, and the test tools. So its suggestions, comparison tables, checks and list of content kinds all describe the game you are playing. [docs/ENGINE_SEAMS.md](docs/ENGINE_SEAMS.md) covers the production path and all five seams in detail.
 
-The small demonstration fixture remains only as a compatibility and standalone
-development fallback. If either live-data seam is absent, the workshop stays
-open but shows an undismissable banner identifying the fallback. That banner is
-hidden when the real SDK and composed records are present, which is the normal
-in-game path for every engine version this release supports.
-
+If either of the two live-data connections is missing, the workshop still opens, but it falls back to a small built-in demonstration data set and shows a banner saying so that cannot be dismissed. In the normal in-game setup, on any engine version this release supports, the banner does not appear.
 ## Mod authoring features
 
-A new monster, a new sword, a new potion, or a new artifact can be added in any
-of the forty-odd record files the game composes one record at a time. You base it
-on something that already exists, and the workshop fills it in from what its
-comparables in the game actually carry rather than leaving it blank. It inherits
-shape and scale and none of its powers: a new orc arrives with the orc's hit
-points and armour and no attacks at all until you say otherwise.
+You can add a new monster, sword, potion or artifact to any of the forty-odd record files the game builds one record at a time. You base it on something that already exists, and the workshop fills it in from what similar things in the game actually carry instead of leaving it blank. It copies shape and scale but none of the powers: a new orc arrives with an orc's hit points and armour and no attacks until you give it some.
 
-For records the game already owns, your mod ships the difference rather
-than the record, so the base game keeps owning it and two mods adjusting different
-fields of the same record both work.
+When you change a record the game already has, your mod ships only the difference. The base game keeps owning the record, and two mods changing different fields of the same record both work.
 
-You can retune a whole set at once: every potion cheaper, every dragon faster, every
-shop's purse deeper. Filter a file down to what you mean, choose one adjustment,
-and every record that matched gets its own entry.
+You can retune a whole set at once: every potion cheaper, every dragon faster, every shop's purse deeper. Filter a file down to what you mean, choose one adjustment, and every matching record gets its own entry.
 
-Each suggested number includes its reason. The evidence table beside the editor
-answers "speed 120, because every dog within seven levels of depth 3 has it".
-It also answers "is forty hit points a lot for a depth-three dog" with the game's
-own data rather than with a manual.
+Every suggested number comes with its reason. The evidence table beside the editor says things like "speed 120, because every dog within seven levels of depth 3 has it", and it can tell you whether forty hit points is a lot for a depth-three dog from the game's own data.
 
-Checks run as you type. A name that collides with something already loaded, a
-field nothing in the file uses, a monster with no depth that would exist and never
-be met, a reference to something no loaded pack defines. Errors are separated from
-warnings and from advice, and clicking one takes you to the field it is about.
+Checks run as you type. They catch a name that collides with something already loaded, a field nothing else in the file uses, a monster with no depth (which would exist but never be met), and a reference to something no loaded pack defines. Errors, warnings and advice are listed separately, and clicking one takes you to the field it is about.
 
-A mod may only adjust a record
-whose owner it declares as a dependency, and a change refused for want of that
-declaration costs you the change and not the mod, silently. The workshop writes
-the dependency at the moment you pick the record. It also picks the load-order
-group from what you actually did, writes an engine range that is a minimum rather
-than a pin, and defaults the repository to an address that is obviously yours.
+A mod may only change a record if it declares the record's owner as a dependency. Without that declaration the change is dropped silently, though the rest of the mod still works. The workshop writes the dependency as soon as you pick the record. It also picks the load-order group from what you actually did, writes an engine range that is a minimum rather than one exact version, and defaults the repository to an address that is clearly yours.
 
-Nudging a number writes "three
-more than whatever this is" rather than a fixed value, so it keeps meaning what you
-meant after a game update retunes it and after another mod adjusts it first.
-Ticking a flag writes "add this flag", so another mod adding a different flag to
-the same record keeps its change and you keep yours.
+Nudging a number writes "three more than whatever this is" instead of a fixed value, so it still means what you intended after a game update retunes it or another mod adjusts it first. Ticking a flag writes "add this flag", so if another mod adds a different flag to the same record, both changes survive.
 
-A mod that already exists can be forked into one of your own: one installed in
-this game, a mod folder picked off disk, or a mod saved as a zip. A fork owns its
-content outright rather than shipping a patch against somebody else's, so the mod
-it came from does not have to be installed for yours to work. It takes an id of
-its own before it can be taken, keeps the original's licence, and records what it
-was forked from in the manifest it ships. Whatever the fork could not carry is
-listed where you took it, because a fork is a copy with differences and the
-differences are the part worth reading. A mod at a repository address is not one
-of the ways in: resolving one is the game's own job and nothing hands that to a
-mod, so install it first and fork it from the list, or download its folder and
-pick that.
-
+You can fork an existing mod into one of your own: a mod installed in this game, a mod folder picked from disk, or a mod saved as a zip. A fork owns its content outright instead of patching somebody else's, so the original does not need to be installed for yours to work. The fork needs an id of its own before you can take it, keeps the original's licence, and records in its manifest what it was forked from. Anything the fork could not carry over is listed where you made it, since those differences are worth reading. You cannot fork straight from a repository address, because fetching one is the game's job and nothing passes that job to a mod. Install the mod first and fork it from the list, or download its folder and pick that.
 ## When you outgrow the screens: editing the files
 
-Every screen above asks a question and writes the answer into a file. There is one
-more screen, reached with **Edit the files directly** from a mod's own page, that
-shows the files.
+Every screen above asks a question and writes the answer into a file. One more screen, opened with **Edit the files directly** from a mod's own page, shows you those files.
 
-The file editor shows the same mod, not a mode, an import, or a second copy. A
-monster added on the record screen is in `monster.json` there; a number changed
-there is the number the record screen shows next time you open it. Saving a file
-parses the text back into the mod that every other screen edits, which is why the
-two can never come apart.
+The file editor works on the same mod as every other screen. A monster added on the record screen appears in `monster.json` here, and a number you change here is the number the record screen shows next time. Saving a file parses the text back into the mod, so the editor and the screens always agree.
 
-It has line numbers, syntax colouring for JSON and JavaScript, bracket matching,
-Tab and Shift-Tab to indent and outdent, `Ctrl+F` to find, `Ctrl+S` to save the
-file, and a line and column readout. `Ctrl+Z` in the editor is the browser's own
-undo over your typing; `Ctrl+Z` anywhere else is the workshop's undo over the mod.
+It has line numbers, syntax colouring for JSON and JavaScript, bracket matching, Tab and Shift-Tab to indent and outdent, `Ctrl+F` to find, `Ctrl+S` to save the file, and a line and column readout. `Ctrl+Z` in the editor is the browser's own undo over your typing; `Ctrl+Z` anywhere else is the workshop's undo over the mod.
 
-`Ctrl+Shift+F`, or the find bar's own "Search everywhere" button, searches
-every file the mod would write, not just the one open.** The result screen
-shows the file, the line and a snippet for every match, and clicking one opens
-that file's editor at the line it is on. **"See the changes" on the toolbar**
-compares what is in the editor against what the mod has saved for that file,
-line by line, in the same +/- reading a terminal `diff` gives.
+`Ctrl+Shift+F`, or the "Search everywhere" button on the find bar, searches every file the mod would write, not just the open one. The results show the file, the line and a snippet for each match, and clicking one opens that file at that line. **See the changes** on the toolbar compares what is in the editor with what the mod has saved for that file, line by line, in the same +/- format a terminal `diff` uses.
 
-Brackets and quotes close themselves. The rules that stop that being a
-nuisance are worth knowing. A pair only appears where a closer could go - at the
-end of a line, before whitespace, or before something that already closes - so
-typing `(` in front of a word inserts one character and nothing else. Typing the
-closing character when it is already there steps over it instead of doubling it.
-Backspace or Delete between an empty pair takes both. A selection is wrapped rather
-than replaced, so selecting a word and typing `"` quotes it. Enter inside an empty
-pair opens the block with the closer on its own line. JSON pairs the one quote it
-has and not an apostrophe; Markdown and plain text pair nothing at all, because
-prose is full of brackets that never close.
+Brackets and quotes close themselves, with a few rules so this stays out of your way. A closing character is only added where one could go: at the end of a line, before whitespace, or before something that already closes, so typing `(` in front of a word inserts just the one character. Typing a closing character that is already there steps over it. Backspace or Delete between an empty pair removes both. Typing a quote or bracket with text selected wraps the selection, so selecting a word and typing `"` quotes it. Enter inside an empty pair puts the closer on its own line. JSON pairs double quotes but not apostrophes, and Markdown and plain text pair nothing, because prose is full of brackets that never close.
 
-Each record file is checked as you type by the same checker the record screens
-use. Not a weaker copy of it: the text is parsed through the same code a save
-goes through, composed on top of the game, and handed to the engine's own record
-checker, so a field whose value is the wrong type, a field name that is spelled
-wrong, a reference to something nothing defines and a record that will never be
-generated all appear under the editor with the line they are on. Click one to go to
-it. Each row says which rule found it.
+Each record file is checked as you type by the same checker the record screens use. The text goes through the same parsing a save does, is combined with the game's own records, and is handed to the engine's record checker. A field with the wrong type of value, a misspelled field name, a reference to something nothing defines and a record that will never be generated all show up under the editor with their line numbers. Click one to jump to it. Each row says which rule found it.
+One SDK rule is only a hint: a value outside the set of values the game's own records use for that field. A mod may coin a new value, but the same thing can also be a typo in an existing set. The rule is `field/vocabulary`, and its message says it is the SDK's advice rather than something that stops the mod loading.
 
-One SDK rule is deliberately only a hint: a value outside the set of values the
-game's own records use for that field. A mod coining a new value is legal, but the
-same shape can be a typo in an existing vocabulary. The rule is
-`field/vocabulary`, and the message says that it is the SDK's advice rather than a
-load-time refusal.
+Three things are only possible here, which is why this is an editor and not just a viewer:
 
-Three things are only possible here, which is why this editor exists rather than
-being a viewer:
+- `Start a plugin.js` writes an empty working script entry point. A `plugin.js` needs no build step: it is an ES module with no bare imports and a default export, and the engine arrives as `ctx.core`. The manifest gains the `plugin` facet and the `modApi` number automatically, because a mod that ships code without declaring both installs and then does nothing.
+- The editor accepts manifest keys that no screen asks about: `capabilities`, `rules` a player can switch on and off, and `optionalDependencies`. The game passes keys it does not model straight through, so these work and survive every later save.
+- Sections, and anything else a record file can carry, are written to the folder exactly as you typed them.
+- A tile, a font or a sound is loaded from disk and kept as its exact bytes. There is nothing to type or colour, so a panel takes the editor's place, says so, and offers to replace the file with another one from disk.
 
-- `Start a plugin.js` writes a working script entry point with nothing in
-  it. A `plugin.js` needs no build step: it is an ES module with no bare imports
-  and a default export, and the engine arrives as `ctx.core`. The manifest grows
-  the `plugin` facet and the `modApi` number by itself, because a mod that ships
-  code without declaring both installs and then does nothing.
-- The editor also accepts manifest keys that no screen asks about: `capabilities`, `rules` a player can
-  switch on and off, `optionalDependencies`. The game passes a key it does not
-  model straight through, so these work, and they survive every later save.
-- Sections and anything else a record file can carry are written through to the
-  folder exactly as typed.
-- A tile, a font, or a sound is loaded from disk and carried as its exact bytes
-  rather than as text - there is nothing to type or colour in, so the panel that
-  takes the place of the editor says so, and offers to replace the file with
-  another one from disk instead.
+The JSON check uses the game's own parser, so a file that passes it will parse in the game. The record checks can only be as good as the checker the game lends the workshop. If it cannot lend one, a row at the top of the pane says so and stays there, and everything below it comes from the workshop's smaller stand-in. A clean record file does not mean a clean mod, so the pane also counts problems the same check found elsewhere and points you to the review screen. For scripts, the check only covers quotes, comments and brackets, and it tells you so: there is no compiler in a browser tab, and code that passes can still be wrong.
 
-The JSON check uses the same parser the
-game uses, so a clean file is really clean. The record checks are only as good as
-the checker this game can lend the workshop: where it cannot lend one, a row at the
-top of the pane says so and does not go away, and everything below it is the
-workshop's smaller stand-in rather than the game's. A clean record file is also not
-a clean mod, so the pane counts what the same check found elsewhere and points at
-the review screen. The check under a script is quotes, comments and brackets, and it
-says so: it is not a syntax check, there is no compiler in a browser tab, and code
-that passes it can still be wrong. A mod that
-ships a script also cannot be tried for a session, because that door takes content
-only - save it as a file and add it with `Import a zip`, which is the door that
-runs code and asks you first. The button says which of those you are looking at
-before you press it.
+A mod that ships a script cannot be tried for a session, because that option loads content only. Save it as a file and add it with `Import a zip`, which runs code and asks you first. The button tells you which of the two you are looking at before you press it.
 
-This is not the way in. A first mod made here is a first mod made without the
-evidence table, without the sentence saying where each suggested number came from,
-and without the check that runs as you type. Start with the screens. This is the
-door at the far end of them.
-
+Start with the screens rather than here. A first mod made in the file editor goes without the evidence table, the explanation of where each suggested number came from, and the checks that run as you type. Come to the file editor once the screens are not enough.
 ## Workshop limits
 
-`Start a plugin.js` puts a
-working entry template in the mod, but the decisions inside it remain yours. A mod
-written in TypeScript becomes a module through a bundler that runs in Node, and
-there is no bundler in a browser tab. Everything a first mod is likely to be - a
-monster, a sword, a rebalanced spell, an item in a shop, an artifact - is content
-and needs no build step at all. The workshop's Docs screen carries the SDK's
-complete `PLUGINS.md` reference and tutorial 5, the ten-line behaviour hook.
+`Start a plugin.js` puts a working entry template in the mod, but what goes inside it is up to you. A mod written in TypeScript has to go through a bundler that runs in Node to become a module, and there is no bundler in a browser tab. Most first mods (a monster, a sword, a rebalanced spell, an item in a shop, an artifact) are content and need no build step at all. The workshop's Docs screen carries the SDK's complete `PLUGINS.md` reference and tutorial 5, the ten-line behaviour hook.
 
-A tile, a font, or a sound can be loaded from disk in the file editor and is carried in the
-emitted mod as its exact bytes, but the workshop never looks inside one: nothing
-here shows what an image looks like, plays a sound, or checks that the bytes are
-actually a valid file of the kind the name suggests.
+A tile, a font or a sound can be loaded from disk in the file editor and is carried in the finished mod as its exact bytes, but the workshop never looks inside one. It cannot show you an image, play a sound, or check that the bytes are a valid file of the kind the name suggests.
 
-The editor opens a mod you already have only by FORKING it, which makes a
-separate mod with an id of its own. There is no way to edit an installed mod in
-place, and there is not going to be one: a mod on disk has a folder, a text
-editor and a repository behind it, and editing somebody's installed copy from
-inside a game would put the change somewhere no version of it is kept.
+The workshop only opens a mod you already have by forking it, which makes a separate mod with its own id. You cannot edit an installed mod in place, and that is not planned: a mod on disk has a folder, a text editor and a repository behind it, and editing the installed copy from inside the game would put your changes somewhere no version of them is kept.
 
-The editor does not offer `constants`, `visuals`, or `history`. Those three are
-whole-file configuration rather than records with identities, so contributing one
-means "use mine instead of the game's", which the project builder promotes to a
-hard error. That is the format being honest about identity rather than a gap.
+The editor does not offer `constants`, `visuals` or `history`. Those three are whole-file configuration rather than records with identities, so contributing one means "use mine instead of the game's", which the project builder treats as a hard error.
 
-A new monster with no tile falls
-back to its letter. `neo-linoleum` derives a tile for mod-added content from its
-kin, and the tile door allows one filler per mod, so pointing at that mod is
-better citizenship than competing with it. It is not a dependency: a mod without
-tiles works, it just looks like Angband did for thirty years.
-
+A new monster with no tile is drawn as its letter. `neo-linoleum` derives tiles for mod-added content from related records, and the game accepts one tile filler per mod, so ModForge leaves that job to linoleum instead of competing with it. Linoleum is not a dependency: a mod without tiles works, and looks the way Angband has looked for thirty years.
 ## Getting it
 
 Install it the way you install any mod: the Mods screen, then `Install a
@@ -227,70 +100,34 @@ saves the open file into the mod when the caret is in the file editor.
 
 ## Getting the mod out
 
-Save it as a file. This is always available. You get a zip, which the Mods screen's
-`Import a zip` accepts, and which you can also open, read, hand to somebody and
-push to a repository. This is the only copy of your work that exists outside the
-browser's storage, which is why the button is on every screen.
+Save it as a file. This is always available. You get a zip, which the Mods screen's `Import a zip` accepts, and which you can also open, read, hand to somebody or push to a repository. It is the only copy of your work outside the browser's storage, which is why the button is on every screen.
 
-Try it in the game with one button on every screen where a mod is open. It forges the
-mod, loads it for the rest of the session without adding it to your mods, and
-reloads the game so it takes effect. It is forgotten when you close the game, so
-iterating costs you nothing in your library.
+Try it in the game with the button on every screen where a mod is open. It builds the mod, loads it for the rest of the session without adding it to your mods, and reloads the game so it takes effect. It is forgotten when you close the game, so trying things out leaves nothing behind in your library.
 
-It is the real mod and not a preview, which cuts both ways. The pack composes into
-the game exactly as an installed one does, so play a character you do not mind
-changing: next time, with the mod gone, the game treats anything it added as
-belonging to something that is not installed, and a value it adjusted goes back to
-what it was. What is temporary is the mod, not what it did.
+This loads the real mod, into the game exactly as an installed one would be, so play a character you do not mind changing. Next time, with the mod gone, the game treats anything it added as belonging to a mod that is not installed, and any value it adjusted goes back to what it was.
 
-The reload is not optional and never was, because composing content always needs
-one. What changed is who does it: the workshop used to say "reload to play it" and
-leave you to find the Close button and press Ctrl-R.
+The reload always happens, because new content only takes effect on a reload. The workshop does it for you; it used to tell you to reload and leave you to find the Close button and press Ctrl-R.
 
-Install it in place is deliberately absent. A mod that can put another mod into
-your library is an elevated permission, and the only thing it would buy is a click
-the button above already saves. Permanence is worth visiting the mod manager for,
-and a mod on disk is one you can read, keep and hand to somebody.
+There is no button to install the mod permanently from inside the workshop. It would mean giving one mod permission to put another into your library, only to save a click the button above already saves. When you want to keep a mod, use the mod manager; a mod saved on disk is one you can read, keep and hand to somebody.
+## Unfinished work
 
-## Unfinished work, and the one honest warning
+Drafts are kept in this install's own settings, not in any character's save, so they survive a character dying but disappear if you clear the browser's storage for the game. That storage can also run out of room without an error, because its write path catches a quota error and only logs it. The workshop reads every write back, tells you as soon as one did not take, and caps how much it stores instead of finding the limit by running into it.
 
-Drafts are kept in this install's own settings rather than in any character's
-save, so they survive a character dying and they are gone if you clear the
-browser's storage for the game. That store can also quietly run out of room: its
-own write path catches a quota error and logs it rather than failing. The workshop
-reads every write back and tells you at the moment one did not take, and it caps
-what it will try to store rather than discovering the limit.
-
-A mod saved as a file is the only save point the workshop will promise you.
-It says so on the screen where it matters, and the button is one click from
-anywhere.
-
+Saving the mod as a file is the only way to be sure your work is kept. The workshop says so on the screen where it matters, and the button is one click from anywhere.
 ## Learning to mod
 
-The workshop's `Guide` covers the four things people usually make, and each card
-names the game's own written tutorial for the same idea. The two teach the same
-steps in the same order on purpose: an author who finishes the tour and then opens
-tutorial 3 has to find the same ideas under the same names.
+The workshop's `Guide` covers the four things people usually make, and each card names the game's own written tutorial for the same idea. Both teach the same steps in the same order, so if you finish the tour and then open tutorial 3, you find the same ideas under the same names.
 
-If you would rather have a text editor open, that path is real and it is not
-second class. A mod is a folder with a text file in it, and it will always be.
-These SDK documents are bundled under Docs in the workshop, copied at build time
-from the game's generated SDK package:
+If you would rather work in a text editor, that works just as well. A mod is a folder with a text file in it, and it always will be. These SDK documents are bundled under Docs in the workshop, copied at build time from the game's generated SDK package:
 
 - `tutorials/` builds seven mods from nothing, in a text editor.
 - `PLUGINS.md` is how a mod runs code.
 - `AUTHORING.md` is the library this workshop itself calls.
 - `MOD_COMPATIBILITY.md` is what surviving a game update takes.
 
-This checkout also has [`docs/PLUGIN_TESTING.md`](docs/PLUGIN_TESTING.md), which
-shows how a third-party author tests the committed `plugin.js` against real
-composed records and a real engine transition from their own repository.
+This repository also has [`docs/PLUGIN_TESTING.md`](docs/PLUGIN_TESTING.md), which shows how a third-party author can test a committed `plugin.js` against real composed records and a real engine transition from their own repository.
 
-A mod the workshop wrote is an ordinary folder of ordinary files. Take it out,
-edit it in anything, and bring it back. Nothing in it belongs to the workshop -
-that rule is what keeps this a helper rather than a format owner, and it is the
-one rule here that is never bent.
-
+A mod the workshop wrote is an ordinary folder of ordinary files. Take it out, edit it in anything, and bring it back. Nothing in it belongs to the workshop, and that will not change.
 ## Settings
 
 Three, in the mod manager:
@@ -303,23 +140,11 @@ See the [settings reference](SETTINGS.md) for every flag, its default, and when 
 | Remember work in progress | on | Keep unfinished mods between sessions. |
 | Let me test what I built, in the game | **off** | A Test panel that arranges the game around the thing you made. |
 
-The third is off, and it stays off until you say otherwise, for one reason. Testing
-one record honestly means arranging everything around it - a monster written for
-dungeon level forty tells you nothing on level one - so the panel carries the game's
-own debug set: go to a depth, gain experience, set gold and stats, acquire items,
-summon, banish, teleport, map the level, light it, learn everything.
+The third is off until you turn it on. Testing one record properly means arranging everything around it (a monster written for dungeon level forty tells you nothing on level one), so the panel carries the game's own debug set: go to a depth, gain experience, set gold and stats, acquire items, summon, banish, teleport, map the level, light it, learn everything.
 
-**Not one control on it works until the panel has stopped this session being saved,
-and that cannot be undone.** Your character on disk keeps whatever their last save
-left and nothing after that is ever written, so testing can never spoil a character
-you are keeping. Reload the game and they are waiting exactly as they were. What you
-give up is the session you tested in, which is the point: it was a scratchpad. The
-panel names the character and says all of this before the button that spends it.
+**None of its controls work until the panel has stopped this session from being saved, and that cannot be undone.** Your character on disk keeps whatever their last save held and nothing after that is ever written, so testing can never spoil a character you are keeping. Reload the game and they are waiting exactly as they were. You give up only the session you tested in, which serves as a scratchpad. The panel names the character and explains all of this before the button that turns saving off.
 
-Its browser puts your own content at the top, marked with the pack that added it,
-and it is not limited to it - the whole game's catalogue is behind the same filter,
-because the record you are modelling yours on is usually the one you want to compare
-against.
+Its browser puts your own content at the top, marked with the pack that added it, but the whole game's catalogue is behind the same filter, because the record you are basing yours on is usually the one you want to compare against.
 
 ## Building this repository
 
@@ -332,11 +157,7 @@ pnpm verify     # typecheck, test, and prove the committed plugin.js is current
 pnpm build      # rebuild plugin.js from the source
 ```
 
-The tests boot the workshop into a synthetic document and drive it by clicking
-things, so they fail when a label stops saying what it does. They need no running
-game: most deliberately exercise the demonstration fallback, while integration
-coverage in the engine repository runs the same plugin against real composed
-records.
+The tests boot the workshop into a synthetic document and drive it by clicking, so they fail when a label stops matching what it does. They need no running game. Most run against the demonstration fallback, and integration tests in the engine repository run the same plugin against real composed records.
 
 To develop against an engine change that has not been released yet:
 
@@ -350,28 +171,11 @@ To look at the workshop in a browser with no game at all:
 pnpm preview
 ```
 
-That serves the repository on the loopback interface and opens a harness page which
-builds the narrowest context the mod actually reads, hands it to the plugin, and
-taps the tab. Every seam is absent by default so the compatibility fallback stays
-easy to inspect. This is deliberately different from Neo Angband 1.0.0's in-game
-path, which supplies the authoring SDK and the composed records. The same
-`plugin.js` loaded by the real game is the one this page loads, so the two are the
-same mod and not two builds of it.
+That serves the repository on the loopback interface and opens a harness page, which builds the smallest context the mod reads, hands it to the plugin, and taps the tab. Every seam is absent by default, so the fallback is easy to inspect; the in-game path on Neo Angband 1.0.0 supplies the authoring SDK and the composed records instead. The harness loads the same `plugin.js` the game loads, not a separate build.
 
-Adding `?authoring=sdk` to that page puts the real mod SDK behind `ctx.authoring`,
-which is the one live-data seam a standalone harness can honestly supply: the SDK is already a
-devDependency here, its `dist` is plain ES modules, and the preview server serves
-the repository. It matters for anything that reads a field's measured shape, because the
-stand-in in `src/host/authoring-stub.ts` is a deliberately small subset with no
-field-type rule and none of the companion rules - so a check that passes against
-the stand-in has been shown very little.
+Adding `?authoring=sdk` to the page URL puts the real mod SDK behind `ctx.authoring`. That is the only live-data seam a standalone harness can supply for real: the SDK is already a devDependency here, its `dist` is plain ES modules, and the preview server serves the repository. Use it for anything that reads a field's measured shape, because the stand-in in `src/host/authoring-stub.ts` is a small subset with no field-type rule and none of the companion rules, so passing against the stand-in proves very little.
 
-`ctx.composedRecords` is still the fixture in the standalone preview even with that
-flag, and there is no way around it: the published core package carries the engine's
-code and not its content pack. Inside the game the boot path supplies the real
-composition. In the preview, anything that reads the whole composed world is still
-measured against a few dozen invented records, and the workshop's own banner keeps
-saying so.
+`ctx.composedRecords` stays the fixture in the standalone preview even with that flag, because the published core package carries the engine's code but not its content pack. Inside the game, the boot path supplies the real composition. In the preview, anything that reads the whole composed world is checked against a few dozen invented records, and the workshop's banner stays up to say so.
 
 Asking about AI use in this project? [AI_USAGE_POLICY.md](AI_USAGE_POLICY.md) is
 the complete answer.
