@@ -24,6 +24,8 @@ were not retagged.
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-09-26
+
 ### Changed
 
 - [Visible] [UI] **The workshop's own text reads more plainly.** Tooltips, error messages, the tour and the in-game README are rewritten for clarity, with every fact kept; the tests that quote them changed with them.
