@@ -19,26 +19,26 @@
   ],
   "author": "neostryder",
   "license": "GPL-2.0-only",
-  "description": "Make your own mod from inside the game. Pick something that already exists - a monster, a sword, a shop, a spell - and the workshop shows you what it is made of, what its neighbours in the game carry for every number, and what would have to change to make the thing you had in mind. When you are happy it packs the result up: one button forges it, loads it for this session and reloads the game so you are playing it, or save it as a file to hand to somebody.\n\nIt never asks you what JSON is. It also never hides it: every screen can show you the exact file it is about to write, and a mod it built can be taken away, hand-edited and brought back.\n\nThe workshop tab appears in the corner of the screen. Tap it to open.",
+  "description": "Make your own mod from inside the game. Start from something that already exists, such as a monster, a sword, a shop or a spell, and the workshop shows you what it is made of, how each of its numbers compares with similar things in the game, and what you would need to change to get the thing you have in mind. When you are happy with it, one button forges the mod, loads it for this session and reloads the game so you are playing it. You can also save it as a file to give to someone else.\n\nYou do not have to know JSON to use it. If you want to see it, every screen can show you the exact file it is about to write, and a mod it built can be taken away, edited by hand and brought back.\n\nThe workshop tab appears in the corner of the screen. Tap it to open the workshop.",
   "rules": [
     {
       "flag": "builder.showTab",
       "title": "Show the workshop tab",
-      "description": "Puts a small tab in the corner of the main screen. Tapping it opens the workshop. On by default, because the tab is the only way in, and a workshop you cannot open is not one.",
+      "description": "Puts a small tab in the corner of the main screen. Tapping it opens the workshop. On by default, since the tab is the only way to open the workshop.",
       "default": true,
       "requiresReload": true
     },
     {
       "flag": "builder.keepDrafts",
       "title": "Remember work in progress",
-      "description": "Keeps unfinished mods between sessions, in this install's own settings rather than in any character's save. Off means the workshop starts empty every time and the only way to keep something is to finish it. On by default, and worth knowing that the store it uses can quietly run out of room, so a finished mod is the only save point the workshop can promise.",
+      "description": "Keeps unfinished mods between sessions, in this install's own settings rather than in any character's save. With this off, the workshop starts empty every time and the only way to keep something is to finish it. On by default. The storage it uses can run out of room without reporting it, so only a finished mod is certain to be kept.",
       "default": true,
       "requiresReload": true
     },
     {
       "flag": "builder.cheatSpawn",
       "title": "Let me test what I built, in the game",
-      "description": "Adds a Test panel that arranges the game around the thing you just made, using the game's own debug commands: put one in front of you, go to the depth it belongs at, be the level it is balanced for, carry the gold a shop would want for it, map the level so you can find it. Off by default, and it stays off until you say otherwise for one reason: not one control on that panel works until the panel has stopped this session being saved, which cannot be undone. Your character on disk keeps whatever their last save left, and nothing after that is written - so testing can never spoil a character you are keeping, but a session you test in is a session you are throwing away. The panel names the character and says all of this before the button that spends it.",
+      "description": "Adds a Test panel that uses the game's own debug commands to set things up around the thing you just made: put one in front of you, take you to the depth it belongs at, make you the level it is balanced for, give you the gold a shop would want for it, and map the level so you can find it. Off by default because none of the panel's controls work until the panel has stopped this session from being saved, and that cannot be undone. Your character on disk keeps whatever their last save held and nothing after that is written, so testing cannot spoil a character you are keeping, but anything you do in a test session is lost. The panel names the character and explains all of this before the button that turns saving off.",
       "default": false,
       "requiresReload": true
     }

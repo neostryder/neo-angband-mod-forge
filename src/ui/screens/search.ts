@@ -52,7 +52,7 @@ export function searchScreen(shop: Workshop): View {
       h("h2", { text: "Search this mod" }),
       h("p", {
         text:
-          "Every text file this mod would write, searched at once. A match takes you straight into that file's " +
+          "Searches every text file this mod would write at once. A match takes you straight into that file's " +
           "editor, at the line it is on.",
       }),
     ),

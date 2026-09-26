@@ -81,7 +81,7 @@ export async function unzip(bytes: Uint8Array): Promise<UnzipOutcome> {
     if (compressed === ZIP64_MARKER || uncompressed === ZIP64_MARKER || localAt === ZIP64_MARKER) {
       return {
         ok: false,
-        why: `${name} is stored in the zip64 extension, which this reader does not open. A mod folder is small enough not to need it, so this is probably not a mod.`,
+        why: `${name} uses the zip64 extension, which the workshop cannot open. A mod folder is too small to need it, so this is probably not a mod.`,
       };
     }
     if (method !== 0 && method !== 8) {
@@ -91,7 +91,7 @@ export async function unzip(bytes: Uint8Array): Promise<UnzipOutcome> {
       };
     }
     if (localAt + 30 > bytes.length || view.getUint32(localAt, true) !== LOCAL_HEADER) {
-      return { ok: false, why: `That zip says ${name} is at a place that does not hold a file, so it is damaged.` };
+      return { ok: false, why: `That zip lists ${name} at a position that holds no file, so the zip is damaged.` };
     }
     const dataAt = localAt + 30 + view.getUint16(localAt + 26, true) + view.getUint16(localAt + 28, true);
     if (dataAt + compressed > bytes.length) {

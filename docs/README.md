@@ -21,7 +21,7 @@ switch has no flag of its own, the game knows it by its section id instead.
 | --- | --- | --- | --- |
 | Show the workshop tab | `builder.showTab` | on | Puts a small tab in the corner of the main screen. |
 | Remember work in progress | `builder.keepDrafts` | on | Keeps unfinished mods between sessions, in this install's own settings rather than in any character's save. |
-| Let me test what I built, in the game | `builder.cheatSpawn` | off | Adds a Test panel that arranges the game around the thing you just made, using the game's own debug commands: put one in front of you, go to the depth it belongs at, be the level it is balanced for, carry the gold a shop would want for it, map the level so you can find it. |
+| Let me test what I built, in the game | `builder.cheatSpawn` | off | Adds a Test panel that uses the game's own debug commands to set things up around the thing you just made: put one in front of you, take you to the depth it belongs at, make you the level it is balanced for, give you the gold a shop would want for it, and map the level so you can find it. |
 
 ## What it needs
 

@@ -111,15 +111,15 @@ export function sessionRefusal(draft: Draft): string | undefined {
   const scripts = scriptFiles(draft);
   if (scripts.length > 0) {
     return (
-      `Trying it for one session takes content only, and this mod ships ${scripts.join(", ")}. Save it as a file ` +
-      `and add it with Import a zip on the Mods screen instead: that door runs code, and it asks you first.`
+      `A mod tried for one session can hold content only, and this mod ships ${scripts.join(", ")}. Save it as a file ` +
+      `and add it with Import a zip on the Mods screen instead, which can run code and asks you first.`
     );
   }
   const wanted = (draft.manifestExtras ?? {})["capabilities"];
   if (Array.isArray(wanted) && wanted.length > 0) {
     return (
-      `Trying it for one session takes content only, and this mod's manifest asks for ${wanted.join(", ")}. ` +
-      `A capability is something a player grants, so it is granted in the mod manager: save this as a file and ` +
+      `A mod tried for one session can hold content only, and this mod's manifest asks for ${wanted.join(", ")}. ` +
+      `Capabilities are granted by the player in the mod manager, so save this as a file and ` +
       `add it with Import a zip.`
     );
   }
@@ -239,8 +239,8 @@ export function pathProblem(api: AuthoringApi, draft: Draft, path: string): stri
   if (kind === "manifest") return "The manifest already exists. Open it from the list.";
   if (kind === "records") {
     return (
-      `${path} is written from what the mod does to ${path.slice(0, -".json".length)} records, so it is not a file ` +
-      `to create by hand. Add or change one and it appears in this list, ready to edit.`
+      `The workshop writes ${path} from what the mod does to ${path.slice(0, -".json".length)} records, so you cannot ` +
+      `create it by hand. Add or change a record and the file appears in this list, ready to edit.`
     );
   }
 
@@ -260,9 +260,9 @@ export function pathNote(api: AuthoringApi, path: string): string | undefined {
   if (classify(api, path) !== "extra") return undefined;
   if (!path.includes("/") && path.endsWith(".json") && path !== MANIFEST) {
     return (
-      "The game reads every top-level JSON file as a record file. This one is not a record file the game knows, " +
-      "so it will be loaded and contribute nothing. Put it in a folder - data/ is the usual one - to have it " +
-      "treated as data your own code reads."
+      "The game reads every top-level JSON file as a record file. It does not recognise this one, so the file " +
+      "will load and contribute nothing. To have it treated as data your own code reads, put it in a folder " +
+      "(data/ is the usual one)."
     );
   }
   if (isCodePath(path) && path !== PLUGIN && !path.includes("/")) {
@@ -306,7 +306,7 @@ export function writeFileBytes(api: AuthoringApi, draft: Draft, path: string, by
   if (kind !== "extra") {
     return {
       ok: false,
-      why: `${path} is written from what the mod does, as text the workshop generates or parses, so it cannot hold raw bytes.`,
+      why: `The workshop generates and parses ${path} as text from what the mod does, so it cannot hold raw bytes.`,
     };
   }
   return { ok: true, draft: { ...draft, extras: { ...(draft.extras ?? {}), [path]: bytes } } };
@@ -317,7 +317,7 @@ export function deleteFile(api: AuthoringApi, draft: Draft, path: string): Write
   if (classify(api, path) !== "extra") {
     return {
       ok: false,
-      why: `${path} is written from what the mod contains, so there is nothing to delete. Take the changes out instead.`,
+      why: `The workshop generates ${path} from what the mod contains, so it cannot be deleted. Remove the changes instead.`,
     };
   }
   const extras = { ...(draft.extras ?? {}) };
@@ -434,7 +434,7 @@ function writeManifest(draft: Draft, text: string): WriteOutcome {
         ok: false,
         why:
           `This mod ships ${scriptFiles(next).join(", ")}, so "facets" has to include "plugin" or the game will ` +
-          `not run the code at all. Leave the line out and the workshop writes it.`,
+          `not run the code. Leave the line out and the workshop fills it in.`,
       };
     }
     if (extras["modApi"] !== undefined && typeof extras["modApi"] !== "number") {
@@ -518,7 +518,7 @@ function writeRecordFile(draft: Draft, file: string, text: string): WriteOutcome
     const patches = raw["fieldPatches"];
     if (patches !== undefined) {
       if (typeof patches !== "object" || patches === null || Array.isArray(patches)) {
-        return { ok: false, why: `"fieldPatches" in ${file}.json has to be an object of reference to operations.` };
+        return { ok: false, why: `"fieldPatches" in ${file}.json has to be an object that maps each reference to a list of operations.` };
       }
       for (const [ref, ops] of Object.entries(patches)) {
         if (!Array.isArray(ops)) return { ok: false, why: `The operations for ${ref} have to be a list.` };
@@ -540,7 +540,7 @@ function writeRecordFile(draft: Draft, file: string, text: string): WriteOutcome
     const replaces = raw["replaces"];
     if (replaces !== undefined) {
       if (typeof replaces !== "object" || replaces === null || Array.isArray(replaces)) {
-        return { ok: false, why: `"replaces" in ${file}.json has to be an object of reference to record.` };
+        return { ok: false, why: `"replaces" in ${file}.json has to be an object that maps each reference to a record.` };
       }
       for (const [ref, record] of Object.entries(replaces)) {
         if (typeof record !== "object" || record === null || Array.isArray(record)) {

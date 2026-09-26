@@ -163,7 +163,7 @@ export function saveDrafts(
   if (!prefs) {
     return {
       ok: false,
-      why: "This game gives the workshop nowhere to keep unfinished work, so nothing here will survive a reload. Finish a mod and save the file.",
+      why: "This game has no storage for the workshop's unfinished work, so nothing here will survive a reload. Finish a mod and save the file.",
       bytes,
     };
   }
@@ -171,8 +171,8 @@ export function saveDrafts(
     return {
       ok: false,
       why:
-        `There is more unfinished work here than the workshop will keep (${Math.round(bytes / 1024)}KB against a ` +
-        `${Math.round(SIZE_CEILING / 1024)}KB limit). Finish or delete a mod, and save the file for anything you want to keep.`,
+        `Your unfinished work comes to ${Math.round(bytes / 1024)}KB, over the workshop's ` +
+        `${Math.round(SIZE_CEILING / 1024)}KB limit. Finish or delete a mod, and save the file for anything you want to keep.`,
       bytes,
     };
   }
@@ -180,20 +180,20 @@ export function saveDrafts(
   try {
     prefs.set(encoded);
   } catch (e) {
-    return { ok: false, why: `Keeping this failed: ${String(e)}`, bytes };
+    return { ok: false, why: `Saving your work in progress failed: ${String(e)}`, bytes };
   }
 
   let back: unknown;
   try {
     back = prefs.get();
   } catch (e) {
-    return { ok: false, why: `Keeping this appeared to work and could not be read back: ${String(e)}`, bytes };
+    return { ok: false, why: `Saving your work in progress seemed to work, but it could not be read back: ${String(e)}`, bytes };
   }
   if (JSON.stringify(back) !== text) {
     return {
       ok: false,
       why:
-        "The workshop wrote this and read back something else, which means the store quietly ran out of room. " +
+        "The workshop saved this and read back something else, so the storage ran out of room without reporting it. " +
         "Nothing here will survive a reload. Save the file for anything you want to keep.",
       bytes,
     };

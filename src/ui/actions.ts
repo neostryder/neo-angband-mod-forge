@@ -671,7 +671,7 @@ export class Actions {
     const outcome = await this.deps.seams.install.install(zipDraft(files));
     if (outcome.ok) {
       this.notice(
-        `${outcome.id} ${outcome.version} is installed. It takes effect after a reload, because enabling a mod always does.`,
+        `${outcome.id} ${outcome.version} is installed and takes effect after the next reload, like any mod you enable.`,
         "good",
       );
     } else {
@@ -729,7 +729,7 @@ export class Actions {
        * work - and NOT reloaded, because reloading here would throw the mod away
        * and land the player somewhere that looks like a failure with no message. */
       this.notice(
-        `${outcome.id} cannot be tried this way here: this window will not keep it across the reload the game ` +
+        `${outcome.id} cannot be tried this way here, because this window would lose it in the reload the game ` +
           `needs to pick it up. Save it as a file and install it instead.`,
         "bad",
       );
@@ -740,8 +740,8 @@ export class Actions {
        * test, or a host that embeds the game. Say the one remaining step. */
       this.notice(
         `${outcome.id} ${outcome.version} is loaded for this session. Reload the game to play it. It is not in ` +
-          `your mods and it is gone when you close the game - but whatever it does to the character who plays ` +
-          `it is not.`,
+          `your mods and is gone when you close the game, but anything it does to the character who plays it ` +
+          `stays.`,
         "good",
       );
       return;

@@ -51,7 +51,7 @@ export function detailsScreen(shop: Workshop): View {
     value: draft.version,
     mono: true,
     note: "three numbers",
-    tip: "Three numbers with dots between them, like 0.1.0. Anything else is refused before the mod is even read.",
+    tip: "Three numbers with dots between them, like 0.1.0. Anything else is refused before the mod is read.",
     onInput: (value) => shop.acts.setDetails({ version: value }),
   });
   const author = textField({
@@ -68,7 +68,7 @@ export function detailsScreen(shop: Workshop): View {
     note: "required, and pinned forever",
     tip:
       "The first time this mod is installed, the game records where it came from and refuses any later install " +
-      "that claims somewhere else. Leave it as the local address unless you actually own the repository you name.",
+      "that claims somewhere else. Leave it as the local address unless you own the repository you name.",
     onInput: (value) => shop.acts.setDetails({ repository: value }),
   });
   const license = textField({
@@ -85,8 +85,8 @@ export function detailsScreen(shop: Workshop): View {
     mono: true,
     note: "required",
     tip:
-      "Which builds of the game this was written against. A minimum rather than an exact version: a mod pinned to " +
-      "one release opts itself into a warning on every update. The workshop will not write a range that excludes " +
+      "Which builds of the game this was written against. Give a minimum rather than an exact version, because a " +
+      "mod pinned to one release gets a warning on every update. The workshop will not write a range that excludes " +
       "the build you are running.",
     onInput: (value) => shop.acts.setDetails({ engine: value }),
   });
@@ -117,7 +117,7 @@ export function detailsScreen(shop: Workshop): View {
   /* Prose, not a second card body inside the first one, which is what this was
    * and which paid for its padding twice. */
   const derived = h("div", { class: "mb-prose" });
-  const derivedCard = card({ title: "Written for you", note: "from what you actually did", open: true });
+  const derivedCard = card({ title: "Written for you", note: "worked out from your changes", open: true });
   derivedCard.body.appendChild(derived);
 
   const changesList = h("div", { class: "mb-list" });
@@ -137,8 +137,8 @@ export function detailsScreen(shop: Workshop): View {
     button({
       label: "Edit the files directly",
       tip:
-        "The same mod, as the text files it ships. Everything here is in them, and saving one puts what you " +
-        "wrote back into the mod. It is also the only way to add a script, a manifest key no screen offers, or " +
+        "The same mod, as the text files it ships. Everything on this screen is in them, and saving one puts what " +
+        "you wrote back into the mod. It is also the only way to add a script, a manifest key no screen offers, or " +
         "a record file grouped into sections.",
       onClick: () => shop.acts.go({ at: "files", path: "" }),
     }),
@@ -201,9 +201,9 @@ export function detailsScreen(shop: Workshop): View {
             null,
             "depends on ",
             ...deps.flatMap((id, at) => [at === 0 ? "" : ", ", h("code", { text: id })]),
-            ". A mod may only adjust a record whose owner it names, and a change that is refused for want of that " +
-              "costs you the change and not the mod, silently. So the workshop writes these down the moment you " +
-              "pick something to change.",
+            ". A mod may only adjust a record whose owner it names as a dependency. Without that, the change is " +
+              "refused silently while the rest of the mod still loads, so the workshop writes these down as soon as " +
+              "you pick something to change.",
           ),
     );
 
@@ -244,7 +244,7 @@ export function detailsScreen(shop: Workshop): View {
       empty(
         "[ ]",
         "Nothing in it yet",
-        "The manifest above is real, and a mod that changes nothing changes nothing.",
+        "The manifest above is the one this mod will ship, but so far the mod changes nothing.",
         button({
           label: "Add or change something",
           kind: "primary",

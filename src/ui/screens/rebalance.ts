@@ -100,8 +100,8 @@ export function rebalanceScreen(shop: Workshop, file: string): View {
         h("div", {
           class: "mb-why",
           text:
-            "Neither of these writes an answer in. They write the adjustment, so it keeps doing what you meant " +
-            "after a game update retunes the numbers and after another mod has already changed one of them.",
+            "Both write the adjustment itself into your mod, so it keeps doing what you meant after a game update " +
+            "retunes the numbers or another mod has already changed one of them.",
         }),
       ),
     ),

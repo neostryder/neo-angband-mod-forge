@@ -77,7 +77,7 @@ export function diffScreen(shop: Workshop, path: string): View {
 
     if (after === before) {
       summary.textContent =
-        "There is nothing unsaved to compare: the editor's text and the mod's saved file are the same right now.";
+        "The editor's text matches the mod's saved file, so there are no unsaved changes to compare.";
       body.replaceChildren();
       return;
     }

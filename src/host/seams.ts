@@ -88,26 +88,26 @@ export interface Seams {
 }
 
 const NO_AUTHORING =
-  "This game cannot hand the workshop its authoring library yet, so every number below is measured from " +
+  "This game does not yet give the workshop its authoring library, so every number below comes from " +
   "the workshop's own demonstration content instead of from the game.";
 
 const NO_RECORDS =
-  "This game cannot hand the workshop its own content yet, so the records you can base something on are " +
-  "the workshop's demonstration set rather than the real game's.";
+  "This game does not yet give the workshop its own content, so the records you can base something on come " +
+  "from the workshop's demonstration set, not from the real game.";
 
 const NO_INSTALL =
   "This game has no way for a mod to install another mod, so the workshop saves the finished mod as a file " +
-  "and you add it with Import a zip on the Mods screen. That path is two extra steps and leaves you holding " +
+  "and you add it with Import a zip on the Mods screen. That takes two extra steps, and you end up with " +
   "a file you can read, keep and share.";
 
 const NO_SESSION =
-  "This game has no way to load a mod for one session, so trying one means installing it: the workshop saves " +
-  "the finished mod as a file, you add it with Import a zip on the Mods screen, turn it on and reload. That " +
-  "leaves the mod in your library, which is where you want it once it is finished anyway.";
+  "This game has no way to load a mod for one session, so to try one you have to install it: the workshop saves " +
+  "the finished mod as a file, then you add it with Import a zip on the Mods screen, turn it on and reload. The " +
+  "mod then stays in your library, where you would want it once it is finished anyway.";
 
 const NO_WIZARD_SEAM =
-  "This game cannot lend the workshop its debug commands, so nothing can be put in front of you and nowhere can " +
-  "be jumped to. Forge the mod, try it for the session, reload, and go and find the thing yourself.";
+  "This game does not give the workshop its debug commands, so it cannot put anything in front of you or take " +
+  "you anywhere. Forge the mod, try it for the session, reload, and go and find the thing yourself.";
 
 const WIZARD_OFF = 'The "Let me test what I built" setting is off for this mod. Turn it on in the mod manager.';
 

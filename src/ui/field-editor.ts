@@ -243,7 +243,7 @@ function setWhy(why: HTMLElement, input: FieldRowInput, on: FieldRowHandlers): v
       label: "Use it",
       tiny: true,
       onClick: () => on.set(input.path, suggestion.value),
-      tip: "Write the suggested value here. It is a starting point drawn from the game's own records, not an instruction.",
+      tip: "Write the suggested value here. It comes from the game's own records and is only a starting point.",
     }),
   );
 }
@@ -358,7 +358,7 @@ function rowsEditor(path: string, rows: readonly JsonRecord[], on: FieldRowHandl
           label: "Copy",
           tiny: true,
           kind: "ghost",
-          tip: "Add another entry just like this one. Cloning something that works is how most content gets made.",
+          tip: "Add another entry that copies this one.",
           onClick: () => on.addRow(path, JSON.parse(JSON.stringify(row)) as JsonValue),
         }),
         button({

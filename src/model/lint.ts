@@ -105,7 +105,7 @@ export function lintFile(
 ): FileLint {
   const kind = classify(api, path);
   if (kind === "extra") {
-    return { ...NOTHING, why: "This file is yours, so nothing here has an opinion about what is in it." };
+    return { ...NOTHING, why: "This file is yours, so the workshop does not check what is in it." };
   }
   if (text.trim() === "" && kind === "manifest") {
     return { ...NOTHING, why: "There is no manifest here to check." };

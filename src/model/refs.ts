@@ -65,7 +65,7 @@ export function checkIdentity(
       key: null,
       ref: null,
       collides: false,
-      says: `Nothing here yet gives this record an identity. ${file} takes one from ${api.keyDescription(file)}.`,
+      says: `This record has no identity yet. In ${file}, a record takes its identity from ${api.keyDescription(file)}.`,
     };
   }
   const ref = refFor(owner, key);
@@ -80,9 +80,9 @@ export function checkIdentity(
       collides: true,
       collidesWith: name,
       says:
-        `This would come out as "${key}", which is already ${from === "core" ? "the base game's" : `${from}'s`} ` +
-        `"${name}". Two records with one identity make both of them unaddressable, so change something ` +
-        `${api.keyDescription(file)} draws on.`,
+        `This record's identity would be "${key}", which is already ${from === "core" ? "the base game's" : `${from}'s`} ` +
+        `"${name}". Two records with the same identity are both unaddressable, so change what the identity is built ` +
+        `from (${api.keyDescription(file)}).`,
     };
   }
   return { key, ref, collides: false, says: `This will be addressed as ${ref}.` };

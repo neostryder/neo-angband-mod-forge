@@ -146,8 +146,8 @@ export function forkDraft(api: AuthoringApi, folder: ForkFolder, options: ForkOp
     return {
       ok: false,
       why:
-        `A fork needs an id of its own, and "${sourceId}" is the mod being forked. The game treats an id as an ` +
-        `identity, so two mods sharing one would install over each other rather than sit side by side.`,
+        `A fork needs an id of its own, and "${sourceId}" belongs to the mod being forked. Two mods with the same ` +
+        `id install over each other instead of side by side.`,
     };
   }
 
@@ -211,13 +211,13 @@ function originOf(source: ForkSource, id: string, manifest: JsonRecord | undefin
 function differences(sourceId: string, manifest: JsonRecord | undefined, source: ForkSource): string[] {
   const notes: string[] = [
     `This is a fork of ${sourceId}. Its manifest records where it came from, so the original keeps its credit.`,
-    "The repository is your own local address rather than the original's, because an install pins a mod's origin and the update check would otherwise ask somebody else for your releases.",
+    "The repository field holds your own local address, not the original's. An install pins a mod's origin, and with the original's address the update check would look for your releases in somebody else's repository.",
   ];
   if (manifest === undefined) {
     notes.push(
-      `Nothing here can read ${sourceId}'s manifest, so this fork has none of its name, description, author or ` +
-        `licence. Set the licence on the details screen before you share it: forking somebody's content does not ` +
-        `come with permission to relicense it.`,
+      `The workshop cannot read ${sourceId}'s manifest, so this fork has none of its name, description, author or ` +
+        `licence. Set the licence on the details screen before you share it, because forking somebody's content does ` +
+        `not give you permission to relicense it.`,
     );
     return notes;
   }
@@ -225,10 +225,10 @@ function differences(sourceId: string, manifest: JsonRecord | undefined, source:
   notes.push(
     license === undefined
       ? `${sourceId} declares no licence, so nothing says what you may do with its content. Ask its author before you share this.`
-      : `${sourceId} is licensed ${license}, and the fork carries that licence because it carries that content.`,
+      : `${sourceId} is licensed ${license}, so the fork keeps that licence along with its content.`,
   );
   if (stringAt(manifest, "author") !== undefined) notes.push("The author field is blank, because the fork's author is you.");
-  if (source === "file") notes.push("The name still says the original's, which is worth changing before anybody sees both at once.");
+  if (source === "file") notes.push("The name is still the original's. Change it before anybody sees the two side by side.");
   return notes;
 }
 
@@ -426,15 +426,15 @@ export function folderFromInstalled(
   const notes: string[] = [];
   if (restored > 0) {
     notes.push(
-      `${restored} of ${owner}'s own records had been adjusted by another mod in this game, and the fork takes ` +
-        `${owner}'s version of them rather than the adjusted one.`,
+      `Another mod in this game had adjusted ${restored} of ${owner}'s own records. The fork takes ${owner}'s ` +
+        `version of them, without the other mod's changes.`,
     );
   }
   if (shared > 0) {
     notes.push(
       `${shared} record${shared === 1 ? "" : "s"} that ${owner} adjusts ${shared === 1 ? "is" : "are"} adjusted ` +
-        `by another mod as well. A composed record carries the result rather than one entry per mod, so there is ` +
-        `no way to take ${owner}'s share of it and ${shared === 1 ? "it is" : "they are"} left out.`,
+        `by another mod as well. A composed record holds only the combined result, not one entry per mod, so ` +
+        `${owner}'s share cannot be pulled out of it and ${shared === 1 ? "it is" : "they are"} left out of the fork.`,
     );
   }
   if (unaddressable > 0) {

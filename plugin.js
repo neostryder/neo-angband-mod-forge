@@ -1159,11 +1159,11 @@ var STUB_AUTHORING = {
 };
 
 // src/host/seams.ts
-var NO_AUTHORING = "This game cannot hand the workshop its authoring library yet, so every number below is measured from the workshop's own demonstration content instead of from the game.";
-var NO_RECORDS = "This game cannot hand the workshop its own content yet, so the records you can base something on are the workshop's demonstration set rather than the real game's.";
-var NO_INSTALL = "This game has no way for a mod to install another mod, so the workshop saves the finished mod as a file and you add it with Import a zip on the Mods screen. That path is two extra steps and leaves you holding a file you can read, keep and share.";
-var NO_SESSION = "This game has no way to load a mod for one session, so trying one means installing it: the workshop saves the finished mod as a file, you add it with Import a zip on the Mods screen, turn it on and reload. That leaves the mod in your library, which is where you want it once it is finished anyway.";
-var NO_WIZARD_SEAM = "This game cannot lend the workshop its debug commands, so nothing can be put in front of you and nowhere can be jumped to. Forge the mod, try it for the session, reload, and go and find the thing yourself.";
+var NO_AUTHORING = "This game does not yet give the workshop its authoring library, so every number below comes from the workshop's own demonstration content instead of from the game.";
+var NO_RECORDS = "This game does not yet give the workshop its own content, so the records you can base something on come from the workshop's demonstration set, not from the real game.";
+var NO_INSTALL = "This game has no way for a mod to install another mod, so the workshop saves the finished mod as a file and you add it with Import a zip on the Mods screen. That takes two extra steps, and you end up with a file you can read, keep and share.";
+var NO_SESSION = "This game has no way to load a mod for one session, so to try one you have to install it: the workshop saves the finished mod as a file, then you add it with Import a zip on the Mods screen, turn it on and reload. The mod then stays in your library, where you would want it once it is finished anyway.";
+var NO_WIZARD_SEAM = "This game does not give the workshop its debug commands, so it cannot put anything in front of you or take you anywhere. Forge the mod, try it for the session, reload, and go and find the thing yourself.";
 var WIZARD_OFF = 'The "Let me test what I built" setting is off for this mod. Turn it on in the mod manager.';
 var NO_GAME = "There is no character in play, so there is nothing to test with.";
 function resolveSeams(ctx) {
@@ -1301,32 +1301,32 @@ function saveDrafts(prefs, drafts, seenTour) {
   if (!prefs) {
     return {
       ok: false,
-      why: "This game gives the workshop nowhere to keep unfinished work, so nothing here will survive a reload. Finish a mod and save the file.",
+      why: "This game has no storage for the workshop's unfinished work, so nothing here will survive a reload. Finish a mod and save the file.",
       bytes
     };
   }
   if (bytes > SIZE_CEILING) {
     return {
       ok: false,
-      why: `There is more unfinished work here than the workshop will keep (${Math.round(bytes / 1024)}KB against a ${Math.round(SIZE_CEILING / 1024)}KB limit). Finish or delete a mod, and save the file for anything you want to keep.`,
+      why: `Your unfinished work comes to ${Math.round(bytes / 1024)}KB, over the workshop's ${Math.round(SIZE_CEILING / 1024)}KB limit. Finish or delete a mod, and save the file for anything you want to keep.`,
       bytes
     };
   }
   try {
     prefs.set(encoded);
   } catch (e) {
-    return { ok: false, why: `Keeping this failed: ${String(e)}`, bytes };
+    return { ok: false, why: `Saving your work in progress failed: ${String(e)}`, bytes };
   }
   let back;
   try {
     back = prefs.get();
   } catch (e) {
-    return { ok: false, why: `Keeping this appeared to work and could not be read back: ${String(e)}`, bytes };
+    return { ok: false, why: `Saving your work in progress seemed to work, but it could not be read back: ${String(e)}`, bytes };
   }
   if (JSON.stringify(back) !== text) {
     return {
       ok: false,
-      why: "The workshop wrote this and read back something else, which means the store quietly ran out of room. Nothing here will survive a reload. Save the file for anything you want to keep.",
+      why: "The workshop saved this and read back something else, so the storage ran out of room without reporting it. Nothing here will survive a reload. Save the file for anything you want to keep.",
       bytes
     };
   }
@@ -1385,7 +1385,7 @@ function checkIdentity(api, file, draft, owner, records) {
       key: null,
       ref: null,
       collides: false,
-      says: `Nothing here yet gives this record an identity. ${file} takes one from ${api.keyDescription(file)}.`
+      says: `This record has no identity yet. In ${file}, a record takes its identity from ${api.keyDescription(file)}.`
     };
   }
   const ref = refFor(owner, key);
@@ -1399,7 +1399,7 @@ function checkIdentity(api, file, draft, owner, records) {
       ref,
       collides: true,
       collidesWith: name,
-      says: `This would come out as "${key}", which is already ${from === "core" ? "the base game's" : `${from}'s`} "${name}". Two records with one identity make both of them unaddressable, so change something ${api.keyDescription(file)} draws on.`
+      says: `This record's identity would be "${key}", which is already ${from === "core" ? "the base game's" : `${from}'s`} "${name}". Two records with the same identity are both unaddressable, so change what the identity is built from (${api.keyDescription(file)}).`
     };
   }
   return { key, ref, collides: false, says: `This will be addressed as ${ref}.` };
@@ -1804,11 +1804,11 @@ function scriptFiles(draft) {
 function sessionRefusal(draft) {
   const scripts = scriptFiles(draft);
   if (scripts.length > 0) {
-    return `Trying it for one session takes content only, and this mod ships ${scripts.join(", ")}. Save it as a file and add it with Import a zip on the Mods screen instead: that door runs code, and it asks you first.`;
+    return `A mod tried for one session can hold content only, and this mod ships ${scripts.join(", ")}. Save it as a file and add it with Import a zip on the Mods screen instead, which can run code and asks you first.`;
   }
   const wanted = (draft.manifestExtras ?? {})["capabilities"];
   if (Array.isArray(wanted) && wanted.length > 0) {
-    return `Trying it for one session takes content only, and this mod's manifest asks for ${wanted.join(", ")}. A capability is something a player grants, so it is granted in the mod manager: save this as a file and add it with Import a zip.`;
+    return `A mod tried for one session can hold content only, and this mod's manifest asks for ${wanted.join(", ")}. Capabilities are granted by the player in the mod manager, so save this as a file and add it with Import a zip.`;
   }
   return void 0;
 }
@@ -1854,7 +1854,7 @@ function pathProblem(api, draft, path) {
   const kind = classify(api, path);
   if (kind === "manifest") return "The manifest already exists. Open it from the list.";
   if (kind === "records") {
-    return `${path} is written from what the mod does to ${path.slice(0, -".json".length)} records, so it is not a file to create by hand. Add or change one and it appears in this list, ready to edit.`;
+    return `The workshop writes ${path} from what the mod does to ${path.slice(0, -".json".length)} records, so you cannot create it by hand. Add or change a record and the file appears in this list, ready to edit.`;
   }
   const taken = projectFiles(api, draft).map((file) => file.path.toLowerCase());
   if (taken.includes(path.toLowerCase())) return "There is already a file with that name.";
@@ -1863,7 +1863,7 @@ function pathProblem(api, draft, path) {
 function pathNote(api, path) {
   if (classify(api, path) !== "extra") return void 0;
   if (!path.includes("/") && path.endsWith(".json") && path !== MANIFEST) {
-    return "The game reads every top-level JSON file as a record file. This one is not a record file the game knows, so it will be loaded and contribute nothing. Put it in a folder - data/ is the usual one - to have it treated as data your own code reads.";
+    return "The game reads every top-level JSON file as a record file. It does not recognise this one, so the file will load and contribute nothing. To have it treated as data your own code reads, put it in a folder (data/ is the usual one).";
   }
   if (isCodePath(path) && path !== PLUGIN && !path.includes("/")) {
     return `Only ${PLUGIN} is an entry point. Another script beside it runs only if ${PLUGIN} imports it.`;
@@ -1889,7 +1889,7 @@ function writeFileBytes(api, draft, path, bytes) {
   if (kind !== "extra") {
     return {
       ok: false,
-      why: `${path} is written from what the mod does, as text the workshop generates or parses, so it cannot hold raw bytes.`
+      why: `The workshop generates and parses ${path} as text from what the mod does, so it cannot hold raw bytes.`
     };
   }
   return { ok: true, draft: { ...draft, extras: { ...draft.extras ?? {}, [path]: bytes } } };
@@ -1898,7 +1898,7 @@ function deleteFile(api, draft, path) {
   if (classify(api, path) !== "extra") {
     return {
       ok: false,
-      why: `${path} is written from what the mod contains, so there is nothing to delete. Take the changes out instead.`
+      why: `The workshop generates ${path} from what the mod contains, so it cannot be deleted. Remove the changes instead.`
     };
   }
   const extras = { ...draft.extras ?? {} };
@@ -1974,7 +1974,7 @@ function writeManifest(draft, text) {
     if (facets !== void 0 && !(Array.isArray(facets) && facets.includes("plugin"))) {
       return {
         ok: false,
-        why: `This mod ships ${scriptFiles(next).join(", ")}, so "facets" has to include "plugin" or the game will not run the code at all. Leave the line out and the workshop writes it.`
+        why: `This mod ships ${scriptFiles(next).join(", ")}, so "facets" has to include "plugin" or the game will not run the code. Leave the line out and the workshop fills it in.`
       };
     }
     if (extras["modApi"] !== void 0 && typeof extras["modApi"] !== "number") {
@@ -2045,7 +2045,7 @@ function writeRecordFile(draft, file, text) {
     const patches = raw["fieldPatches"];
     if (patches !== void 0) {
       if (typeof patches !== "object" || patches === null || Array.isArray(patches)) {
-        return { ok: false, why: `"fieldPatches" in ${file}.json has to be an object of reference to operations.` };
+        return { ok: false, why: `"fieldPatches" in ${file}.json has to be an object that maps each reference to a list of operations.` };
       }
       for (const [ref, ops] of Object.entries(patches)) {
         if (!Array.isArray(ops)) return { ok: false, why: `The operations for ${ref} have to be a list.` };
@@ -2060,7 +2060,7 @@ function writeRecordFile(draft, file, text) {
     const replaces = raw["replaces"];
     if (replaces !== void 0) {
       if (typeof replaces !== "object" || replaces === null || Array.isArray(replaces)) {
-        return { ok: false, why: `"replaces" in ${file}.json has to be an object of reference to record.` };
+        return { ok: false, why: `"replaces" in ${file}.json has to be an object that maps each reference to a record.` };
       }
       for (const [ref, record] of Object.entries(replaces)) {
         if (typeof record !== "object" || record === null || Array.isArray(record)) {
@@ -2146,7 +2146,7 @@ function forkDraft(api, folder, options) {
   if (sourceId === options.id) {
     return {
       ok: false,
-      why: `A fork needs an id of its own, and "${sourceId}" is the mod being forked. The game treats an id as an identity, so two mods sharing one would install over each other rather than sit side by side.`
+      why: `A fork needs an id of its own, and "${sourceId}" belongs to the mod being forked. Two mods with the same id install over each other instead of side by side.`
     };
   }
   const notes = [];
@@ -2195,20 +2195,20 @@ function originOf(source, id, manifest) {
 function differences(sourceId, manifest, source) {
   const notes = [
     `This is a fork of ${sourceId}. Its manifest records where it came from, so the original keeps its credit.`,
-    "The repository is your own local address rather than the original's, because an install pins a mod's origin and the update check would otherwise ask somebody else for your releases."
+    "The repository field holds your own local address, not the original's. An install pins a mod's origin, and with the original's address the update check would look for your releases in somebody else's repository."
   ];
   if (manifest === void 0) {
     notes.push(
-      `Nothing here can read ${sourceId}'s manifest, so this fork has none of its name, description, author or licence. Set the licence on the details screen before you share it: forking somebody's content does not come with permission to relicense it.`
+      `The workshop cannot read ${sourceId}'s manifest, so this fork has none of its name, description, author or licence. Set the licence on the details screen before you share it, because forking somebody's content does not give you permission to relicense it.`
     );
     return notes;
   }
   const license = stringAt(manifest, "license");
   notes.push(
-    license === void 0 ? `${sourceId} declares no licence, so nothing says what you may do with its content. Ask its author before you share this.` : `${sourceId} is licensed ${license}, and the fork carries that licence because it carries that content.`
+    license === void 0 ? `${sourceId} declares no licence, so nothing says what you may do with its content. Ask its author before you share this.` : `${sourceId} is licensed ${license}, so the fork keeps that licence along with its content.`
   );
   if (stringAt(manifest, "author") !== void 0) notes.push("The author field is blank, because the fork's author is you.");
-  if (source === "file") notes.push("The name still says the original's, which is worth changing before anybody sees both at once.");
+  if (source === "file") notes.push("The name is still the original's. Change it before anybody sees the two side by side.");
   return notes;
 }
 function folderFromFiles(files) {
@@ -2312,12 +2312,12 @@ function folderFromInstalled(api, records, owner) {
   const notes = [];
   if (restored > 0) {
     notes.push(
-      `${restored} of ${owner}'s own records had been adjusted by another mod in this game, and the fork takes ${owner}'s version of them rather than the adjusted one.`
+      `Another mod in this game had adjusted ${restored} of ${owner}'s own records. The fork takes ${owner}'s version of them, without the other mod's changes.`
     );
   }
   if (shared > 0) {
     notes.push(
-      `${shared} record${shared === 1 ? "" : "s"} that ${owner} adjusts ${shared === 1 ? "is" : "are"} adjusted by another mod as well. A composed record carries the result rather than one entry per mod, so there is no way to take ${owner}'s share of it and ${shared === 1 ? "it is" : "they are"} left out.`
+      `${shared} record${shared === 1 ? "" : "s"} that ${owner} adjusts ${shared === 1 ? "is" : "are"} adjusted by another mod as well. A composed record holds only the combined result, not one entry per mod, so ${owner}'s share cannot be pulled out of it and ${shared === 1 ? "it is" : "they are"} left out of the fork.`
     );
   }
   if (unaddressable > 0) {
@@ -2377,7 +2377,7 @@ async function unzip(bytes) {
     if (compressed === ZIP64_MARKER || uncompressed === ZIP64_MARKER || localAt === ZIP64_MARKER) {
       return {
         ok: false,
-        why: `${name} is stored in the zip64 extension, which this reader does not open. A mod folder is small enough not to need it, so this is probably not a mod.`
+        why: `${name} uses the zip64 extension, which the workshop cannot open. A mod folder is too small to need it, so this is probably not a mod.`
       };
     }
     if (method !== 0 && method !== 8) {
@@ -2387,7 +2387,7 @@ async function unzip(bytes) {
       };
     }
     if (localAt + 30 > bytes.length || view.getUint32(localAt, true) !== LOCAL_HEADER) {
-      return { ok: false, why: `That zip says ${name} is at a place that does not hold a file, so it is damaged.` };
+      return { ok: false, why: `That zip lists ${name} at a position that holds no file, so the zip is damaged.` };
     }
     const dataAt = localAt + 30 + view.getUint16(localAt + 26, true) + view.getUint16(localAt + 28, true);
     if (dataAt + compressed > bytes.length) {
@@ -2471,7 +2471,7 @@ function describeOp(op) {
 }
 function describeComposition(op) {
   if (isCommutative2(op.op)) {
-    return "Another mod doing the same thing keeps its change and you keep yours.";
+    return "If another mod makes the same kind of change here, both changes are kept.";
   }
   return "If another mod also writes this field, whichever loads last wins.";
 }
@@ -3326,7 +3326,7 @@ var Actions = class {
     const outcome = await this.deps.seams.install.install(zipDraft(files));
     if (outcome.ok) {
       this.notice(
-        `${outcome.id} ${outcome.version} is installed. It takes effect after a reload, because enabling a mod always does.`,
+        `${outcome.id} ${outcome.version} is installed and takes effect after the next reload, like any mod you enable.`,
         "good"
       );
     } else {
@@ -3373,14 +3373,14 @@ var Actions = class {
     }
     if (!outcome.survivesReload) {
       this.notice(
-        `${outcome.id} cannot be tried this way here: this window will not keep it across the reload the game needs to pick it up. Save it as a file and install it instead.`,
+        `${outcome.id} cannot be tried this way here, because this window would lose it in the reload the game needs to pick it up. Save it as a file and install it instead.`,
         "bad"
       );
       return;
     }
     if (this.deps.seams.session.reloadByHand) {
       this.notice(
-        `${outcome.id} ${outcome.version} is loaded for this session. Reload the game to play it. It is not in your mods and it is gone when you close the game - but whatever it does to the character who plays it is not.`,
+        `${outcome.id} ${outcome.version} is loaded for this session. Reload the game to play it. It is not in your mods and is gone when you close the game, but anything it does to the character who plays it stays.`,
         "good"
       );
       return;
@@ -3620,35 +3620,35 @@ var README_SECTIONS = [
     title: "What ModForge is",
     paragraphs: [
       "Pick something that already exists in Angband - a monster, a sword, a shop, a spell - and the workshop shows what it is made of, what its neighbours carry for every number, and what would have to change to make the thing you had in mind.",
-      "It never asks what JSON is, and it never hides it either: every screen can show the exact file it is about to write, and a mod it built can be taken away, hand-edited, and brought back."
+      "You do not need to know JSON to use it, but the JSON is always there to read. Every screen can show the exact file it is about to write, and a mod it built can be taken out, edited by hand and brought back."
     ]
   },
   {
     title: "What it does",
     paragraphs: [
-      "Adds records - a new monster, item or spell, based on something that already exists, so it arrives with real shape and scale and none of its powers until you add them.",
+      "Adds records: a new monster, item or spell based on something that already exists. It arrives with that record's shape and scale and none of its powers until you add them.",
       "Adjusts records the game already owns, shipping the difference rather than the whole record, so two mods changing different fields of the same thing both keep working.",
-      "Retunes a whole file at once - every potion cheaper, every dragon faster - one adjustment applied across everything that matches a filter, each written as its own entry.",
+      "Retunes a whole file at once, for example making every potion cheaper or every dragon faster. One adjustment applies to everything that matches a filter, and each record gets its own entry.",
       "Checks as you type: a name collision, a field nothing in the file uses, a reference to something no loaded pack defines. Errors, warnings and advice are kept apart."
     ]
   },
   {
     title: "Editing the files directly",
     paragraphs: [
-      `Every screen above asks a question and writes the answer into a file. "Edit the files directly", reached from a mod's own page, shows those files - the same mod, printed, not a second copy of it. A change made there shows up on every other screen, and the other way round.`
+      `Every screen above asks a question and writes the answer into a file. "Edit the files directly", reached from a mod's own page, shows those files. They are the mod itself rather than a copy, so a change made there shows up on every other screen, and the other way round.`
     ]
   },
   {
     title: "The game it reads",
     paragraphs: [
-      "On Neo Angband 1.0.0 the workshop reads the authoring SDK and the complete set of records composed for this running game, including enabled content mods. Its suggestions, comparisons and checks are about what is actually loaded.",
-      "A small demonstration set remains for the standalone preview and partial test hosts. If either live-data surface is missing, an undismissable banner says so. That banner is hidden on the normal in-game path."
+      "On Neo Angband 1.0.0 the workshop reads the authoring SDK and the complete set of records composed for this running game, including enabled content mods. Its suggestions, comparisons and checks are about what is loaded.",
+      "When the authoring SDK or the loaded records are missing, as in the standalone preview and some test hosts, the workshop uses a small demonstration set and shows a banner that cannot be dismissed. In the game itself the banner does not appear."
     ]
   },
   {
     title: "Reading more",
     paragraphs: [
-      "The real SDK tutorials and authoring references are bundled under Docs in the workshop. The full ModForge README and engine seam decisions remain in the repository this mod shipped from: neo-angband-mod-forge."
+      "The SDK tutorials and authoring references are bundled under Docs in the workshop. The full ModForge README and the notes on the engine seams it uses are in the repository this mod ships from, neo-angband-mod-forge."
     ]
   }
 ];
@@ -3894,15 +3894,15 @@ var GROUP_TITLES = {
   advanced: "Everything else"
 };
 var GROUP_BLURBS = {
-  essentials: "The handful of fields that decide what this thing is. Get these right and the rest can wait.",
+  essentials: "The few fields that decide what this thing is, and the ones to fill in first.",
   identity: "What it is called, what family it belongs to, and roughly where it sits.",
   combat: "What it does in a fight, or what it does when it is used.",
-  traits: "Named properties. Ticking one is the safest kind of change: another mod ticking a different one keeps both.",
-  references: "Fields that name another record. A name nothing defines is the single most common way a first mod fails.",
+  traits: "Named properties you can tick on or off. This is the safest kind of change, because if another mod ticks a different one, both are kept.",
+  references: "Fields that name another record. Naming a record that nothing defines is the most common reason a first mod fails.",
   generation: "How often and how deep the game will produce it on its own.",
   presentation: "The letter, the colour, and the words the player reads.",
   tables: "Fields that hold a list. Adding a row composes with other mods; replacing the list does not.",
-  advanced: "Fields core uses rarely. Nothing here is wrong, it is just not where to start."
+  advanced: "Fields the base game rarely uses. Changing them is fine, but they are not the place to start."
 };
 var FEATURED = [
   {
@@ -3916,7 +3916,7 @@ var FEATURED = [
   {
     file: "monster",
     title: "Creatures",
-    blurb: "One record is one kind of thing that can be met, from a rat to something with a name.",
+    blurb: "Each record is one kind of creature you can meet, from a rat to a named unique.",
     badge: "o",
     essentials: ["name", "base", "depth", "hit-points", "speed", "armor-class", "experience"],
     featured: true
@@ -3940,7 +3940,7 @@ var FEATURED = [
   {
     file: "artifact",
     title: "Artifacts",
-    blurb: "A one-of-a-kind version of an item the game already has. Adjustments, not a new thing.",
+    blurb: "A one-of-a-kind version of an item the game already has, made by adjusting that item.",
     badge: "*",
     essentials: ["name", "base-object", "level", "cost", "weight"],
     featured: true
@@ -3948,7 +3948,7 @@ var FEATURED = [
   {
     file: "ego_item",
     title: "Item qualities",
-    blurb: "The of-Slay-Evil half of an item's name. Declares which kinds it can land on.",
+    blurb: "The of-Slay-Evil part of an item's name, and which kinds of item it can appear on.",
     badge: "+",
     essentials: ["name", "type", "level", "cost", "rating"],
     featured: true
@@ -4114,7 +4114,7 @@ function baseScreen(shop, file, mode) {
       { class: "mb-prose" },
       h("h2", { text: mode === "new" ? `Base your ${singular(kind.title)} on something` : `Which ${singular(kind.title)}?` }),
       h("p", {
-        text: mode === "new" ? "The workshop will fill a new record in from the one you pick: its shape, its scale, and the values its neighbours in the game actually carry. It will not copy its attacks, its flags, its spells or anything else that would hand out powers you did not ask for." : "Your mod will ship the difference rather than the record, so the base game keeps owning it and two mods adjusting different fields of it both work."
+        text: mode === "new" ? "The workshop fills in a new record from the one you pick, using its shape, its scale and the values its neighbours in the game carry. It does not copy attacks, flags, spells or anything else that would hand out powers you did not ask for." : "Your mod will ship the difference rather than the record, so the base game keeps owning it and two mods adjusting different fields of it both work."
       })
     ),
     h("div", { class: "mb-row-actions" }, search, mode === "new" ? blankButton() : null),
@@ -4277,7 +4277,7 @@ function detailsScreen(shop) {
     value: draft.version,
     mono: true,
     note: "three numbers",
-    tip: "Three numbers with dots between them, like 0.1.0. Anything else is refused before the mod is even read.",
+    tip: "Three numbers with dots between them, like 0.1.0. Anything else is refused before the mod is read.",
     onInput: (value) => shop.acts.setDetails({ version: value })
   });
   const author = textField({
@@ -4292,7 +4292,7 @@ function detailsScreen(shop) {
     value: draft.repository,
     mono: true,
     note: "required, and pinned forever",
-    tip: "The first time this mod is installed, the game records where it came from and refuses any later install that claims somewhere else. Leave it as the local address unless you actually own the repository you name.",
+    tip: "The first time this mod is installed, the game records where it came from and refuses any later install that claims somewhere else. Leave it as the local address unless you own the repository you name.",
     onInput: (value) => shop.acts.setDetails({ repository: value })
   });
   const license = textField({
@@ -4308,7 +4308,7 @@ function detailsScreen(shop) {
     value: draft.engine,
     mono: true,
     note: "required",
-    tip: "Which builds of the game this was written against. A minimum rather than an exact version: a mod pinned to one release opts itself into a warning on every update. The workshop will not write a range that excludes the build you are running.",
+    tip: "Which builds of the game this was written against. Give a minimum rather than an exact version, because a mod pinned to one release gets a warning on every update. The workshop will not write a range that excludes the build you are running.",
     onInput: (value) => shop.acts.setDetails({ engine: value })
   });
   const description = textField({
@@ -4334,7 +4334,7 @@ function detailsScreen(shop) {
     description.el
   );
   const derived = h("div", { class: "mb-prose" });
-  const derivedCard = card({ title: "Written for you", note: "from what you actually did", open: true });
+  const derivedCard = card({ title: "Written for you", note: "worked out from your changes", open: true });
   derivedCard.body.appendChild(derived);
   const changesList = h("div", { class: "mb-list" });
   const changesCard = card({ title: "What is in it", open: true });
@@ -4351,7 +4351,7 @@ function detailsScreen(shop) {
      * last in the row because it is the advanced door and not the front one. */
     button({
       label: "Edit the files directly",
-      tip: "The same mod, as the text files it ships. Everything here is in them, and saving one puts what you wrote back into the mod. It is also the only way to add a script, a manifest key no screen offers, or a record file grouped into sections.",
+      tip: "The same mod, as the text files it ships. Everything on this screen is in them, and saving one puts what you wrote back into the mod. It is also the only way to add a script, a manifest key no screen offers, or a record file grouped into sections.",
       onClick: () => shop.acts.go({ at: "files", path: "" })
     }),
     shop.seams.wizard.api !== void 0 ? button({
@@ -4396,7 +4396,7 @@ function detailsScreen(shop) {
         null,
         "depends on ",
         ...deps.flatMap((id, at) => [at === 0 ? "" : ", ", h("code", { text: id })]),
-        ". A mod may only adjust a record whose owner it names, and a change that is refused for want of that costs you the change and not the mod, silently. So the workshop writes these down the moment you pick something to change."
+        ". A mod may only adjust a record whose owner it names as a dependency. Without that, the change is refused silently while the rest of the mod still loads, so the workshop writes these down as soon as you pick something to change."
       )
     );
     const rows = current.changes.map((change, index) => {
@@ -4429,7 +4429,7 @@ function detailsScreen(shop) {
       empty(
         "[ ]",
         "Nothing in it yet",
-        "The manifest above is real, and a mod that changes nothing changes nothing.",
+        "The manifest above is the one this mod will ship, but so far the mod changes nothing.",
         button({
           label: "Add or change something",
           kind: "primary",
@@ -4575,7 +4575,7 @@ function diffScreen(shop, path) {
     const before = file.contents;
     const after = state.buffers[path]?.text ?? before;
     if (after === before) {
-      summary.textContent = "There is nothing unsaved to compare: the editor's text and the mod's saved file are the same right now.";
+      summary.textContent = "The editor's text matches the mod's saved file, so there are no unsaved changes to compare.";
       body.replaceChildren();
       return;
     }
@@ -5085,7 +5085,7 @@ function jsProblems(text) {
   for (const token of tokens) {
     if (token.cls === "com" && text.startsWith("/*", token.at) && !text.slice(token.at, token.to).endsWith("*/")) {
       const where = positionAt(text, token.at);
-      out.push({ ...where, message: "This block comment is never closed. It swallows everything after it." });
+      out.push({ ...where, message: "This block comment is never closed, so everything after it is part of the comment." });
     }
     if (token.cls === "str") {
       const quote = text[token.at];
@@ -5109,13 +5109,13 @@ function jsProblems(text) {
     }
     const top = stack.pop();
     if (top === void 0) {
-      out.push({ ...positionAt(text, i), message: `A closing ${ch} with nothing open to close.` });
+      out.push({ ...positionAt(text, i), message: `This ${ch} has nothing open to close.` });
       continue;
     }
     if (PARTNER[top.ch] !== ch) {
       out.push({
         ...positionAt(text, i),
-        message: `A ${ch} closes the ${top.ch} opened on line ${positionAt(text, top.at).line}, which wanted ${PARTNER[top.ch]}.`
+        message: `This ${ch} closes the ${top.ch} opened on line ${positionAt(text, top.at).line}, which needs a ${PARTNER[top.ch]}.`
       });
     }
   }
@@ -5685,7 +5685,7 @@ function docsScreen(shop, selected) {
       { class: "mb-prose" },
       h("h2", { text: "Neo Angband modding docs" }),
       h("p", {
-        text: "The real SDK documentation bundled when this workshop was built. Pick a lesson on the right, or use the advanced references when you need the full contract behind a content file or plugin.js."
+        text: "The SDK documentation, bundled with this workshop when it was built. Pick a lesson on the right, or use the advanced references when you need the full contract behind a content file or plugin.js."
       })
     ),
     h(
@@ -5752,7 +5752,7 @@ var NOTHING = { findings: [], elsewhere: 0, checked: false };
 function lintFile(api, draft, records, path, text) {
   const kind = classify(api, path);
   if (kind === "extra") {
-    return { ...NOTHING, why: "This file is yours, so nothing here has an opinion about what is in it." };
+    return { ...NOTHING, why: "This file is yours, so the workshop does not check what is in it." };
   }
   if (text.trim() === "" && kind === "manifest") {
     return { ...NOTHING, why: "There is no manifest here to check." };
@@ -5965,7 +5965,7 @@ function filesScreen(shop, path, line) {
       empty(
         "?",
         "No mod is open",
-        "This screen shows one mod's files, so there is nothing to print yet.",
+        "This screen shows one mod's files, so open a mod first.",
         button({ label: "Go to my mods", kind: "primary", onClick: () => shop.acts.go({ at: "mods" }) })
       )
     );
@@ -5988,14 +5988,14 @@ function filesScreen(shop, path, line) {
   const plugin = button({
     label: `Start a ${PLUGIN}`,
     tiny: true,
-    tip: "Writes a working entry point with nothing in it, so a mod that runs code is one file away. The manifest grows the plugin facet and the ABI number to match, because a mod that ships code without declaring both installs and then does nothing.",
+    tip: "Writes a working entry point with nothing in it yet, so a mod that runs code is one file away. It also adds the plugin facet and the ABI number to the manifest, since a mod that ships code without declaring both installs and then does nothing.",
     onClick: () => shop.acts.createFile(PLUGIN, PLUGIN_TEMPLATE)
   });
   const pluginDocs = button({
     label: "Read the plugin API",
     tiny: true,
     kind: "ghost",
-    tip: "Open the real SDK reference before you add behaviour to plugin.js.",
+    tip: "Open the SDK reference before you add behaviour to plugin.js.",
     onClick: () => shop.acts.go({ at: "docs", doc: "plugins" })
   });
   const searchAll = button({
@@ -6020,7 +6020,7 @@ function filesScreen(shop, path, line) {
   const loadRow = h(
     "label",
     { class: "mb-why" },
-    "Or load one from disk, real bytes and all: ",
+    "Or load a file from disk, binary or text: ",
     loadFile
   );
   listSection.body.append(
@@ -6154,13 +6154,13 @@ function filesScreen(shop, path, line) {
         { class: "mb-prose" },
         h("h2", { text: "The mod, as files" }),
         h("p", {
-          text: "This is the same mod the other screens edit, printed. Every file here is a file the folder ships, and saving one puts what you wrote back into the mod - so a monster you added on the record screen is in monster.json, and a number you change here is the number that screen shows next time."
+          text: "This is the same mod the other screens edit, shown as the files the folder ships. Saving one puts what you wrote back into the mod, so a monster you added on the record screen is in monster.json, and a number you change here is the number that screen shows next time."
         }),
         h("p", {
-          text: "It is the way to do the things no screen offers: a script the game runs, a manifest key nothing asks you about, a record file grouped into sections. Pick a file on the right, or add one of your own."
+          text: "Use it for what no screen offers: a script the game runs, a manifest key nothing asks you about, or a record file grouped into sections. Pick a file on the right, or add one of your own."
         }),
         h("p", {
-          text: "Unsaved text lives in this window and nowhere else. It survives moving between screens and it does not survive reloading the game, so save a file into the mod before you go anywhere."
+          text: "Unsaved text lives only in this window. It is kept when you move between screens but lost when the game reloads, so save a file into the mod before you go anywhere."
         })
       )
     );
@@ -6195,7 +6195,7 @@ function filesScreen(shop, path, line) {
     const bytes = projectBytes(shop.api, current);
     setText(
       size,
-      `${files.length} file${files.length === 1 ? "" : "s"}, ${Math.max(1, Math.round(bytes / 1024))}KB. Unfinished work is kept in a store this install shares with your saves, and the workshop will not use more than ${Math.round(SIZE_CEILING / 1024)}KB of it, so a large file pasted in here is a file to save out as a zip.`
+      `${files.length} file${files.length === 1 ? "" : "s"}, ${Math.max(1, Math.round(bytes / 1024))}KB. Unfinished work is kept in a store this install shares with your saves, and the workshop uses at most ${Math.round(SIZE_CEILING / 1024)}KB of it, so if you paste in a large file, save the mod out as a zip.`
     );
     const refusal = sessionRefusal(current);
     if (path === "") {
@@ -6209,7 +6209,7 @@ function filesScreen(shop, path, line) {
       problems.style.display = "none";
       setText(title, path);
       setText(binaryInfo, `${file.contents.length} byte${file.contents.length === 1 ? "" : "s"} loaded from disk.`);
-      const notes2 = ["Yours. It goes into the mod folder exactly as it is here, byte for byte, and nothing rewrites it."];
+      const notes2 = ["Your own file. It goes into the mod folder byte for byte as it is here, and nothing rewrites it."];
       if (refusal !== void 0) notes2.push(refusal);
       setText(about, notes2.join(" "));
       setText(dirty, "saved");
@@ -6265,7 +6265,7 @@ function filesScreen(shop, path, line) {
     const spare = unchecked.find((entry) => entry.path === path);
     if (spare !== void 0) {
       notes.push(
-        `This file carries ${spare.keys.join(", ")}, which the workshop writes through without reading. It ships exactly as typed and nothing on the review screen has checked it.`
+        `This file carries ${spare.keys.join(", ")}, which the workshop passes through without reading. It ships exactly as typed, and nothing on the review screen has checked it.`
       );
     }
     if (refusal !== void 0) notes.push(refusal);
@@ -6307,16 +6307,16 @@ function filesScreen(shop, path, line) {
 function describe(kind, path) {
   if (kind === "manifest") return "what the game reads first";
   if (kind === "records") return `what this mod does to ${path.slice(0, -".json".length)} records`;
-  return "yours, written through as typed";
+  return "yours, shipped as typed";
 }
 function aboutKind(kind, path) {
   switch (kind) {
     case "manifest":
-      return "The manifest. Saving it puts the fields the details screen shows back into the mod, and keeps every other key exactly as typed - so capabilities, rules and anything else the game understands survive. The id cannot be changed here, because the game treats a renamed mod as a different mod.";
+      return "The manifest. Saving it puts the fields the details screen shows back into the mod and keeps every other key exactly as typed, so capabilities, rules and anything else the game understands stay in place. The id cannot be changed here, because the game treats a renamed mod as a different mod.";
     case "records":
       return `Written from what the mod does to ${path.slice(0, -".json".length)} records. Saving it parses the contributions back into the mod, so the record screens show what you typed here.`;
     default:
-      return "Yours. It goes into the mod folder exactly as it is here, and nothing rewrites it.";
+      return "Your own file. It goes into the mod folder exactly as it is here, and nothing rewrites it.";
   }
 }
 function checkedHow(lang, found, colouring, lint, settled) {
@@ -6328,7 +6328,7 @@ function checkedHow(lang, found, colouring, lint, settled) {
     return `${parser} ${checkedFurther(lint, settled)}`.trim();
   }
   if (lang === "js") {
-    return "Quotes, comments and brackets only. This is not a syntax check and there is no compiler in a browser: code that passes here can still be wrong, and the game reports a script it cannot import as a mod that is not working. What it cannot see at all is a mistake inside a template's ${ }, a slash that is a pattern where it looks like a division, and anything that is spelled correctly and means nothing.";
+    return "Only quotes, comments and brackets are checked. There is no syntax check and no compiler in a browser, so code that passes here can still be wrong, and the game reports a script it cannot import as a mod that is not working. This check cannot see a mistake inside a template's ${ }, a slash that starts a pattern where it looks like a division, or code that is spelled correctly but means nothing.";
   }
   return "Nothing here to check.";
 }
@@ -6340,7 +6340,7 @@ function checkedFurther(lint, settled) {
   const standIn = lint.findings.some((finding) => finding.caveat === true);
   const whose = standIn ? "the record checks" : "the game's own record checker";
   parts.push(
-    about.length === 0 ? `${standIn ? "The record checks have" : "The game's own record checker has"} nothing to say about this file.` : `${about.length} thing${about.length === 1 ? "" : "s"} ${whose} found here, which is the same checking the record screens show. Click one to go to it.`
+    about.length === 0 ? `${standIn ? "The record checks have" : "The game's own record checker has"} nothing to say about this file.` : `${about.length} thing${about.length === 1 ? "" : "s"} ${whose} found here, the same findings the record screens show. Click one to go to it.`
   );
   if (!settled) parts.push("Checking what you have just typed.");
   if (lint.elsewhere > 0) {
@@ -6404,7 +6404,7 @@ function kindsScreen(shop) {
   everything.body.append(
     h("div", {
       class: "mb-why",
-      text: "All of these work exactly like the ones above. They are down here because a first mod is very rarely a pain message or a room template, not because they are second class."
+      text: "These work exactly like the ones above. They sit down here only because a first mod is rarely a pain message or a room template."
     }),
     search,
     restGrid
@@ -6508,7 +6508,7 @@ function modsScreen(shop) {
   const unfinishedCard = card({
     title: "Unfinished",
     note: "kept in this install's settings, not in any character's save",
-    tip: "Unfinished work does not live in a file. The store it uses can run out of room without saying so, which is why the workshop verifies every write and why a finished mod, saved as a file, is the only save point it will promise you.",
+    tip: "Unfinished work does not live in a file. Its store can run out of room without warning, so the workshop checks every write, and a finished mod saved as a file is the only copy you can rely on.",
     open: true
   });
   unfinishedCard.body.appendChild(list);
@@ -6643,7 +6643,7 @@ function forkCard(shop) {
   const forkCardEl = card({
     title: "Fork one that exists",
     note: "a copy of somebody's mod, as a mod of your own",
-    tip: "A fork owns its content outright: the records become yours, with your id on them, and the mod you took them from does not have to be installed for yours to work. That is a different thing from adjusting somebody's record, which ships the difference and leaves the record theirs.",
+    tip: "A fork owns its content outright. The records become yours, with your id on them, and the mod you took them from does not have to be installed for yours to work. Adjusting somebody's record is different: it ships only the difference and leaves the record theirs.",
     open: true
   });
   forkCardEl.body.append(
@@ -6662,7 +6662,7 @@ function forkCard(shop) {
         idBox,
         h("div", {
           class: "mb-why",
-          text: "A fork needs an id of its own before it can be taken. The game treats an id as an identity, so a fork that kept the original's would install over it rather than beside it."
+          text: "A fork needs an id of its own before it can be taken. The game identifies a mod by its id, so a fork that kept the original's would install over it rather than beside it."
         }),
         problem
       )
@@ -6673,7 +6673,7 @@ function forkCard(shop) {
     h("label", { class: "mb-why" }, "Or a mod saved as a zip: ", zipInput),
     h("div", {
       class: "mb-why",
-      text: "A mod at a repository address cannot be forked from here. Resolving one is the game's own job - it picks the tag, reads the manifest and decides which files are the mod - and nothing hands that to a mod, so a second copy of it here would accept mods the install door refuses. Install the mod first and fork it from the list above, or download its folder and pick it."
+      text: "A mod at a repository address cannot be forked from here. Only the game resolves a repository address (it picks the tag, reads the manifest and decides which files are the mod), and mods have no access to that step, so a copy of it here could accept mods the game's installer refuses. Install the mod first and fork it from the list above, or download its folder and pick it."
     }),
     notes
   );
@@ -6779,7 +6779,7 @@ function rebalanceScreen(shop, file) {
         h("div", { class: "mb-control-line" }, opPick, amount),
         h("div", {
           class: "mb-why",
-          text: "Neither of these writes an answer in. They write the adjustment, so it keeps doing what you meant after a game update retunes the numbers and after another mod has already changed one of them."
+          text: "Both write the adjustment itself into your mod, so it keeps doing what you meant after a game update retunes the numbers or another mod has already changed one of them."
         })
       )
     )
@@ -7066,7 +7066,7 @@ function setWhy(why, input, on) {
       label: "Use it",
       tiny: true,
       onClick: () => on.set(input.path, suggestion.value),
-      tip: "Write the suggested value here. It is a starting point drawn from the game's own records, not an instruction."
+      tip: "Write the suggested value here. It comes from the game's own records and is only a starting point."
     })
   );
 }
@@ -7145,7 +7145,7 @@ function rowsEditor(path, rows, on) {
           label: "Copy",
           tiny: true,
           kind: "ghost",
-          tip: "Add another entry just like this one. Cloning something that works is how most content gets made.",
+          tip: "Add another entry that copies this one.",
           onClick: () => on.addRow(path, JSON.parse(JSON.stringify(row2)))
         }),
         button({
@@ -7274,7 +7274,7 @@ function recordScreen(shop, index, path) {
   );
   const crumbBar = h("div", { class: "mb-crumbs" });
   const identity = h("div", { class: "mb-why" });
-  const identityCard = card({ title: "Identity", note: "the name the rest of the modding world will use", open: true });
+  const identityCard = card({ title: "Identity", note: "how the game and other mods refer to it", open: true });
   identityCard.body.appendChild(identity);
   const opsList = h("div", { class: "mb-rows" });
   const opsCard = card({ title: "What this writes down", note: "", open: target.mode === "patch" });
@@ -7668,7 +7668,7 @@ function recordScreen(shop, index, path) {
       usageBody,
       h("div", {
         class: "mb-why",
-        text: "How much of the game's own content in this file carries each field. A field almost everything has is part of what the thing is."
+        text: "How much of the game's own content in this file carries each field. A field that nearly every record carries is core to this kind of record."
       }),
       h(
         "div",
@@ -7824,7 +7824,7 @@ function searchScreen(shop) {
       { class: "mb-prose" },
       h("h2", { text: "Search this mod" }),
       h("p", {
-        text: "Every text file this mod would write, searched at once. A match takes you straight into that file's editor, at the line it is on."
+        text: "Searches every text file this mod would write at once. A match takes you straight into that file's editor, at the line it is on."
       })
     ),
     search,
@@ -8075,7 +8075,7 @@ function testScreen(shop) {
           "p",
           null,
           h("b", { text: "This session is no longer being saved. " }),
-          "Everything below works. Your character on disk is exactly as their last save left them, and reloading the game takes you back to them - anything you do from here is gone when you do."
+          "Everything below works. Your character on disk is exactly as their last save left them, and reloading the game takes you back to them. Anything you do from here is gone once you reload."
         )
       );
       return;
@@ -8089,10 +8089,10 @@ function testScreen(shop) {
         "p",
         null,
         h("b", { text: "Everything here is off until this session stops being saved. " }),
-        "These are the game's own debug commands, and using them on a character you are keeping would mean keeping whatever they did to it. So the workshop cuts the session loose from its save slot first, and then nothing at all is written down."
+        "These are the game's own debug commands. Their effects on a character you are keeping would be saved with it, so the workshop first cuts the session loose from its save slot and writes nothing after that."
       ),
       h("p", {
-        text: who === void 0 || who === "" ? "Nothing is being saved right now in any case, so this costs you nothing." : `${who} keeps whatever their last save left - at most a few seconds of walking behind. Everything after that is discarded, and reloading the game brings them back exactly as they are on disk.`
+        text: who === void 0 || who === "" ? "Nothing is being saved right now in any case, so this costs you nothing." : `${who} keeps whatever their last save left, which is at most a few seconds of walking behind. Everything after that is discarded, and reloading the game brings them back exactly as they are on disk.`
       }),
       h("p", { text: "It cannot be undone. Reload the game to go back to normal play." })
     );
@@ -8211,7 +8211,7 @@ function testScreen(shop) {
     };
     minesBody.replaceChildren(
       packs.length === 0 ? h("p", {
-        text: "Everything loaded is the base game's. Content composes when the game loads, so a record you have just written turns up here after you forge the mod and play it - the button in the bar below."
+        text: "Everything loaded is the base game's. Content composes when the game loads, so a record you have just written turns up here after you forge the mod and play it with the button in the bar below."
       }) : h("p", {
         text: `${packs.join(", ")} added ${counts.creatures} creature${counts.creatures === 1 ? "" : "s"}, ${counts.items} item${counts.items === 1 ? "" : "s"} and ${counts.artifacts} artifact${counts.artifacts === 1 ? "" : "s"} to this game. They are at the top of the list.`
       }),
@@ -8314,8 +8314,8 @@ var LESSONS = [
     title: "Change one thing",
     teaches: "Editing a value the game already has",
     body: [
-      "Daggers that hit harder. A shop with deeper pockets. A monster with three more hit points.",
-      "The workshop shows you the record as the game sees it, you nudge a number, and what gets written down is the nudge rather than the answer. That distinction matters more than it looks: three more hit points keeps being what you meant after the base game retunes the monster, and after another mod adjusts it first. A fixed value does not."
+      "For example, daggers that hit harder, a shop with deeper pockets, or a monster with three more hit points.",
+      "The workshop shows you the record as the game sees it. You nudge a number, and the mod writes down the nudge instead of the new value, so three more hit points stays three more after the base game retunes the monster, or after another mod adjusts it first."
     ],
     cta: "Change something",
     tutorial: "tutorials/01-tweak-a-value.md",
@@ -8327,8 +8327,8 @@ var LESSONS = [
     title: "Add something new",
     teaches: "Adding a record the game has never seen",
     body: [
-      "A new sword, a new creature, a new potion. You pick something that already exists to base it on, and the workshop fills the new record in from what its neighbours in the game actually carry, then tells you where every number came from.",
-      "It inherits shape and scale and none of its powers. A new orc arrives with the orc's hit points and armour and no attacks at all until you say otherwise, because a tool that handed out a Balrog's breath by accident would be a tool nobody could trust with the easy cases."
+      "Make a new sword, creature or potion. You pick something that already exists to base it on, and the workshop fills in the new record from what its neighbours in the game carry, then tells you where every number came from.",
+      "It inherits shape and scale but none of the original's powers. A new orc arrives with an orc's hit points and armour and no attacks at all until you add them, so nothing like a Balrog's breath gets handed out by accident."
     ],
     cta: "Make something new",
     tutorial: "tutorials/02-add-an-item.md",
@@ -8340,8 +8340,8 @@ var LESSONS = [
     title: "Build on top of it",
     teaches: "One-of-a-kind items, and what a field that names another record costs",
     body: [
-      "An artifact is not a new kind of item. It is a set of adjustments to an item the game already has, so you are describing the difference rather than the thing.",
-      "This is also where the single most common way a first mod fails lives: a field that names another record, spelled slightly wrong. The workshop checks those names against what is actually loaded as you type, and says which file it looked in."
+      "An artifact is a set of adjustments to an item the game already has, so you describe how it differs from that item.",
+      "This is also where first mods most often fail: a field that names another record, spelled slightly wrong. The workshop checks those names against what is loaded as you type, and says which file it looked in."
     ],
     cta: "Build on something",
     tutorial: "tutorials/07-add-an-artifact.md",
@@ -8353,7 +8353,7 @@ var LESSONS = [
     title: "Retune a whole set of things",
     teaches: "One change across many records at once",
     body: [
-      "The most common thing anybody makes is not a new creature. It is a number, moved, across everything of one sort: every potion cheaper, every dragon faster, every shop's purse deeper.",
+      "The most common mod moves one number across everything of one sort, such as making every potion cheaper, every dragon faster or every shop's purse deeper.",
       "Pick a file, filter it down to the records you mean, and apply one adjustment to all of them. Each one is written as its own entry, so another mod's unrelated change to the same record still composes with yours."
     ],
     cta: "Retune a set",
@@ -8369,7 +8369,7 @@ function tourScreen(shop) {
     { class: "mb-prose" },
     h("h2", { text: "Make something for Angband" }),
     h("p", {
-      text: "A mod is a folder with a text file in it. That is the whole idea, and it stays true whether the file is written here or in a text editor. What the workshop does is know what belongs in the file, what the rest of the game already puts there, and which mistakes will not tell you about themselves until you play."
+      text: "A mod is a folder with a text file in it, whether the file is written here or in a text editor. The workshop knows what belongs in the file, what the rest of the game already puts there, and which mistakes stay silent until you play."
     }),
     h("p", {
       text: "Nothing you do in here touches the game until you try the mod for this session or add its saved file through the Mods screen. A mod can be switched off, and switching it off gives you the base game back exactly as it was."
@@ -8387,7 +8387,7 @@ function tourScreen(shop) {
           label: `Read tutorial ${lesson.badge}`,
           kind: "ghost",
           onClick: () => shop.acts.go({ at: "docs", doc: lesson.doc }),
-          tip: `Open the real SDK document: ${lesson.tutorial}. It builds the same mod with a text editor and pins the finished version with a test.`
+          tip: `Open the SDK document ${lesson.tutorial}. It builds the same mod with a text editor and pins the finished version with a test.`
         })
       )
     );
@@ -8402,7 +8402,7 @@ function tourScreen(shop) {
   advanced.body.classList.add("mb-prose");
   advanced.body.append(
     h("p", {
-      text: "The workshop guides record changes, starts a working plugin.js entry point, imports tiles, fonts and sounds as their real bytes, and round-trips sections from record files. It does not invent your plugin's behaviour, preview or validate an asset, or offer a visual editor for sections. The SDK docs below are the path for all of those details."
+      text: "The workshop guides record changes, starts a working plugin.js entry point, imports tiles, fonts and sounds byte for byte, and round-trips sections in record files. It does not write your plugin's behaviour, preview or validate an asset, or offer a visual editor for sections. For those, use the SDK docs below."
     }),
     h(
       "ul",
@@ -8456,13 +8456,13 @@ function verdictScreen(shop) {
     kind: "primary",
     seal: true,
     onClick: () => void shop.acts.loadForSession(),
-    tip: "Forges it, loads it for this session only, and reloads the game so it takes effect - content always needs a reload. It is not added to your mods and it is gone when you close the game. What it does to the character who plays it is not."
+    tip: "Forges it, loads it for this session only, and reloads the game, since content always needs a reload. It is not added to your mods and is gone when you close the game, but anything it does to the character who plays it stays."
   });
   const install = button({
     label: "Forge and install",
     seal: true,
     onClick: () => void shop.acts.install(),
-    tip: "Adds it to your mods for good. Takes effect after a reload, because enabling any mod does."
+    tip: "Adds it to your mods for good. Like any mod you enable, it takes effect after a reload."
   });
   const save = button({
     label: "Save it as a file",
@@ -8506,7 +8506,7 @@ function verdictScreen(shop) {
         build === void 0 ? "" : `${counts.errors} error${counts.errors === 1 ? "" : "s"}, ${counts.warnings} warning${counts.warnings === 1 ? "" : "s"}, ${counts.hints} note${counts.hints === 1 ? "" : "s"}.`
       ),
       h("p", {
-        text: `${size.added} new record${size.added === 1 ? "" : "s"}, ${size.patched} adjusted, ${size.removed} removed, ${current.sections?.length ?? 0} switchable section${(current.sections?.length ?? 0) === 1 ? "" : "s"}, across ${files.length} file${files.length === 1 ? "" : "s"}. Checked against the game exactly as it is loaded right now, mods included, because that is what your changes will actually land on.`
+        text: `${size.added} new record${size.added === 1 ? "" : "s"}, ${size.patched} adjusted, ${size.removed} removed, ${current.sections?.length ?? 0} switchable section${(current.sections?.length ?? 0) === 1 ? "" : "s"}, across ${files.length} file${files.length === 1 ? "" : "s"}. Checked against the game as it is loaded right now, mods included, since that is what your changes will apply to.`
       }),
       ...shop.seams.authoring.demonstration ? [h("p", null, h("b", { text: "These checks are the workshop's own small set, not the game's. " }), shop.seams.authoring.why ?? "")] : []
     );
@@ -8530,8 +8530,8 @@ function verdictScreen(shop) {
         h(
           "div",
           { class: "mb-why" },
-          h("b", { text: "Written through unread. " }),
-          `${unchecked.map((entry) => `${entry.path} carries ${entry.keys.join(", ")}`).join("; ")}. The workshop cannot compose or check those, so nothing above is a verdict on them.`
+          h("b", { text: "Passed through unread. " }),
+          `${unchecked.map((entry) => `${entry.path} carries ${entry.keys.join(", ")}`).join("; ")}. The workshop cannot compose or check those keys, so the checks above do not cover them.`
         )
       ]
     );
@@ -8565,7 +8565,7 @@ function verdictScreen(shop) {
     problemsList.replaceChildren(
       problems.length === 0 ? h("div", {
         class: "mb-why",
-        text: "Nothing was refused. Worth knowing that a refused change costs you that change and not the mod, so a mod whose every change was refused installs and does nothing."
+        text: "Nothing was refused. A refused change drops only that change and the rest of the mod still installs, so a mod whose every change was refused installs and does nothing."
       }) : h(
         "ul",
         null,
@@ -8574,9 +8574,9 @@ function verdictScreen(shop) {
     );
     const notes = [
       refusal !== void 0 ? h("p", null, h("b", { text: "This one cannot be tried for a session. " }), refusal) : shop.seams.session.available ? h("p", {
-        text: "Playing it loads the mod for this session only and reloads the game, because composing content always needs a reload. It is not added to your mods and it is gone when you close the game. It is the real mod and not a preview, so play a character you do not mind changing - next time, with the mod gone, the game treats anything it added as belonging to something not installed."
+        text: "Playing it loads the mod for this session only and reloads the game, because composing content always needs a reload. It is not added to your mods and is gone when you close the game. This is the real mod, so play a character you do not mind changing: next time, with the mod gone, the game treats anything it added as belonging to a mod that is not installed."
       }) : h("p", { text: shop.seams.session.why ?? "" }),
-      shop.seams.install.available ? h("p", { text: "Installing keeps it, and takes effect after a reload, because enabling any mod does." }) : h("p", { text: shop.seams.install.why ?? "" })
+      shop.seams.install.available ? h("p", { text: "Installing keeps it. Like any mod you enable, it takes effect after a reload." }) : h("p", { text: shop.seams.install.why ?? "" })
     ];
     if (!ok) {
       notes.push(h("p", { text: "Fix the errors on the right and these become available." }));
@@ -8618,7 +8618,7 @@ function mountApp(deps) {
     label: "Undo",
     kind: "ghost",
     tiny: true,
-    tip: "Take back the last change. Everything you do to a mod is undoable; nothing about the game is touched either way.",
+    tip: "Take back the last change. Every change to a mod can be undone, and none of them touch the game itself.",
     onClick: () => deps.store.undo()
   });
   const redo = button({ label: "Redo", kind: "ghost", tiny: true, onClick: () => deps.store.redo() });
@@ -8633,14 +8633,14 @@ function mountApp(deps) {
     label: "Docs",
     kind: "ghost",
     tiny: true,
-    tip: "The SDK's real beginner tutorials and advanced authoring references, bundled into this workshop.",
+    tip: "The SDK's beginner tutorials and advanced authoring references, bundled with the workshop.",
     onClick: () => deps.acts.go({ at: "docs", doc: "tutorial-01" })
   });
   const about = button({
     label: "About",
     kind: "ghost",
     tiny: true,
-    tip: "What ModForge is, in the tool's own words - the same page the launch screen offers on the way in.",
+    tip: "What ModForge is and what it does. It is the same page as Read the README on the launch screen.",
     onClick: () => deps.acts.go({ at: "about" })
   });
   const close = button({
@@ -8657,7 +8657,7 @@ function mountApp(deps) {
     h(
       "div",
       { class: "mb-titleacts" },
-      h("label", { class: "mb-switch", tip: "An ink-on-parchment treatment, for anybody who prefers it." }, parchment, h("span", { text: "parchment" })),
+      h("label", { class: "mb-switch", tip: "Switch to an ink-on-parchment look." }, parchment, h("span", { text: "parchment" })),
       guide,
       docs,
       about,
@@ -8733,7 +8733,7 @@ function mountApp(deps) {
       draft === void 0 ? null : button({
         label: "Save it as a file",
         tiny: true,
-        tip: "Writes the mod as a zip you can keep, read, edit by hand and give away. Unfinished work lives in this browser's storage, which can quietly run out of room, so this is the only save point the workshop will promise you.",
+        tip: "Writes the mod as a zip you can keep, read, edit by hand and give away. Unfinished work lives in this browser's storage, which can run out of room without warning, so the zip is the only copy you can rely on.",
         onClick: () => deps.acts.download()
       }),
       /* THE ONE-CLICK LOOP, and it is here rather than only on the review screen
@@ -8759,7 +8759,7 @@ function mountApp(deps) {
         kind: "primary",
         tiny: true,
         disabled: sessionRefusal(draft) !== void 0,
-        tip: sessionRefusal(draft) ?? "Forges the mod, loads it for this session only, and reloads the game so it takes effect - content always needs a reload. It is not added to your mods and it is gone when you close the game. What it does to the character who plays it is not, so play one you do not mind changing.",
+        tip: sessionRefusal(draft) ?? "Forges the mod, loads it for this session only, and reloads the game, since content always needs a reload. It is not added to your mods and is gone when you close the game, but anything it does to the character who plays it stays, so play one you do not mind changing.",
         onClick: () => void deps.acts.loadForSession()
       }),
       draft === void 0 ? null : button({

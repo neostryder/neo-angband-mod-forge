@@ -104,7 +104,7 @@ export function describeOp(op: FieldOp): string {
  */
 export function describeComposition(op: FieldOp): string {
   if (isCommutative(op.op)) {
-    return "Another mod doing the same thing keeps its change and you keep yours.";
+    return "If another mod makes the same kind of change here, both changes are kept.";
   }
   return "If another mod also writes this field, whichever loads last wins.";
 }

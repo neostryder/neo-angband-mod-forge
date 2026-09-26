@@ -29,19 +29,19 @@ export const README_SECTIONS: readonly ReadmeSection[] = [
       "Pick something that already exists in Angband - a monster, a sword, a shop, a spell - and the workshop " +
         "shows what it is made of, what its neighbours carry for every number, and what would have to change to " +
         "make the thing you had in mind.",
-      "It never asks what JSON is, and it never hides it either: every screen can show the exact file it is about " +
-        "to write, and a mod it built can be taken away, hand-edited, and brought back.",
+      "You do not need to know JSON to use it, but the JSON is always there to read. Every screen can show the " +
+        "exact file it is about to write, and a mod it built can be taken out, edited by hand and brought back.",
     ],
   },
   {
     title: "What it does",
     paragraphs: [
-      "Adds records - a new monster, item or spell, based on something that already exists, so it arrives with " +
-        "real shape and scale and none of its powers until you add them.",
+      "Adds records: a new monster, item or spell based on something that already exists. It arrives with that " +
+        "record's shape and scale and none of its powers until you add them.",
       "Adjusts records the game already owns, shipping the difference rather than the whole record, so two mods " +
         "changing different fields of the same thing both keep working.",
-      "Retunes a whole file at once - every potion cheaper, every dragon faster - one adjustment applied across " +
-        "everything that matches a filter, each written as its own entry.",
+      "Retunes a whole file at once, for example making every potion cheaper or every dragon faster. One adjustment " +
+        "applies to everything that matches a filter, and each record gets its own entry.",
       "Checks as you type: a name collision, a field nothing in the file uses, a reference to something no loaded " +
         "pack defines. Errors, warnings and advice are kept apart.",
     ],
@@ -50,7 +50,7 @@ export const README_SECTIONS: readonly ReadmeSection[] = [
     title: "Editing the files directly",
     paragraphs: [
       "Every screen above asks a question and writes the answer into a file. \"Edit the files directly\", reached " +
-        "from a mod's own page, shows those files - the same mod, printed, not a second copy of it. A change made " +
+        "from a mod's own page, shows those files. They are the mod itself rather than a copy, so a change made " +
         "there shows up on every other screen, and the other way round.",
     ],
   },
@@ -59,16 +59,17 @@ export const README_SECTIONS: readonly ReadmeSection[] = [
     paragraphs: [
       "On Neo Angband 1.0.0 the workshop reads the authoring SDK and the complete set of records composed for " +
         "this running game, including enabled content mods. Its suggestions, comparisons and checks are about " +
-        "what is actually loaded.",
-      "A small demonstration set remains for the standalone preview and partial test hosts. If either live-data " +
-        "surface is missing, an undismissable banner says so. That banner is hidden on the normal in-game path.",
+        "what is loaded.",
+      "When the authoring SDK or the loaded records are missing, as in the standalone preview and some test " +
+        "hosts, the workshop uses a small demonstration set and shows a banner that cannot be dismissed. In the " +
+        "game itself the banner does not appear.",
     ],
   },
   {
     title: "Reading more",
     paragraphs: [
-      "The real SDK tutorials and authoring references are bundled under Docs in the workshop. The full ModForge " +
-        "README and engine seam decisions remain in the repository this mod shipped from: neo-angband-mod-forge.",
+      "The SDK tutorials and authoring references are bundled under Docs in the workshop. The full ModForge README " +
+        "and the notes on the engine seams it uses are in the repository this mod ships from, neo-angband-mod-forge.",
     ],
   },
 ];

@@ -76,8 +76,8 @@ export function kindsScreen(shop: Workshop): View {
     h("div", {
       class: "mb-why",
       text:
-        "All of these work exactly like the ones above. They are down here because a first mod is very rarely a " +
-        "pain message or a room template, not because they are second class.",
+        "These work exactly like the ones above. They sit down here only because a first mod is rarely a pain " +
+        "message or a room template.",
     }),
     search,
     restGrid,

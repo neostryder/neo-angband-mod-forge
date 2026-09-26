@@ -67,15 +67,15 @@ export function verdictScreen(shop: Workshop): View {
     seal: true,
     onClick: () => void shop.acts.loadForSession(),
     tip:
-      "Forges it, loads it for this session only, and reloads the game so it takes effect - content always needs " +
-      "a reload. It is not added to your mods and it is gone when you close the game. What it does to the " +
-      "character who plays it is not.",
+      "Forges it, loads it for this session only, and reloads the game, since content always needs a reload. " +
+      "It is not added to your mods and is gone when you close the game, but anything it does to the " +
+      "character who plays it stays.",
   });
   const install = button({
     label: "Forge and install",
     seal: true,
     onClick: () => void shop.acts.install(),
-    tip: "Adds it to your mods for good. Takes effect after a reload, because enabling any mod does.",
+    tip: "Adds it to your mods for good. Like any mod you enable, it takes effect after a reload.",
   });
   const save = button({
     label: "Save it as a file",
@@ -140,8 +140,8 @@ export function verdictScreen(shop: Workshop): View {
       h("p", {
         text:
           `${size.added} new record${size.added === 1 ? "" : "s"}, ${size.patched} adjusted, ${size.removed} removed, ` +
-          `${current.sections?.length ?? 0} switchable section${(current.sections?.length ?? 0) === 1 ? "" : "s"}, across ${files.length} file${files.length === 1 ? "" : "s"}. Checked against the game exactly as it is ` +
-          "loaded right now, mods included, because that is what your changes will actually land on.",
+          `${current.sections?.length ?? 0} switchable section${(current.sections?.length ?? 0) === 1 ? "" : "s"}, across ${files.length} file${files.length === 1 ? "" : "s"}. Checked against the game as it is ` +
+          "loaded right now, mods included, since that is what your changes will apply to.",
       }),
       ...(shop.seams.authoring.demonstration
         ? [h("p", null, h("b", { text: "These checks are the workshop's own small set, not the game's. " }), shop.seams.authoring.why ?? "")]
@@ -178,10 +178,10 @@ export function verdictScreen(shop: Workshop): View {
             h(
               "div",
               { class: "mb-why" },
-              h("b", { text: "Written through unread. " }),
+              h("b", { text: "Passed through unread. " }),
               `${unchecked
                 .map((entry) => `${entry.path} carries ${entry.keys.join(", ")}`)
-                .join("; ")}. The workshop cannot compose or check those, so nothing above is a verdict on them.`,
+                .join("; ")}. The workshop cannot compose or check those keys, so the checks above do not cover them.`,
             ),
           ]),
     );
@@ -225,7 +225,7 @@ export function verdictScreen(shop: Workshop): View {
       problems.length === 0
         ? h("div", {
             class: "mb-why",
-            text: "Nothing was refused. Worth knowing that a refused change costs you that change and not the mod, so a mod whose every change was refused installs and does nothing.",
+            text: "Nothing was refused. A refused change drops only that change and the rest of the mod still installs, so a mod whose every change was refused installs and does nothing.",
           })
         : h(
             "ul",
@@ -250,13 +250,13 @@ export function verdictScreen(shop: Workshop): View {
         ? h("p", {
             text:
               "Playing it loads the mod for this session only and reloads the game, because composing content " +
-              "always needs a reload. It is not added to your mods and it is gone when you close the game. It is " +
-              "the real mod and not a preview, so play a character you do not mind changing - next time, with " +
-              "the mod gone, the game treats anything it added as belonging to something not installed.",
+              "always needs a reload. It is not added to your mods and is gone when you close the game. This is the " +
+              "real mod, so play a character you do not mind changing: next time, with the mod gone, the game " +
+              "treats anything it added as belonging to a mod that is not installed.",
           })
         : h("p", { text: shop.seams.session.why ?? "" }),
       shop.seams.install.available
-        ? h("p", { text: "Installing keeps it, and takes effect after a reload, because enabling any mod does." })
+        ? h("p", { text: "Installing keeps it. Like any mod you enable, it takes effect after a reload." })
         : h("p", { text: shop.seams.install.why ?? "" }),
     ];
     if (!ok) {

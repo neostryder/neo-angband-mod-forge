@@ -41,8 +41,8 @@ const LESSONS: readonly Lesson[] = [
     title: "Change one thing",
     teaches: "Editing a value the game already has",
     body: [
-      "Daggers that hit harder. A shop with deeper pockets. A monster with three more hit points.",
-      "The workshop shows you the record as the game sees it, you nudge a number, and what gets written down is the nudge rather than the answer. That distinction matters more than it looks: three more hit points keeps being what you meant after the base game retunes the monster, and after another mod adjusts it first. A fixed value does not.",
+      "For example, daggers that hit harder, a shop with deeper pockets, or a monster with three more hit points.",
+      "The workshop shows you the record as the game sees it. You nudge a number, and the mod writes down the nudge instead of the new value, so three more hit points stays three more after the base game retunes the monster, or after another mod adjusts it first.",
     ],
     cta: "Change something",
     tutorial: "tutorials/01-tweak-a-value.md",
@@ -54,8 +54,8 @@ const LESSONS: readonly Lesson[] = [
     title: "Add something new",
     teaches: "Adding a record the game has never seen",
     body: [
-      "A new sword, a new creature, a new potion. You pick something that already exists to base it on, and the workshop fills the new record in from what its neighbours in the game actually carry, then tells you where every number came from.",
-      "It inherits shape and scale and none of its powers. A new orc arrives with the orc's hit points and armour and no attacks at all until you say otherwise, because a tool that handed out a Balrog's breath by accident would be a tool nobody could trust with the easy cases.",
+      "Make a new sword, creature or potion. You pick something that already exists to base it on, and the workshop fills in the new record from what its neighbours in the game carry, then tells you where every number came from.",
+      "It inherits shape and scale but none of the original's powers. A new orc arrives with an orc's hit points and armour and no attacks at all until you add them, so nothing like a Balrog's breath gets handed out by accident.",
     ],
     cta: "Make something new",
     tutorial: "tutorials/02-add-an-item.md",
@@ -67,8 +67,8 @@ const LESSONS: readonly Lesson[] = [
     title: "Build on top of it",
     teaches: "One-of-a-kind items, and what a field that names another record costs",
     body: [
-      "An artifact is not a new kind of item. It is a set of adjustments to an item the game already has, so you are describing the difference rather than the thing.",
-      "This is also where the single most common way a first mod fails lives: a field that names another record, spelled slightly wrong. The workshop checks those names against what is actually loaded as you type, and says which file it looked in.",
+      "An artifact is a set of adjustments to an item the game already has, so you describe how it differs from that item.",
+      "This is also where first mods most often fail: a field that names another record, spelled slightly wrong. The workshop checks those names against what is loaded as you type, and says which file it looked in.",
     ],
     cta: "Build on something",
     tutorial: "tutorials/07-add-an-artifact.md",
@@ -80,7 +80,7 @@ const LESSONS: readonly Lesson[] = [
     title: "Retune a whole set of things",
     teaches: "One change across many records at once",
     body: [
-      "The most common thing anybody makes is not a new creature. It is a number, moved, across everything of one sort: every potion cheaper, every dragon faster, every shop's purse deeper.",
+      "The most common mod moves one number across everything of one sort, such as making every potion cheaper, every dragon faster or every shop's purse deeper.",
       "Pick a file, filter it down to the records you mean, and apply one adjustment to all of them. Each one is written as its own entry, so another mod's unrelated change to the same record still composes with yours.",
     ],
     cta: "Retune a set",
@@ -99,9 +99,9 @@ export function tourScreen(shop: Workshop): View {
     h("h2", { text: "Make something for Angband" }),
     h("p", {
       text:
-        "A mod is a folder with a text file in it. That is the whole idea, and it stays true whether the file is " +
-        "written here or in a text editor. What the workshop does is know what belongs in the file, what the rest " +
-        "of the game already puts there, and which mistakes will not tell you about themselves until you play.",
+        "A mod is a folder with a text file in it, whether the file is written here or in a text editor. The " +
+        "workshop knows what belongs in the file, what the rest of the game already puts there, and which " +
+        "mistakes stay silent until you play.",
     }),
     h("p", {
       text:
@@ -123,7 +123,7 @@ export function tourScreen(shop: Workshop): View {
           kind: "ghost",
           onClick: () => shop.acts.go({ at: "docs", doc: lesson.doc }),
           tip:
-            `Open the real SDK document: ${lesson.tutorial}. It builds the same mod with a text editor and pins ` +
+            `Open the SDK document ${lesson.tutorial}. It builds the same mod with a text editor and pins ` +
             "the finished version with a test.",
         }),
       ),
@@ -142,9 +142,9 @@ export function tourScreen(shop: Workshop): View {
     h("p", {
       text:
         "The workshop guides record changes, starts a working plugin.js entry point, imports tiles, fonts and sounds " +
-        "as their real bytes, and round-trips sections from record files. It does not invent your plugin's behaviour, " +
-        "preview or validate an asset, or offer a visual editor for sections. The SDK docs below are the path for all " +
-        "of those details.",
+        "byte for byte, and round-trips sections in record files. It does not write your plugin's behaviour, " +
+        "preview or validate an asset, or offer a visual editor for sections. For those, use the SDK docs " +
+        "below.",
     }),
     h(
       "ul",

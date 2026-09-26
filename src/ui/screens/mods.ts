@@ -81,9 +81,9 @@ export function modsScreen(shop: Workshop): View {
     title: "Unfinished",
     note: "kept in this install's settings, not in any character's save",
     tip:
-      "Unfinished work does not live in a file. The store it uses can run out of room without saying so, " +
-      "which is why the workshop verifies every write and why a finished mod, saved as a file, is the only " +
-      "save point it will promise you.",
+      "Unfinished work does not live in a file. Its store can run out of room without warning, so the workshop " +
+      "checks every write, and a finished mod saved as a file is the only copy " +
+      "you can rely on.",
     open: true,
   });
   unfinishedCard.body.appendChild(list);
@@ -255,9 +255,9 @@ function forkCard(shop: Workshop): { readonly el: HTMLElement } {
     title: "Fork one that exists",
     note: "a copy of somebody's mod, as a mod of your own",
     tip:
-      "A fork owns its content outright: the records become yours, with your id on them, and the mod you took " +
-      "them from does not have to be installed for yours to work. That is a different thing from adjusting " +
-      "somebody's record, which ships the difference and leaves the record theirs.",
+      "A fork owns its content outright. The records become yours, with your id on them, and the mod you took " +
+      "them from does not have to be installed for yours to work. Adjusting somebody's record is different: it " +
+      "ships only the difference and leaves the record theirs.",
     open: true,
   });
 
@@ -278,8 +278,8 @@ function forkCard(shop: Workshop): { readonly el: HTMLElement } {
         h("div", {
           class: "mb-why",
           text:
-            "A fork needs an id of its own before it can be taken. The game treats an id as an identity, so a " +
-            "fork that kept the original's would install over it rather than beside it.",
+            "A fork needs an id of its own before it can be taken. The game identifies a mod by its id, so a fork " +
+            "that kept the original's would install over it rather than beside it.",
         }),
         problem,
       ),
@@ -291,9 +291,9 @@ function forkCard(shop: Workshop): { readonly el: HTMLElement } {
     h("div", {
       class: "mb-why",
       text:
-        "A mod at a repository address cannot be forked from here. Resolving one is the game's own job - it " +
-        "picks the tag, reads the manifest and decides which files are the mod - and nothing hands that to a " +
-        "mod, so a second copy of it here would accept mods the install door refuses. Install the mod first " +
+        "A mod at a repository address cannot be forked from here. Only the game resolves a repository address " +
+        "(it picks the tag, reads the manifest and decides which files are the mod), and mods have no access to " +
+        "that step, so a copy of it here could accept mods the game's installer refuses. Install the mod first " +
         "and fork it from the list above, or download its folder and pick it.",
     }),
     notes,

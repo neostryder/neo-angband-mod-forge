@@ -147,7 +147,7 @@ describe("what is wrong with a script, and what is deliberately not looked at", 
 
   it("finds a bracket closed with the wrong one", () => {
     const found = problemsIn("js", "const a = [1, 2};\n");
-    expect(found.some((problem) => problem.message.includes("wanted"))).toBe(true);
+    expect(found.some((problem) => problem.message.includes("which needs a"))).toBe(true);
   });
 
   /**

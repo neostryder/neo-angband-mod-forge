@@ -95,7 +95,7 @@ export function mountApp(deps: AppDeps): App {
     label: "Undo",
     kind: "ghost",
     tiny: true,
-    tip: "Take back the last change. Everything you do to a mod is undoable; nothing about the game is touched either way.",
+    tip: "Take back the last change. Every change to a mod can be undone, and none of them touch the game itself.",
     onClick: () => deps.store.undo(),
   });
   const redo = button({ label: "Redo", kind: "ghost", tiny: true, onClick: () => deps.store.redo() });
@@ -110,14 +110,14 @@ export function mountApp(deps: AppDeps): App {
     label: "Docs",
     kind: "ghost",
     tiny: true,
-    tip: "The SDK's real beginner tutorials and advanced authoring references, bundled into this workshop.",
+    tip: "The SDK's beginner tutorials and advanced authoring references, bundled with the workshop.",
     onClick: () => deps.acts.go({ at: "docs", doc: "tutorial-01" }),
   });
   const about = button({
     label: "About",
     kind: "ghost",
     tiny: true,
-    tip: "What ModForge is, in the tool's own words - the same page the launch screen offers on the way in.",
+    tip: "What ModForge is and what it does. It is the same page as Read the README on the launch screen.",
     onClick: () => deps.acts.go({ at: "about" }),
   });
   const close = button({
@@ -135,7 +135,7 @@ export function mountApp(deps: AppDeps): App {
     h(
       "div",
       { class: "mb-titleacts" },
-      h("label", { class: "mb-switch", tip: "An ink-on-parchment treatment, for anybody who prefers it." }, parchment, h("span", { text: "parchment" })),
+      h("label", { class: "mb-switch", tip: "Switch to an ink-on-parchment look." }, parchment, h("span", { text: "parchment" })),
       guide,
       docs,
       about,
@@ -234,8 +234,8 @@ export function mountApp(deps: AppDeps): App {
             tiny: true,
             tip:
               "Writes the mod as a zip you can keep, read, edit by hand and give away. Unfinished work lives in " +
-              "this browser's storage, which can quietly run out of room, so this is the only save point the " +
-              "workshop will promise you.",
+              "this browser's storage, which can run out of room without warning, so the zip is the only copy " +
+              "you can rely on.",
             onClick: () => deps.acts.download(),
           }),
       /* THE ONE-CLICK LOOP, and it is here rather than only on the review screen
@@ -265,9 +265,9 @@ export function mountApp(deps: AppDeps): App {
             disabled: sessionRefusal(draft) !== undefined,
             tip:
               sessionRefusal(draft) ??
-              "Forges the mod, loads it for this session only, and reloads the game so it takes effect - content " +
-                "always needs a reload. It is not added to your mods and it is gone when you close the game. What " +
-                "it does to the character who plays it is not, so play one you do not mind changing.",
+              "Forges the mod, loads it for this session only, and reloads the game, since content always needs " +
+                "a reload. It is not added to your mods and is gone when you close the game, but anything it does " +
+                "to the character who plays it stays, so play one you do not mind changing.",
             onClick: () => void deps.acts.loadForSession(),
           }),
       draft === undefined

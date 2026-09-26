@@ -82,7 +82,7 @@ describe("the wizard seam", () => {
   it("is off, and says the engine cannot, when the seam is absent", () => {
     const seams = resolveSeams(ctxWith({ flags: on, state: {} }));
     expect(seams.wizard.available).toBe(false);
-    expect(seams.wizard.why).toContain("cannot lend");
+    expect(seams.wizard.why).toContain("does not give the workshop its debug commands");
   });
 
   it("is off, and says there is no character, when no game is running", () => {

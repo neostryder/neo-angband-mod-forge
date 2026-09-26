@@ -585,7 +585,7 @@ describe("the player's journey", () => {
     /* AND THE HALF THAT IS EASY TO DROP. "It is gone when you close the game" on
      * its own reads as a safety feature; the sentence has to carry the other half or
      * the workshop is telling the player something untrue by omission. */
-    expect(tip).toContain("What it does to the character who plays it is not");
+    expect(tip).toContain("anything it does to the character who plays it stays");
   });
 
   it("refuses to promise a reload the browser cannot survive", async () => {
@@ -1383,8 +1383,8 @@ describe("editing the mod as files", () => {
     walkToAMod("honest-mod");
     control("Edit the files directly").click();
     control("Start a plugin.js").click();
-    expect(screenText()).toContain("Quotes, comments and brackets only");
-    expect(screenText()).toContain("not a syntax check");
+    expect(screenText()).toContain("Only quotes, comments and brackets are checked");
+    expect(screenText()).toContain("There is no syntax check");
   });
 });
 

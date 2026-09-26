@@ -60,7 +60,7 @@ describe("describeOp", () => {
 
 describe("describeComposition", () => {
   it("promises coexistence for the three that compose, and load order for the rest", () => {
-    expect(describeComposition(opFlag("flags", "EVIL", true))).toContain("keeps its change");
+    expect(describeComposition(opFlag("flags", "EVIL", true))).toContain("both changes are kept");
     expect(describeComposition(opSet("cost", 1))).toContain("loads last wins");
   });
 });

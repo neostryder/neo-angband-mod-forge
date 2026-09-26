@@ -51,15 +51,15 @@ export const GROUP_TITLES: Readonly<Record<FieldGroup, string>> = {
 };
 
 export const GROUP_BLURBS: Readonly<Record<FieldGroup, string>> = {
-  essentials: "The handful of fields that decide what this thing is. Get these right and the rest can wait.",
+  essentials: "The few fields that decide what this thing is, and the ones to fill in first.",
   identity: "What it is called, what family it belongs to, and roughly where it sits.",
   combat: "What it does in a fight, or what it does when it is used.",
-  traits: "Named properties. Ticking one is the safest kind of change: another mod ticking a different one keeps both.",
-  references: "Fields that name another record. A name nothing defines is the single most common way a first mod fails.",
+  traits: "Named properties you can tick on or off. This is the safest kind of change, because if another mod ticks a different one, both are kept.",
+  references: "Fields that name another record. Naming a record that nothing defines is the most common reason a first mod fails.",
   generation: "How often and how deep the game will produce it on its own.",
   presentation: "The letter, the colour, and the words the player reads.",
   tables: "Fields that hold a list. Adding a row composes with other mods; replacing the list does not.",
-  advanced: "Fields core uses rarely. Nothing here is wrong, it is just not where to start.",
+  advanced: "Fields the base game rarely uses. Changing them is fine, but they are not the place to start.",
 };
 
 /** One content kind, as the picker shows it. */
@@ -88,7 +88,7 @@ const FEATURED: readonly ContentKind[] = [
   {
     file: "monster",
     title: "Creatures",
-    blurb: "One record is one kind of thing that can be met, from a rat to something with a name.",
+    blurb: "Each record is one kind of creature you can meet, from a rat to a named unique.",
     badge: "o",
     essentials: ["name", "base", "depth", "hit-points", "speed", "armor-class", "experience"],
     featured: true,
@@ -112,7 +112,7 @@ const FEATURED: readonly ContentKind[] = [
   {
     file: "artifact",
     title: "Artifacts",
-    blurb: "A one-of-a-kind version of an item the game already has. Adjustments, not a new thing.",
+    blurb: "A one-of-a-kind version of an item the game already has, made by adjusting that item.",
     badge: "*",
     essentials: ["name", "base-object", "level", "cost", "weight"],
     featured: true,
@@ -120,7 +120,7 @@ const FEATURED: readonly ContentKind[] = [
   {
     file: "ego_item",
     title: "Item qualities",
-    blurb: "The of-Slay-Evil half of an item's name. Declares which kinds it can land on.",
+    blurb: "The of-Slay-Evil part of an item's name, and which kinds of item it can appear on.",
     badge: "+",
     essentials: ["name", "type", "level", "cost", "rating"],
     featured: true,

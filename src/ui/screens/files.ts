@@ -85,7 +85,7 @@ export function filesScreen(shop: Workshop, path: string, line?: number): View {
       empty(
         "?",
         "No mod is open",
-        "This screen shows one mod's files, so there is nothing to print yet.",
+        "This screen shows one mod's files, so open a mod first.",
         button({ label: "Go to my mods", kind: "primary", onClick: () => shop.acts.go({ at: "mods" }) }),
       ),
     );
@@ -114,8 +114,8 @@ export function filesScreen(shop: Workshop, path: string, line?: number): View {
     label: `Start a ${PLUGIN}`,
     tiny: true,
     tip:
-      "Writes a working entry point with nothing in it, so a mod that runs code is one file away. The manifest " +
-      "grows the plugin facet and the ABI number to match, because a mod that ships code without declaring both " +
+      "Writes a working entry point with nothing in it yet, so a mod that runs code is one file away. It also adds " +
+      "the plugin facet and the ABI number to the manifest, since a mod that ships code without declaring both " +
       "installs and then does nothing.",
     onClick: () => shop.acts.createFile(PLUGIN, PLUGIN_TEMPLATE),
   });
@@ -123,7 +123,7 @@ export function filesScreen(shop: Workshop, path: string, line?: number): View {
     label: "Read the plugin API",
     tiny: true,
     kind: "ghost",
-    tip: "Open the real SDK reference before you add behaviour to plugin.js.",
+    tip: "Open the SDK reference before you add behaviour to plugin.js.",
     onClick: () => shop.acts.go({ at: "docs", doc: "plugins" }),
   });
   const searchAll = button({
@@ -157,7 +157,7 @@ export function filesScreen(shop: Workshop, path: string, line?: number): View {
   const loadRow = h(
     "label",
     { class: "mb-why" },
-    "Or load one from disk, real bytes and all: ",
+    "Or load a file from disk, binary or text: ",
     loadFile,
   );
 
@@ -350,19 +350,19 @@ export function filesScreen(shop: Workshop, path: string, line?: number): View {
         h("h2", { text: "The mod, as files" }),
         h("p", {
           text:
-            "This is the same mod the other screens edit, printed. Every file here is a file the folder ships, " +
-            "and saving one puts what you wrote back into the mod - so a monster you added on the record screen " +
-            "is in monster.json, and a number you change here is the number that screen shows next time.",
+            "This is the same mod the other screens edit, shown as the files the folder ships. Saving one puts " +
+            "what you wrote back into the mod, so a monster you added on the record screen is in monster.json, and " +
+            "a number you change here is the number that screen shows next time.",
         }),
         h("p", {
           text:
-            "It is the way to do the things no screen offers: a script the game runs, a manifest key nothing " +
-            "asks you about, a record file grouped into sections. Pick a file on the right, or add one of your own.",
+            "Use it for what no screen offers: a script the game runs, a manifest key nothing asks you about, or a " +
+            "record file grouped into sections. Pick a file on the right, or add one of your own.",
         }),
         h("p", {
           text:
-            "Unsaved text lives in this window and nowhere else. It survives moving between screens and it does " +
-            "not survive reloading the game, so save a file into the mod before you go anywhere.",
+            "Unsaved text lives only in this window. It is kept when you move between screens but lost when the " +
+            "game reloads, so save a file into the mod before you go anywhere.",
         }),
       ),
     );
@@ -406,8 +406,8 @@ export function filesScreen(shop: Workshop, path: string, line?: number): View {
     setText(
       size,
       `${files.length} file${files.length === 1 ? "" : "s"}, ${Math.max(1, Math.round(bytes / 1024))}KB. Unfinished ` +
-        `work is kept in a store this install shares with your saves, and the workshop will not use more than ` +
-        `${Math.round(SIZE_CEILING / 1024)}KB of it, so a large file pasted in here is a file to save out as a zip.`,
+        `work is kept in a store this install shares with your saves, and the workshop uses at most ` +
+        `${Math.round(SIZE_CEILING / 1024)}KB of it, so if you paste in a large file, save the mod out as a zip.`,
     );
 
     const refusal = sessionRefusal(current);
@@ -428,7 +428,7 @@ export function filesScreen(shop: Workshop, path: string, line?: number): View {
 
       setText(title, path);
       setText(binaryInfo, `${file.contents.length} byte${file.contents.length === 1 ? "" : "s"} loaded from disk.`);
-      const notes = ["Yours. It goes into the mod folder exactly as it is here, byte for byte, and nothing rewrites it."];
+      const notes = ["Your own file. It goes into the mod folder byte for byte as it is here, and nothing rewrites it."];
       if (refusal !== undefined) notes.push(refusal);
       setText(about, notes.join(" "));
 
@@ -495,8 +495,8 @@ export function filesScreen(shop: Workshop, path: string, line?: number): View {
     const spare = unchecked.find((entry) => entry.path === path);
     if (spare !== undefined) {
       notes.push(
-        `This file carries ${spare.keys.join(", ")}, which the workshop writes through without reading. It ships ` +
-          `exactly as typed and nothing on the review screen has checked it.`,
+        `This file carries ${spare.keys.join(", ")}, which the workshop passes through without reading. It ships ` +
+          `exactly as typed, and nothing on the review screen has checked it.`,
       );
     }
     if (refusal !== undefined) notes.push(refusal);
@@ -561,15 +561,15 @@ export function filesScreen(shop: Workshop, path: string, line?: number): View {
 function describe(kind: string, path: string): string {
   if (kind === "manifest") return "what the game reads first";
   if (kind === "records") return `what this mod does to ${path.slice(0, -".json".length)} records`;
-  return "yours, written through as typed";
+  return "yours, shipped as typed";
 }
 
 function aboutKind(kind: string, path: string): string {
   switch (kind) {
     case "manifest":
       return (
-        "The manifest. Saving it puts the fields the details screen shows back into the mod, and keeps every " +
-        "other key exactly as typed - so capabilities, rules and anything else the game understands survive. " +
+        "The manifest. Saving it puts the fields the details screen shows back into the mod and keeps every " +
+        "other key exactly as typed, so capabilities, rules and anything else the game understands stay in place. " +
         "The id cannot be changed here, because the game treats a renamed mod as a different mod."
       );
     case "records":
@@ -578,7 +578,7 @@ function aboutKind(kind: string, path: string): string {
         `contributions back into the mod, so the record screens show what you typed here.`
       );
     default:
-      return "Yours. It goes into the mod folder exactly as it is here, and nothing rewrites it.";
+      return "Your own file. It goes into the mod folder exactly as it is here, and nothing rewrites it.";
   }
 }
 
@@ -604,10 +604,10 @@ function checkedHow(lang: string, found: number, colouring: boolean, lint: FileL
   }
   if (lang === "js") {
     return (
-      "Quotes, comments and brackets only. This is not a syntax check and there is no compiler in a browser: " +
+      "Only quotes, comments and brackets are checked. There is no syntax check and no compiler in a browser, so " +
       "code that passes here can still be wrong, and the game reports a script it cannot import as a mod that " +
-      "is not working. What it cannot see at all is a mistake inside a template's ${ }, a slash that is a " +
-      "pattern where it looks like a division, and anything that is spelled correctly and means nothing."
+      "is not working. This check cannot see a mistake inside a template's ${ }, a slash that starts a pattern " +
+      "where it looks like a division, or code that is spelled correctly but means nothing."
     );
   }
   return "Nothing here to check.";
@@ -640,7 +640,7 @@ function checkedFurther(lint: FileLint | undefined, settled: boolean): string {
   parts.push(
     about.length === 0
       ? `${standIn ? "The record checks have" : "The game's own record checker has"} nothing to say about this file.`
-      : `${about.length} thing${about.length === 1 ? "" : "s"} ${whose} found here, which is the same checking the record ` +
+      : `${about.length} thing${about.length === 1 ? "" : "s"} ${whose} found here, the same findings the record ` +
         `screens show. Click one to go to it.`,
   );
   if (!settled) parts.push("Checking what you have just typed.");

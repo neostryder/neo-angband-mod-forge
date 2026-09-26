@@ -40,7 +40,7 @@ export function docsScreen(shop: Workshop, selected: SdkDocId): View {
       h("h2", { text: "Neo Angband modding docs" }),
       h("p", {
         text:
-          "The real SDK documentation bundled when this workshop was built. Pick a lesson on the right, or use " +
+          "The SDK documentation, bundled with this workshop when it was built. Pick a lesson on the right, or use " +
           "the advanced references when you need the full contract behind a content file or plugin.js.",
       }),
     ),

@@ -290,7 +290,7 @@ export function testScreen(shop: Workshop): View {
           null,
           h("b", { text: "This session is no longer being saved. " }),
           "Everything below works. Your character on disk is exactly as their last save left them, and reloading " +
-            "the game takes you back to them - anything you do from here is gone when you do.",
+            "the game takes you back to them. Anything you do from here is gone once you reload.",
         ),
       );
       return;
@@ -304,15 +304,15 @@ export function testScreen(shop: Workshop): View {
         "p",
         null,
         h("b", { text: "Everything here is off until this session stops being saved. " }),
-        "These are the game's own debug commands, and using them on a character you are keeping would mean " +
-          "keeping whatever they did to it. So the workshop cuts the session loose from its save slot first, and " +
-          "then nothing at all is written down.",
+        "These are the game's own debug commands. Their effects on a character you are keeping would be saved " +
+          "with it, so the workshop first cuts the session loose from its save slot and writes nothing after " +
+          "that.",
       ),
       h("p", {
         text:
           who === undefined || who === ""
             ? "Nothing is being saved right now in any case, so this costs you nothing."
-            : `${who} keeps whatever their last save left - at most a few seconds of walking behind. Everything ` +
+            : `${who} keeps whatever their last save left, which is at most a few seconds of walking behind. Everything ` +
               `after that is discarded, and reloading the game brings them back exactly as they are on disk.`,
       }),
       h("p", { text: "It cannot be undone. Reload the game to go back to normal play." }),
@@ -472,7 +472,7 @@ export function testScreen(shop: Workshop): View {
         ? h("p", {
             text:
               "Everything loaded is the base game's. Content composes when the game loads, so a record you have " +
-              "just written turns up here after you forge the mod and play it - the button in the bar below.",
+              "just written turns up here after you forge the mod and play it with the button in the bar below.",
           })
         : h("p", {
             text:

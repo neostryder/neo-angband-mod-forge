@@ -107,7 +107,7 @@ export function recordScreen(shop: Workshop, index: number, path: string): View 
 
   const crumbBar = h("div", { class: "mb-crumbs" });
   const identity = h("div", { class: "mb-why" });
-  const identityCard = card({ title: "Identity", note: "the name the rest of the modding world will use", open: true });
+  const identityCard = card({ title: "Identity", note: "how the game and other mods refer to it", open: true });
   identityCard.body.appendChild(identity);
 
   const opsList = h("div", { class: "mb-rows" });
@@ -560,7 +560,7 @@ export function recordScreen(shop: Workshop, index: number, path: string): View 
       usageBody,
       h("div", {
         class: "mb-why",
-        text: "How much of the game's own content in this file carries each field. A field almost everything has is part of what the thing is.",
+        text: "How much of the game's own content in this file carries each field. A field that nearly every record carries is core to this kind of record.",
       }),
       h(
         "div",

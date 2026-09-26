@@ -69,9 +69,9 @@ export function baseScreen(shop: Workshop, file: string, mode: "new" | "change")
       h("p", {
         text:
           mode === "new"
-            ? "The workshop will fill a new record in from the one you pick: its shape, its scale, and the values " +
-              "its neighbours in the game actually carry. It will not copy its attacks, its flags, its spells or " +
-              "anything else that would hand out powers you did not ask for."
+            ? "The workshop fills in a new record from the one you pick, using its shape, its scale and the values " +
+              "its neighbours in the game carry. It does not copy attacks, flags, spells or anything else that " +
+              "would hand out powers you did not ask for."
             : "Your mod will ship the difference rather than the record, so the base game keeps owning it and two " +
               "mods adjusting different fields of it both work.",
       }),

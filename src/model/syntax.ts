@@ -654,7 +654,7 @@ function jsProblems(text: string): readonly SyntaxProblem[] {
   for (const token of tokens) {
     if (token.cls === "com" && text.startsWith("/*", token.at) && !text.slice(token.at, token.to).endsWith("*/")) {
       const where = positionAt(text, token.at);
-      out.push({ ...where, message: "This block comment is never closed. It swallows everything after it." });
+      out.push({ ...where, message: "This block comment is never closed, so everything after it is part of the comment." });
     }
     if (token.cls === "str") {
       const quote = text[token.at] as string;
@@ -679,13 +679,13 @@ function jsProblems(text: string): readonly SyntaxProblem[] {
     }
     const top = stack.pop();
     if (top === undefined) {
-      out.push({ ...positionAt(text, i), message: `A closing ${ch} with nothing open to close.` });
+      out.push({ ...positionAt(text, i), message: `This ${ch} has nothing open to close.` });
       continue;
     }
     if (PARTNER[top.ch] !== ch) {
       out.push({
         ...positionAt(text, i),
-        message: `A ${ch} closes the ${top.ch} opened on line ${positionAt(text, top.at).line}, which wanted ${PARTNER[top.ch]}.`,
+        message: `This ${ch} closes the ${top.ch} opened on line ${positionAt(text, top.at).line}, which needs a ${PARTNER[top.ch]}.`,
       });
     }
   }
