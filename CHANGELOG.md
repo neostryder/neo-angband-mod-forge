@@ -27,6 +27,7 @@ were not retagged.
 ### Changed
 
 - [Visible] [UI] **The workshop's own text reads more plainly.** Tooltips, error messages, the tour and the in-game README are rewritten for clarity, with every fact kept; the tests that quote them changed with them.
+- [Visible] [Docs] **The README's opening now says in one paragraph what ModForge needs from the game and what it reads from your session.** The unfinished-work section, the terms and the AI usage policy are reworded too.
 
 ## [1.4.1] - 2026-09-20
 
