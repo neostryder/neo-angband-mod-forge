@@ -19,7 +19,7 @@ hand-edited and brought back.
 
 ModForge works today: the workshop opens, every screen works, the mod it writes is a real mod, and you can load that mod into the running game for the rest of the session.
 
-It needs Neo Angband 1.0.0 or newer. That release gives the workshop everything it uses: the game's own authoring tools, the full set of records the current session was built from (including any content mods you have enabled), loading a mod for one session, and the test tools. So its suggestions, comparison tables, checks and list of content kinds all describe the game you are playing. [docs/ENGINE_SEAMS.md](docs/ENGINE_SEAMS.md) covers the production path and all five seams in detail.
+It needs Neo Angband 1.0.0 or newer. That release gives the workshop everything it uses: the game's own authoring tools, the full set of records the current session was built from (including any content mods you have enabled), loading a mod for one session, and the test tools. So its suggestions, comparison tables, checks and list of content kinds all describe the game you are playing. [docs/ENGINE_SEAMS.md](docs/ENGINE_SEAMS.md) covers the production path and all six seams in detail.
 
 If either of the two live-data connections is missing, the workshop still opens, but it falls back to a small built-in demonstration data set and shows a banner saying so that cannot be dismissed. In the normal in-game setup, on any engine version this release supports, the banner does not appear.
 ## Mod authoring features
@@ -54,7 +54,7 @@ Brackets and quotes close themselves, with a few rules so this stays out of your
 Each record file is checked as you type by the same checker the record screens use. The text goes through the same parsing a save does, is combined with the game's own records, and is handed to the engine's record checker. A field with the wrong type of value, a misspelled field name, a reference to something nothing defines and a record that will never be generated all show up under the editor with their line numbers. Click one to jump to it. Each row says which rule found it.
 One SDK rule is only a hint: a value outside the set of values the game's own records use for that field. A mod may coin a new value, but the same thing can also be a typo in an existing set. The rule is `field/vocabulary`, and its message says it is the SDK's advice rather than something that stops the mod loading.
 
-Three things are only possible here, which is why this is an editor and not just a viewer:
+Four things are only possible here, which is why this is an editor and not just a viewer:
 
 - `Start a plugin.js` writes an empty working script entry point. A `plugin.js` needs no build step: it is an ES module with no bare imports and a default export, and the engine arrives as `ctx.core`. The manifest gains the `plugin` facet and the `modApi` number automatically, because a mod that ships code without declaring both installs and then does nothing.
 - The editor accepts manifest keys that no screen asks about: `capabilities`, `rules` a player can switch on and off, and `optionalDependencies`. The game passes keys it does not model straight through, so these work and survive every later save.
