@@ -28,11 +28,13 @@ describe("the settings table and the manifest", () => {
     default?: unknown;
   }
 
+  /* The manifest is a schema 2 document, so its fields sit under `data`. */
   const manifest = (): { rules?: Toggle[]; sections?: Toggle[] } =>
-    JSON.parse(readFileSync(new URL("./manifest.json", import.meta.url), "utf8")) as {
-      rules?: Toggle[];
-      sections?: Toggle[];
-    };
+    (
+      JSON.parse(readFileSync(new URL("./manifest.json", import.meta.url), "utf8")) as {
+        data: { rules?: Toggle[]; sections?: Toggle[] };
+      }
+    ).data;
 
   const toggles = (): Toggle[] => {
     const read = manifest();

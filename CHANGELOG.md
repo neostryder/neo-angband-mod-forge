@@ -24,6 +24,10 @@ were not retagged.
 
 ## [Unreleased]
 
+### Changed
+
+- [Visible] [Modding-API] **The workshop now writes `manifest.json` as a schema 2 document, and the file screen can start a `plugin.js` for mod API 2 as well as for API 1.** API 1 stays the default because this game loads it, and the review screen warns when a script targets API 2 and will not run yet. The SDK docs inside the workshop now include the API 2 reference and its migration guide. ModForge's own manifest is schema 2 as well, so this version needs a game that reads schema 2 manifests.
+
 ### Removed
 
 - [Internal] [Modding-API] **The workshop's screens no longer receive the game's engine or its content tables, which none of them used.** Everything the workshop reads from a running game now comes through one file.

@@ -31,7 +31,7 @@ npm install --save-dev @rpgm-tools/neo-angband-core @rpgm-tools/neo-angband-mod-
 ```
 
 `@rpgm-tools/neo-angband-core` is the public, headless engine API. It is a
-development dependency only: `plugin.js` receives the engine as `ctx.core`, so
+development dependency only: the game hands a plugin what it needs at load time, so
 the engine must not be bundled into the plugin. The mod SDK is needed when the
 test composes content or runs the same authoring checks as the host. A
 plugin-only repository can omit the SDK until it adds the composition test.
@@ -116,13 +116,13 @@ expect(changed).toBe(true);
 expect(observedByThePlugin).toEqual(["begin"]);
 ```
 
-The exact entry point and transition depend on the plugin ABI and hook being
-tested. `composeModHooks` is the engine's composition rule: it models the
-load-order fold that the host performs. The transition must be a public core
-operation such as `playerSetTimed`, `playerIncTimed`, `playerDecTimed`,
-`startGame`/`runGameLoop`, or the relevant command/effect function. Do not call a
-private implementation or manually mutate `GameState`; that would prove only a
-fixture seam.
+The entry point and the transition depend on the mod API and on the hook under
+test. `composeModHooks` is the engine's composition rule and models the
+load-order fold the host performs. Drive the transition through a public core
+operation, such as `playerSetTimed`, `playerIncTimed`, `playerDecTimed`,
+`startGame` and `runGameLoop`, or the command or effect function involved.
+Calling a private implementation or writing to `GameState` by hand tests only the
+fixture.
 
 For a message hook, feed a real core message-producing operation and assert the
 text received by the test sink. For a veto hook, assert both sides: the hook is

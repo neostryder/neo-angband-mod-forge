@@ -102,8 +102,8 @@ One SDK rule is only a hint: a value outside the set of values the game's own re
 
 Four things are only possible here, which is why this is an editor and not just a viewer:
 
-- `Start a plugin.js` writes an empty working script entry point. A `plugin.js` needs no build step: it is an ES module with no bare imports and a default export, and the engine arrives as `ctx.core`. The manifest gains the `plugin` facet and the `modApi` number automatically, because a mod that ships code without declaring both installs and then does nothing.
-- The editor accepts manifest keys that no screen asks about: `capabilities`, `rules` a player can switch on and off, and `optionalDependencies`. The game passes keys it does not model straight through, so these work and survive every later save.
+- `Start a plugin.js` writes an empty working script for mod API 1, which is the API this game loads. `Start an API 2 plugin.js` writes one for mod API 2 instead; a later version of the game will load it, this one refuses it, and the review screen says so. A `plugin.js` needs no build step: it is an ES module with no bare imports and a default export. The manifest gains the `plugin` facet, the runtime and the `api` range the script names automatically, because a mod that ships code without declaring it installs and then does nothing.
+- The editor accepts manifest keys that no screen asks about: `capabilities`, `rules` a player can switch on and off, and `optionalDependencies`. They are fields of the manifest schema the game reads, so they work and survive every later save. The workshop writes `manifest.json` as a schema 2 document, which keeps the fields its schema defines and leaves out a key it does not know.
 - Sections, and anything else a record file can carry, are written to the folder exactly as you typed them.
 - A tile, a font or a sound is loaded from disk and kept as its exact bytes. There is nothing to type or colour, so a panel takes the editor's place, says so, and offers to replace the file with another one from disk.
 

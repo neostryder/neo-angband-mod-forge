@@ -77,9 +77,10 @@ export interface Draft {
   /**
    * Manifest keys the workshop does not model, kept exactly as they were typed.
    *
-   * The game's manifest validator passes an unknown key through untouched, so
-   * `capabilities`, `rules`, `optionalDependencies` and anything else an author adds
-   * by hand are real and work. Dropping them on the next save would make the file
+   * The schema 2 manifest keeps every field its schema defines, so `capabilities`,
+   * `rules`, `optionalDependencies` and the other schema fields an author adds by
+   * hand are real and work. A key the schema does not define stays in the draft but
+   * is left out of the written folder. Dropping them on the next save would make the file
    * editor a viewer with a delete button, so they are kept - and this is also where
    * a deliberate override of a key the workshop DERIVES lives. See `writeManifest`
    * for why an override is only recorded when the author actually changed the value.
@@ -102,14 +103,11 @@ export interface Draft {
 }
 
 /**
- * The plugin ABI an emitted mod declares when it ships a script.
+ * The schema 1 mod API number an emitted API 1 plugin declares.
  *
- * WRITTEN AS A CONSTANT BECAUSE THERE IS NO SEAM FOR IT. The host will not import
- * a `plugin.js` unless the manifest says `modApi`, and it accepts a window of
- * versions rather than one - but nothing hands a mod the number the running host
- * implements, so the honest answer is the number this mod itself was built against.
- * An author who needs another one changes it in `manifest.json` by hand, which is
- * exactly the sort of thing the file editor is for.
+ * A schema 2 manifest carries an `api` range instead, and the game derives this
+ * number from it. The workshop still writes it beside the range for an API 1
+ * plugin, so a game whose emitter writes schema 1 keeps loading the mod.
  */
 export const MOD_API = 1;
 

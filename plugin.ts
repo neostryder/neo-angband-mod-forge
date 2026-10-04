@@ -5,11 +5,12 @@
  * ENTRY POINT CONTRACT - one shape, for every mod and every front end
  * ------------------------------------------------------------------
  *
- * A mod that runs code default-exports a ModPlugin:
+ * A mod that runs code default-exports a ModPlugin. This one is written for mod
+ * API 1, the API this game loads from a mod folder:
  *
  *   export default { api: 1, regions(ctx) { ... } }
  *
- * `ctx.core` is the ENGINE, handed in. This file imports the engine and the mod
+ * Everything it uses arrives on `ctx`. This file imports the engine and the mod
  * SDK for TYPES ONLY, and that is not a style choice: the same source is built to
  * the `plugin.js` this repository ships, and a module fetched from a folder
  * cannot resolve a bare specifier. Nor should it, because a bundled copy of the

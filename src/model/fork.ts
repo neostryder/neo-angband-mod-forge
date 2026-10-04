@@ -36,6 +36,7 @@ import type { AuthoringApi, ComposedRecords, JsonRecord, JsonValue } from "../ho
 import type { Draft } from "./draft.js";
 import { ID_RE, newDraft } from "./draft.js";
 import { isBinary, MANIFEST, writeFileBytes, writeFileText } from "./files.js";
+import { manifestFields } from "./manifest-doc.js";
 import { refFor } from "./refs.js";
 
 /** Which of the intake routes a fork came in through. */
@@ -132,7 +133,11 @@ export function forkDraft(api: AuthoringApi, folder: ForkFolder, options: ForkOp
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
       return { ok: false, why: "That mod's manifest.json is not a JSON object, so it is not a manifest." };
     }
-    manifest = parsed as JsonRecord;
+    /* Read in the field names the draft keeps, whichever schema the folder was
+     * written in, so a schema 2 document's id, version and author are found. */
+    const read = manifestFields(parsed as JsonRecord);
+    if (!read.ok) return { ok: false, why: `That mod's manifest.json could not be read: ${read.why}` };
+    manifest = read.fields;
   }
 
   const sourceId = stringAt(manifest, "id") ?? options.sourceId;

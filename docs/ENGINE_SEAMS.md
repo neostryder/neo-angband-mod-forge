@@ -90,15 +90,14 @@ readonly authoring: ModAuthoringApi;
 export type ModAuthoringApi = typeof import("@rpgm-tools/neo-angband-mod-sdk");
 ```
 
-The whole barrel is used rather than a curated subset. `ctx.core` is already
-`typeof import("@rpgm-tools/neo-angband-core")`, so the pattern exists and the
-ratchet that watches core's surface (`packages/core/mod-api-surface.json`) is the
-model for watching this one. A curated subset is a second list to maintain, and
-the first thing that happens to a curated list is that it lags the function
-somebody needs. The SDK barrel is also already deliberate about what it withholds:
-`applyFieldPolicy` is kept out of `index.ts` on purpose and says so in a comment
-there, so the barrel is a considered surface rather than everything that happens
-to be exported.
+The workshop uses the whole barrel, not a hand-picked subset. Mod API 1 already
+hands a plugin the engine's whole barrel, typed
+`typeof import("@rpgm-tools/neo-angband-core")`, and the ratchet that watches
+core's surface (`packages/core/mod-api-surface.json`) can watch this one the same
+way. A hand-picked subset is a second list to maintain, and it falls behind the
+first time somebody needs a function it left out. The SDK barrel already holds
+back what it should: `applyFieldPolicy` stays out of `index.ts`, and a comment
+there says why.
 
 The workshop calls these functions through the surface:
 rather than guessed at:
@@ -285,13 +284,12 @@ different things and neither is a bigger helping of the other. The engine's
 readonly wizard?: WizardApi;
 ```
 
-This is not the shape this seam was asked for. The change moved a guarantee
-out of this repository. The ask was for the wired `WizardDeps` bundle, so the
-workshop could pass it back into the `wiz*` functions on `ctx.core` itself. The
-reasoning was sound as far as it went: everything a spawn needs is already exported
-from core, what a mod cannot get is the deps those functions take, and rebuilding
-`MakeDeps` from `ctx.registries` would hand the mod a fresh `ArtifactState` and
-create the Phial twice.
+The wired `WizardDeps` bundle would let the workshop call the engine's own
+`wiz*` functions directly. Core exports everything a spawn needs except the deps
+those functions take, and rebuilding `MakeDeps` from `ctx.registries` would give
+the mod a fresh `ArtifactState` and create the Phial twice, so the bundle is the
+shortest route. The method surface is used instead because it moves a guarantee
+out of this repository and into the host.
 
 What that shape could not do is stop a mistake here from reaching somebody's
 character. Those functions are gated on a `debug` flag in a bag the CALLER

@@ -15,16 +15,15 @@
     "second way to get this mod that nothing checks."
   ],
   "//dependencies": [
-    "The engine is a devDependency, never a dependency. plugin.js receives it as",
-    "ctx.core at load time; a runtime dependency would mean a second copy of the",
-    "engine's module state living inside the mod, which this mod refuses outright.",
+    "The engine is a devDependency, never a dependency. A runtime dependency would",
+    "mean a second copy of the engine's module state living inside the mod, which",
+    "this mod refuses outright.",
     "So it is here for TYPES and for the tests.",
     "The mod SDK is different here than in every other mod in this family: this mod",
     "CALLS it at runtime rather than only building against it. It still is not a runtime",
     "dependency, for the same reason core is not - plugin.js resolves no specifier. The",
-    "authoring functions arrive on ctx.authoring, a separate namespace core hands in",
-    "alongside ctx.core rather than through it, and the SDK is here for types, for the",
-    "tests, and for tools/build.mjs."
+    "authoring functions arrive on ctx.authoring, which the game hands in, and the SDK",
+    "is here for types, for the tests, and for tools/build.mjs."
   ],
   "scripts": {
     "sync-sdk-docs": "node tools/sync-sdk-docs.mjs",

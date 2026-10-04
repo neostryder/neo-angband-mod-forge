@@ -31,15 +31,18 @@
  * and includes it in the review.
  *
  * A MANIFEST KEY THE WORKSHOP DOES NOT MODEL IS KEPT, which is the opposite call
- * and the right one for the opposite reason: the game's manifest validator passes
- * unknown keys through untouched, so `capabilities`, `rules`, `optionalDependencies`
- * and anything else an author adds by hand are real and work. Keeping them in
- * `draft.manifestExtras` is what makes this an escape hatch rather than a viewer.
+ * and the right one for the opposite reason: `capabilities`, `rules`,
+ * `optionalDependencies` and the other manifest fields an author adds by hand are
+ * real and work. Keeping them in `draft.manifestExtras` is what makes this an
+ * escape hatch rather than a viewer. The manifest is read in any of its three
+ * shapes and written as a schema 2 document (`manifest-doc.ts`), and the SDK's
+ * schema 2 writer keeps only the fields schema 2 defines.
  */
 
 import type { AuthoringApi, FieldDecl, FieldOp, JsonRecord, JsonValue, PackSection } from "../host/authoring.js";
 import type { Change, Draft } from "./draft.js";
 import { emitDraft, manifestFor } from "./build.js";
+import { manifestFields } from "./manifest-doc.js";
 
 /** What kind of file a path is, which decides what saving it means. */
 export type FileKind = "manifest" | "records" | "extra";
@@ -284,12 +287,34 @@ export function writeFileText(api: AuthoringApi, draft: Draft, path: string, tex
   if (shape !== undefined) return { ok: false, why: shape };
   switch (classify(api, path)) {
     case "manifest":
-      return writeManifest(draft, text);
+      return emittable(api, writeManifest(draft, text));
     case "records":
       return writeRecordFile(draft, path.slice(0, -".json".length), text);
-    case "extra":
-      return { ok: true, draft: { ...draft, extras: { ...(draft.extras ?? {}), [path]: text } } };
+    case "extra": {
+      const next: WriteOutcome = { ok: true, draft: { ...draft, extras: { ...(draft.extras ?? {}), [path]: text } } };
+      /* The entry module's `api` becomes the manifest's `api` range, so a range the
+       * SDK cannot write is refused here, where the author typed it. */
+      return path === PLUGIN ? emittable(api, next) : next;
+    }
   }
+}
+
+/**
+ * Refuse a save whose manifest the authoring library cannot write.
+ *
+ * The SDK checks a schema 2 manifest as it writes one and throws when a field
+ * fails, and every screen that lists the mod's files emits it. Checking here
+ * turns a malformed `api` range or `engine` into a refused save with the SDK's
+ * own message, instead of a screen that cannot draw.
+ */
+function emittable(api: AuthoringApi, outcome: WriteOutcome): WriteOutcome {
+  if (!outcome.ok) return outcome;
+  try {
+    emitDraft(api, outcome.draft);
+  } catch (e) {
+    return { ok: false, why: `The manifest this would write is not valid: ${e instanceof Error ? e.message : String(e)}` };
+  }
+  return outcome;
 }
 
 /**
@@ -358,12 +383,25 @@ function parseObject(text: string, what: string): { ok: true; value: JsonRecord 
 const OWNED = ["id", "name", "version", "author", "description", "repository", "license", "engine", "fields"] as const;
 
 /** The keys the workshop DERIVES, which an author may still override by hand. */
-const DERIVED = ["shape", "facets", "group", "dependencies", "affectsGameplay", "modApi", "sections"] as const;
+const DERIVED = [
+  "shape",
+  "facets",
+  "group",
+  "dependencies",
+  "affectsGameplay",
+  "modApi",
+  "api",
+  "runtime",
+  "engineBecause",
+  "sections",
+] as const;
 
 function writeManifest(draft: Draft, text: string): WriteOutcome {
   const parsed = parseObject(text, "The manifest");
   if (!parsed.ok) return parsed;
-  const raw = parsed.value;
+  const read = manifestFields(parsed.value);
+  if (!read.ok) return read;
+  const raw = read.fields;
 
   /* THE ID IS REFUSED RATHER THAN APPLIED. The game treats a renamed mod as a
    * different mod - a fresh install, a fresh pin, and every save that referred to
@@ -411,7 +449,10 @@ function writeManifest(draft: Draft, text: string): WriteOutcome {
    * failure here: `dependencies` is derived from what the mod touches, so a copy
    * taken now would go stale the moment the next record is patched, and a mod whose
    * dependencies are wrong installs, loads and silently does nothing. */
-  const derivedNow = manifestFor({ ...next, manifestExtras: {} }) as unknown as Record<string, JsonValue>;
+  const derived = manifestFor({ ...next, manifestExtras: {} }) as unknown as Record<string, JsonValue>;
+  /* A mod with no code declares no API, and schema 2 writes that as `api: "*"` and
+   * `runtime: "data"`. Those two are what a manifest with no code reads back. */
+  const derivedNow: Record<string, JsonValue> = { api: "*", runtime: "data", ...derived };
   const extras: JsonRecord = {};
   for (const [key, value] of Object.entries(raw)) {
     if ((OWNED as readonly string[]).includes(key)) continue;
@@ -421,12 +462,12 @@ function writeManifest(draft: Draft, text: string): WriteOutcome {
     extras[key] = value;
   }
 
-  /* THE TWO KEYS A SCRIPT NEEDS ARE NOT OVERRIDABLE INTO NONSENSE. The host will
-   * not import a plugin.js unless the manifest declares the plugin facet and a
-   * modApi number, and the install refuses the mod for either one missing. So an
-   * override that takes one of them away is refused here rather than shipped: the
-   * result would install and do nothing, or not install at all, and in both cases
-   * the cause would be a line the author had every right to think was allowed. */
+  /* A SCRIPT'S KEYS CANNOT BE OVERRIDDEN AWAY. The host imports a plugin.js only
+   * when the manifest declares the plugin facet and an API (an `api` range, or
+   * schema 1's `modApi` number), and the install refuses a mod that lacks either.
+   * An override that removes one is refused here. Shipped, it would give a mod
+   * that installs and does nothing, or one that does not install, and the author
+   * would have no reason to suspect the line they changed. */
   if (scriptFiles(next).length > 0) {
     const facets = extras["facets"];
     if (facets !== undefined && !(Array.isArray(facets) && facets.includes("plugin"))) {
@@ -440,7 +481,13 @@ function writeManifest(draft: Draft, text: string): WriteOutcome {
     if (extras["modApi"] !== undefined && typeof extras["modApi"] !== "number") {
       return {
         ok: false,
-        why: `"modApi" has to be a whole number. It is the plugin ABI the code is written against.`,
+        why: `"modApi" has to be a whole number. It is the schema 1 number for the mod API the code is written for.`,
+      };
+    }
+    if (extras["api"] !== undefined && typeof extras["api"] !== "string") {
+      return {
+        ok: false,
+        why: `"api" has to be a version range in quotes, such as ">=2.0.0 <3.0.0". It names the mod API the code is written for.`,
       };
     }
   }

@@ -11,14 +11,15 @@
  * WHICH IS WHY IT EARNS ITS PLACE rather than being a power-user indulgence. Three
  * things the wizard screens cannot do are ordinary here:
  *
- *  1. A SCRIPT. The workshop starts `plugin.js` with a working entry template, and
- *     an author writes the behaviour from there. A hand-written ES module needs no
- *     build step at all. The manifest grows the plugin facet and the ABI number by
- *     itself, because a mod that ships code without declaring it installs, loads and
- *     does nothing.
+ *  1. A SCRIPT. The workshop starts `plugin.js` from a working entry template, for
+ *     mod API 1 or mod API 2, and an author writes the behaviour from there. A
+ *     hand-written ES module needs no build step at all. The manifest picks up the
+ *     plugin facet, the runtime and the API range the script names on its own,
+ *     because a mod that ships code without declaring it installs, loads and does
+ *     nothing.
  *  2. A MANIFEST KEY NO SCREEN OFFERS. Capabilities, rules a player can switch,
- *     optional dependencies. The game's validator passes an unknown key through, so
- *     these are real, and they survive every later save.
+ *     optional dependencies. The game's manifest schema defines these, so they are
+ *     real, and they survive every later save.
  *  3. SECTIONS, which round-trip into the draft and the emitted folder, plus any
  *     other record-file key the draft cannot model. Those other keys are carried
  *     through unread, with that boundary said on this screen, because a blind spot
@@ -56,13 +57,16 @@ import { openDraft } from "../store.js";
 import { asideSection, button, empty, fillList, listRow } from "../widgets.js";
 import type { View, Workshop } from "../view.js";
 
-/** A starting point for a script, so a new one is not a blank page. */
-const PLUGIN_TEMPLATE = `/*
- * The entry point. The game imports this and calls what it finds.
+/**
+ * A starting point for an API 1 script, so a new one is not a blank page. This is
+ * the template the plain "Start" button and a typed `plugin.js` use, because API 1
+ * is the API this game loads from a mod folder.
+ */
+export const PLUGIN_TEMPLATE = `/*
+ * The entry point, written for mod API 1, which this game loads.
  *
  * No imports: a module loaded from a mod folder cannot resolve a package by name.
- * The engine arrives as ctx.core instead, which is the same module instance the
- * game itself is running on.
+ * What the plugin works with arrives in the ctx argument the game passes in.
  */
 export default {
   api: 1,
@@ -71,6 +75,34 @@ export default {
     ctx.log?.("hello from a hand-written plugin");
     return {};
   },
+};
+`;
+
+/**
+ * A starting point for an API 2 script: a definition with `start` and `stop`,
+ * where every call answers with a result instead of throwing. Today's folder
+ * loader refuses an API 2 mod, so the screen says this one is for a later game.
+ */
+export const PLUGIN_TEMPLATE_API2 = `/*
+ * The entry point, written for mod API 2. This version of the game does not load
+ * an API 2 mod from a folder yet; a later one will.
+ *
+ * Every call on mod answers with a result and never throws for a refusal. Check
+ * ok, and read reason when it is false.
+ */
+export default {
+  api: ">=2.0.0 <3.0.0",
+
+  async start(mod) {
+    const world = await mod.view.world();
+    if (!world.ok) {
+      mod.meta.log("no world to read yet: " + world.reason);
+      return;
+    }
+    mod.meta.log("hello from a hand-written plugin");
+  },
+
+  stop() {},
 };
 `;
 
@@ -114,10 +146,30 @@ export function filesScreen(shop: Workshop, path: string, line?: number): View {
     label: `Start a ${PLUGIN}`,
     tiny: true,
     tip:
-      "Writes a working entry point with nothing in it yet, so a mod that runs code is one file away. It also adds " +
-      "the plugin facet and the ABI number to the manifest, since a mod that ships code without declaring both " +
+      "Writes a working API 1 entry point with nothing in it yet, so a mod that runs code is one file away. The " +
+      "manifest gets the plugin facet and the API range with it, since a mod that ships code without declaring it " +
       "installs and then does nothing.",
     onClick: () => shop.acts.createFile(PLUGIN, PLUGIN_TEMPLATE),
+  });
+  const pluginApi2 = button({
+    label: `Start an API 2 ${PLUGIN}`,
+    tiny: true,
+    tip:
+      "Writes an entry point for mod API 2 instead, and the manifest names the API 2 range. Use it to get a " +
+      "script ready for a later version of the game.",
+    onClick: () => shop.acts.createFile(PLUGIN, PLUGIN_TEMPLATE_API2),
+  });
+  const apiNote = h(
+    "div",
+    { class: "mb-why" },
+    "This game loads API 1 scripts. An API 2 script is for a later version of the game and does not run here yet.",
+  );
+  const api2Docs = button({
+    label: "Read about API 2",
+    tiny: true,
+    kind: "ghost",
+    tip: "Open the SDK's API 2 reference: what it offers, and what an API 1 plugin has to change to use it.",
+    onClick: () => shop.acts.go({ at: "docs", doc: "api2" }),
   });
   const pluginDocs = button({
     label: "Read the plugin API",
@@ -166,6 +218,8 @@ export function filesScreen(shop: Workshop, path: string, line?: number): View {
     h("div", { class: "mb-ed-new" }, newName, add),
     newProblem,
     h("div", { class: "mb-row-actions" }, plugin, pluginDocs),
+    h("div", { class: "mb-row-actions" }, pluginApi2, api2Docs),
+    apiNote,
     loadRow,
     h("div", { class: "mb-row-actions" }, searchAll),
     size,
