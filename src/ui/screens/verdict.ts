@@ -30,9 +30,10 @@
 
 import { h } from "../dom.js";
 import type { AuthoringFinding } from "../../host/authoring.js";
-import { countFindings, sortFindings } from "../../model/build.js";
+import { countFindings, entrySource, sortFindings } from "../../model/build.js";
 import { draftFiles, draftSize } from "../../model/draft.js";
 import { sessionRefusal, unread } from "../../model/files.js";
+import { isApi2Range, scriptApi } from "../../model/manifest-doc.js";
 import type { AppState } from "../store.js";
 import { openDraft } from "../store.js";
 import { asideSection, button, card, empty, filePreview } from "../widgets.js";
@@ -119,6 +120,7 @@ export function verdictScreen(shop: Workshop): View {
     const anything = current.changes.length > 0 || (current.sections?.length ?? 0) > 0 || Object.keys(current.extras ?? {}).length > 0;
     const buildable = ok && anything;
     const refusal = sessionRefusal(current);
+    const script = entrySource(current);
     tryIt.disabled = !shop.seams.session.available || !buildable || refusal !== undefined;
     install.disabled = !shop.seams.install.available || !buildable;
     save.disabled = !anything;
@@ -145,6 +147,18 @@ export function verdictScreen(shop: Workshop): View {
       }),
       ...(shop.seams.authoring.demonstration
         ? [h("p", null, h("b", { text: "These checks are the workshop's own small set, not the game's. " }), shop.seams.authoring.why ?? "")]
+        : []),
+      ...(script !== undefined && isApi2Range(scriptApi(script).range)
+        ? [
+            h(
+              "p",
+              null,
+              h("b", { text: "This game will not run it yet. " }),
+              "The plugin.js here is written for mod API 2, and this version of the game loads API 1 plugins only, " +
+                "so it refuses the mod when the Mods screen loads it. Keep it for a later version, or start the " +
+                "script again from the API 1 template.",
+            ),
+          ]
         : []),
     );
 

@@ -31,6 +31,7 @@ import {
   writeFileBytes,
   writeFileText,
 } from "./files.js";
+import { API1_RANGE, API2_RANGE } from "./manifest-doc.js";
 
 const api = STUB_AUTHORING;
 
@@ -326,12 +327,54 @@ describe("a mod that ships code", () => {
     const manifest = manifestFor(draft());
     expect(manifest.facets).toEqual(["content"]);
     expect(manifest.modApi).toBeUndefined();
+    expect(manifest.api).toBeUndefined();
+  });
+
+  it("gives an API 1 plugin the API 1 range, in process", () => {
+    const manifest = manifestFor(withPlugin());
+    expect(manifest.api).toBe(API1_RANGE);
+    expect(manifest.runtime).toBe("in-process");
+  });
+
+  it("gives an API 2 definition the API 2 range and no schema 1 ABI number", () => {
+    const source = 'export default {\n  api: ">=2.0.0 <3.0.0",\n  start(mod) {},\n};\n';
+    const outcome = writeFileText(api, draft(), "plugin.js", source);
+    if (!outcome.ok) throw new Error(outcome.why);
+    const manifest = manifestFor(outcome.draft);
+    expect(manifest.api).toBe(API2_RANGE);
+    expect(manifest.runtime).toBe("in-process");
+    expect(manifest.modApi).toBeUndefined();
+    expect(manifest.facets).toContain("plugin");
+  });
+
+  it("writes the manifest as a schema 2 document whose api matches the script", () => {
+    const doc = JSON.parse(fileText(api, withPlugin(), MANIFEST) ?? "{}") as {
+      format: string;
+      schemaVersion: number;
+      data: { api: string; runtime: string; modApi?: number };
+    };
+    expect(doc.format).toBe("neo-angband/mod/manifest");
+    expect(doc.schemaVersion).toBe(2);
+    expect(doc.data.api).toBe(API1_RANGE);
+    expect(doc.data.runtime).toBe("in-process");
+    expect(doc.data.modApi).toBeUndefined();
+  });
+
+  it("refuses an api in the manifest that is not a range", () => {
+    const source = withPlugin();
+    const doc = JSON.parse(fileText(api, source, MANIFEST) ?? "{}") as { data: { api: unknown } };
+    doc.data.api = 2;
+    const outcome = writeFileText(api, source, MANIFEST, JSON.stringify(doc));
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.why).toContain('"api"');
   });
 
   it("refuses a hand-edited manifest that would take the facet away", () => {
     const source = withPlugin();
-    const text = (fileText(api, source, MANIFEST) ?? "").replace('"content",\n    "plugin"', '"content"');
-    const outcome = writeFileText(api, source, MANIFEST, text);
+    const doc = JSON.parse(fileText(api, source, MANIFEST) ?? "{}") as { data: { facets: string[] } };
+    doc.data.facets = ["content"];
+    const outcome = writeFileText(api, source, MANIFEST, JSON.stringify(doc, null, 2));
     expect(outcome.ok).toBe(false);
     if (outcome.ok) return;
     expect(outcome.why).toContain("plugin");

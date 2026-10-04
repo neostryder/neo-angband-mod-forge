@@ -11,6 +11,8 @@
  */
 
 import { afterEach, describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import plugin from "./plugin.js";
 import type { BuilderCtx } from "./src/host/context.js";
 
@@ -61,8 +63,14 @@ function surface(cols: number, rows: number): {
 }
 
 describe("the plugin's shape", () => {
-  it("declares the ABI version the manifest declares", () => {
+  it("declares the API the manifest's range names", () => {
+    /* The manifest is schema 2 and names the API as a range; the code says `api: 1`.
+     * The jsdom environment gives no file URL, so the path is the package root's. */
+    const manifest = JSON.parse(readFileSync(resolve(process.cwd(), "manifest.json"), "utf8")) as {
+      data: { api?: string };
+    };
     expect(plugin.api).toBe(1);
+    expect(manifest.data.api).toBe(">=1.0.0 <2.0.0");
   });
 
   it("supplies regions, which is what makes it a plugin the host will load", () => {

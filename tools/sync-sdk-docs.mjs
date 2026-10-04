@@ -9,11 +9,10 @@
  * serializes them into a TypeScript module.
  *
  * Keep the selection focused. The beginner path is complete, and the advanced
- * path carries the complete requirements, authoring, plugin, and compatibility
- * references. The engine's lifecycle, design, reach, and region-input records
- * stay out of the plugin: they are valuable when an author needs them, but
- * together would add more than the workshop itself and are not first-stop
- * authoring references.
+ * path carries the requirements, authoring, plugin, API 2 and compatibility
+ * references in full. The engine's lifecycle and design records stay out of the
+ * plugin, and so do the reach and region-input notes. Together they would add
+ * more than the workshop itself, and none of them is where an author starts.
  *
  * The text is UTF-8 base64 in the generated source and decoded only when the
  * reader opens. The SDK builder's bare-import guard correctly protects live
@@ -115,6 +114,20 @@ const documents = [
     note: "plugin.js, hooks, resources, regions, capabilities, and testing.",
   },
   {
+    id: "api2",
+    path: "API2.md",
+    audience: "advanced",
+    title: "Mod API 2",
+    note: "The next plugin API: domains, results, events, hooks and storage.",
+  },
+  {
+    id: "api2-migration",
+    path: "MIGRATING_TO_API2.md",
+    audience: "advanced",
+    title: "Moving to API 2",
+    note: "Taking a plugin from API 1 to API 2, and what has no API 2 form yet.",
+  },
+  {
     id: "compatibility",
     path: "MOD_COMPATIBILITY.md",
     audience: "advanced",
@@ -135,7 +148,7 @@ const readDocument = (document) => {
 
 const embedded = documents.map(readDocument);
 const bytes = new TextEncoder().encode(embedded.map((document) => document.text).join("")).length;
-const ceiling = 256 * 1024;
+const ceiling = 384 * 1024;
 if (bytes > ceiling) {
   throw new Error(`Selected SDK docs are ${String(bytes)} bytes, above the ${String(ceiling)} byte embedding ceiling.`);
 }

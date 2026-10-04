@@ -102,13 +102,10 @@ export interface WizardWhere {
 /**
  * The game's debug commands as a surface of METHODS, not as a bag of its internals.
  *
- * THIS IS NOT THE SHAPE THIS SEAM WAS PLANNED AS, and the change is worth reading
- * because it moved a guarantee out of this repository. The plan was for the game to
- * hand over its wired `WizardDeps` bundle so the workshop could pass it back into
- * the `wiz*` functions on `ctx.core` itself. That works, and it puts the player's
- * character behind the workshop's own care: those functions are gated on a `debug`
- * flag in a bag the CALLER assembles, so nothing outside this repository could stop
- * a mistake here from writing a cheated character over one somebody loved.
+ * The other shape for this seam is the wired `WizardDeps` bundle, passed back into
+ * the engine's own `wiz*` functions. Those functions check a `debug` flag in a bag
+ * the CALLER assembles, so with that shape only the workshop's own care stands
+ * between a bug here and a cheated character written over one somebody loved.
  *
  * A method surface moves the guarantee to the host, where it can be enforced rather
  * than intended. Every command below refuses until `sandbox()` has cut the session

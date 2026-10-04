@@ -28,19 +28,22 @@ import type {
 } from "../host/authoring.js";
 import type { Change, Draft } from "./draft.js";
 import { allChanges, dependenciesFor, groupFor, MOD_API } from "./draft.js";
+import { ENGINE_BECAUSE, scriptApi } from "./manifest-doc.js";
 import { ownerOf } from "./refs.js";
 import { zipStored } from "./zip.js";
 
 /**
  * The manifest a draft emits. Built here so one function owns every field.
  *
- * SHIPPING A SCRIPT CHANGES TWO KEYS AT ONCE, and it has to change both or
- * neither. The host refuses to import a `plugin.js` unless the manifest declares
- * the `plugin` facet AND a `modApi` number, and the install-time standards check
- * refuses the whole mod for either one on its own. So a draft that has grown a
- * script gets both, from the same condition, in the same place. Declaring one and
- * not the other is the failure this codebase keeps finding: a mod that installs,
- * loads, and does nothing at all.
+ * SHIPPING A SCRIPT CHANGES SEVERAL KEYS AT ONCE, and it has to change all of them
+ * or none. The host refuses to import a `plugin.js` unless the manifest declares
+ * the `plugin` facet and an API the code is written for, and the install-time
+ * standards check refuses the whole mod for either one on its own. So a draft
+ * that has grown a script gets the facet, `runtime: "in-process"` and the `api`
+ * range from the same condition, in the same place. The range comes from the
+ * script's own `api` (see `scriptApi`), so an API 1 plugin gets
+ * `>=1.0.0 <2.0.0` and the schema 1 `modApi` number, and an API 2 definition gets
+ * `>=2.0.0 <3.0.0`.
  *
  * `facets` carries `content` as well, because the validator requires the facet list
  * to contain whatever `shape` says, and the shape of everything the workshop writes
@@ -57,6 +60,7 @@ export function manifestFor(draft: Draft): PackManifest {
     shape: "content",
     facets: code ? ["content", "plugin"] : ["content"],
     engine: draft.engine,
+    engineBecause: ENGINE_BECAUSE,
     group: groupFor(allChanges(draft)),
     dependencies: dependenciesFor(allChanges(draft)),
     /* A content mod that adds or retunes anything the player meets is a mod that
@@ -68,17 +72,29 @@ export function manifestFor(draft: Draft): PackManifest {
     license: draft.license,
     repository: draft.repository,
   };
-  if (code) manifest.modApi = MOD_API;
+  if (code) {
+    const api = scriptApi(entrySource(draft));
+    manifest.api = api.range;
+    manifest.runtime = "in-process";
+    if (api.api1) manifest.modApi = MOD_API;
+  }
   if (draft.fields.length > 0) manifest.fields = [...draft.fields];
   if (draft.sections && draft.sections.length > 0) {
     manifest.sections = draft.sections.map(({ changes: _changes, ...section }) => ({ ...section }));
   }
 
-  /* Whatever the author wrote by hand wins, and the reason it is safe to let it is
-   * that the game's validator passes an unknown key through untouched, so a key it
-   * does not model is a key that works. `writeManifest` is where the decision about
-   * WHICH keys land here is made, and it refuses the two above. */
+  /* Whatever the author wrote by hand wins. The schema 2 writer keeps every field
+   * the schema defines (capabilities, rules, settings, sections and the rest) and
+   * drops a key it does not know, so a hand-written schema field is a key that
+   * works. `writeManifest` is where the decision about WHICH keys land here is
+   * made, and it refuses the two above. */
   return { ...manifest, ...(draft.manifestExtras ?? {}) } as PackManifest;
+}
+
+/** The text of the draft's `plugin.js`, the entry module the game imports, when it has one. */
+export function entrySource(draft: Draft): string | undefined {
+  const entry = draft.extras?.["plugin.js"];
+  return typeof entry === "string" ? entry : undefined;
 }
 
 /**

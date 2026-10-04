@@ -11,8 +11,14 @@ import { readFileSync } from "node:fs";
  * (neostryder/neo-angband#175).
  */
 describe("the two version sites", () => {
-  const read = (f: string): string =>
-    (JSON.parse(readFileSync(new URL(f, import.meta.url), "utf8")) as { version: string }).version;
+  /* `manifest.json` is a schema 2 document with its fields under `data`; `package.json` is flat. */
+  const read = (f: string): string => {
+    const parsed = JSON.parse(readFileSync(new URL(f, import.meta.url), "utf8")) as {
+      version?: string;
+      data?: { version?: string };
+    };
+    return parsed.data?.version ?? parsed.version ?? "";
+  };
 
   it("agree", () => {
     expect(read("./package.json")).toBe(read("./manifest.json"));

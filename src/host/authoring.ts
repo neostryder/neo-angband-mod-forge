@@ -1,11 +1,9 @@
 /**
  * The authoring surface this mod uses, named symbol by symbol.
  *
- * `ctx.authoring` hands over the mod SDK's whole public barrel, the same way
- * `ctx.core` hands over the engine's. That is the right shape for the ENGINE to
- * offer, because a curated list on the engine's side is a second list to keep in
- * step and the first thing that happens to one is that it lags the function
- * somebody needs.
+ * `ctx.authoring` hands over the mod SDK's whole public barrel. That suits the
+ * ENGINE: a list kept on the engine's side would be a second list to keep in step,
+ * and it would fall behind the first time somebody needed a function it left out.
  *
  * It is the wrong shape for a MOD to consume. So this file is the narrow half of
  * that bargain: an interface naming exactly what the workshop calls, which makes
@@ -199,11 +197,18 @@ export interface PackManifest {
   shape: "content" | "tiles" | "plugin";
   facets?: readonly ("content" | "tiles" | "plugin")[];
   engine?: string;
+  /** Why the mod needs `engine`, written as schema 2's `engine.because`. */
+  engineBecause?: string;
   dependencies?: Record<string, string>;
   optionalDependencies?: Record<string, string>;
   capabilities?: string[];
   fields?: FieldDecl[];
+  /** Schema 1's integer mod API number. The game derives it from `api` for a schema 2 manifest. */
   modApi?: number;
+  /** The mod API range the code is written for, such as ">=2.0.0 <3.0.0". */
+  api?: string;
+  /** How the mod runs: "data" with no code, or "in-process" for a `plugin.js`. */
+  runtime?: "data" | "in-process" | "worker";
   rules?: PackRule[];
   group?: string;
   affectsGameplay?: boolean;

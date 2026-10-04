@@ -57,6 +57,7 @@ import type {
   Suggestion,
   TemplateScope,
 } from "./authoring.js";
+import { manifestDocument } from "../model/manifest-doc.js";
 import { STUB_RECORDS } from "./stub-content.js";
 
 /* ------------------------------------------------------------------ *
@@ -621,7 +622,9 @@ class StubProject implements ProjectLike {
   }
 
   emit(): EmittedFile[] {
-    const out: EmittedFile[] = [{ path: "manifest.json", contents: `${JSON.stringify(this.manifest(), null, 2)}\n` }];
+    const out: EmittedFile[] = [
+      { path: "manifest.json", contents: `${JSON.stringify(manifestDocument(this.manifest()), null, 2)}\n` },
+    ];
     for (const name of [...this.files.keys()].sort()) {
       const contribution = this.files.get(name);
       if (!contribution) continue;

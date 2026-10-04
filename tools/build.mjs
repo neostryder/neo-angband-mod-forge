@@ -3,9 +3,9 @@
  * Run the plugin builder, from wherever it can be found.
  *
  * The transform that turns `plugin.ts` into the `plugin.js` this repository ships
- * belongs to the game, not to this mod: the rules it enforces are the plugin ABI. It
- * lives at `packages/mod-sdk/bin/neo-angband-mod-build.mjs` in the game's repository and
- * ships inside `@rpgm-tools/neo-angband-mod-sdk`.
+ * belongs to the game, because the rules it enforces are the mod API's. It lives in
+ * the game's repository as `packages/mod-sdk/bin/neo-angband-mod-build.mjs` and
+ * ships inside the SDK package.
  *
  * THREE SOURCES, IN ORDER, and the order is not arbitrary:
  *

@@ -23,6 +23,14 @@ import type { WorkshopHandle } from "./workshop.js";
 import type { BuilderCtx } from "./host/context.js";
 import { STUB_AUTHORING } from "./host/authoring-stub.js";
 import { STUB_RECORDS } from "./host/stub-content.js";
+import { API1_RANGE, API2_RANGE, manifestFields } from "./model/manifest-doc.js";
+
+/** An emitted manifest's fields under the names a draft keeps, whichever schema the emitter wrote. */
+function readManifest(text: string | undefined): Record<string, unknown> {
+  const read = manifestFields(JSON.parse(text ?? "{}") as Parameters<typeof manifestFields>[0]);
+  if (!read.ok) throw new Error(read.why);
+  return read.fields;
+}
 
 let open: WorkshopHandle | undefined;
 
@@ -483,7 +491,7 @@ describe("the player's journey", () => {
     expect(files).toEqual(["manifest.json", "monster.json"]);
 
     const emitted = [...shadow().querySelectorAll(".mb-code")].map((el) => el.textContent ?? "");
-    const manifest = JSON.parse(emitted[0] ?? "{}") as Record<string, unknown>;
+    const manifest = readManifest(emitted[0]);
     expect(manifest["id"]).toBe("my-first-mod");
     expect(manifest["shape"]).toBe("content");
     expect(manifest["engine"]).toBe(">=0.25.0");
@@ -1039,7 +1047,7 @@ describe("composition, which is the property an author cannot see", () => {
       ?.click();
 
     control("Review it").click();
-    const manifest = JSON.parse([...shadow().querySelectorAll(".mb-code")][0]?.textContent ?? "{}") as {
+    const manifest = readManifest([...shadow().querySelectorAll(".mb-code")][0]?.textContent ?? undefined) as {
       dependencies?: Record<string, string>;
       group?: string;
     };
@@ -1252,16 +1260,60 @@ describe("editing the mod as files", () => {
     const area = shadow().querySelector<HTMLTextAreaElement>("textarea.mb-ed-area");
     expect(area?.value).toContain("export default");
 
-    /* The two keys the host needs before it will import a plugin, both written,
-     * because either one alone is a mod that installs and does nothing. */
-    const manifest = JSON.parse(openFile("manifest.json").value) as {
+    /* The keys the host needs before it will import a plugin, all written,
+     * because the plugin facet alone is a mod that installs and does nothing.
+     * The template the button starts from is the API 1 one, which this game loads. */
+    const manifest = readManifest(openFile("manifest.json").value) as {
       facets?: string[];
-      modApi?: number;
+      api?: string;
+      runtime?: string;
       shape?: string;
     };
     expect(manifest.facets).toContain("plugin");
     expect(manifest.facets).toContain(manifest.shape);
-    expect(manifest.modApi).toBe(1);
+    expect(manifest.api).toBe(API1_RANGE);
+    expect(manifest.runtime).toBe("in-process");
+  });
+
+  it("starts an API 2 entry point on request, and says which API this game loads", () => {
+    walkToAMod("api2-mod");
+    control("Edit the files directly").click();
+    expect(screenText()).toContain("This game loads API 1 scripts.");
+    control("Start an API 2 plugin.js").click();
+
+    const area = shadow().querySelector<HTMLTextAreaElement>("textarea.mb-ed-area");
+    expect(area?.value).toContain('api: ">=2.0.0 <3.0.0"');
+    expect(area?.value).not.toContain("ctx.core");
+
+    const manifest = readManifest(openFile("manifest.json").value) as { api?: string; modApi?: number };
+    expect(manifest.api).toBe(API2_RANGE);
+    expect(manifest.modApi).toBeUndefined();
+  });
+
+  it("emits an API 2 mod through the game's own library", () => {
+    open = openWorkshop(
+      ctx({ authoring: REAL_AUTHORING as unknown as NonNullable<BuilderCtx["authoring"]> }),
+      document,
+    );
+    control("Take me to my mods").click();
+    const idBox = shadow().querySelector<HTMLInputElement>('input[type="text"]');
+    if (!idBox) throw new Error("no id box on the mod list");
+    type(idBox, "api2-real");
+    control("Start a new mod").click();
+    control("Edit the files directly").click();
+    control("Start an API 2 plugin.js").click();
+
+    const doc = JSON.parse(openFile("manifest.json").value) as {
+      schemaVersion?: number;
+      data?: { api?: string; runtime?: string };
+    };
+    expect(doc.schemaVersion).toBe(2);
+    expect(doc.data?.api).toBe(API2_RANGE);
+    expect(doc.data?.runtime).toBe("in-process");
+    control("Review it").click();
+    /* The game's library accepts the folder; the loader of this game is what refuses
+     * an API 2 plugin, and the review screen says so instead of only "This will install". */
+    expect(screenText()).toContain("This game will not run it yet.");
   });
 
   it("opens the complete plugin API from the file editor", () => {

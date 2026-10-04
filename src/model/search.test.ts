@@ -56,11 +56,11 @@ describe("searching every file in a draft", () => {
   });
 
   it("searches the unsaved buffer's text instead of the saved file when one is open", () => {
-    const outcome = writeFileText(api, draft(), "lib/dice.js", "old text");
+    const outcome = writeFileText(api, draft(), "lib/dice.js", "saved quokka");
     if (!outcome.ok) throw new Error(outcome.why);
-    const matches = searchDraft(api, outcome.draft, { "lib/dice.js": { text: "new text" } }, "new");
+    const matches = searchDraft(api, outcome.draft, { "lib/dice.js": { text: "unsaved wombat" } }, "wombat");
     expect(matches).toHaveLength(1);
-    expect(searchDraft(api, outcome.draft, { "lib/dice.js": { text: "new text" } }, "old")).toHaveLength(0);
+    expect(searchDraft(api, outcome.draft, { "lib/dice.js": { text: "unsaved wombat" } }, "quokka")).toHaveLength(0);
   });
 
   it("never opens a binary file as text", () => {
