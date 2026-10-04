@@ -47,7 +47,6 @@ function ctx(extra: Partial<BuilderCtx> = {}): BuilderCtx {
     id: "builder",
     engine: "0.25.0",
     flags: { "builder.showTab": true, "builder.keepDrafts": true },
-    core: {} as BuilderCtx["core"],
     prefs: fakePrefs(),
     log: () => undefined,
     ...extra,

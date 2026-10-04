@@ -13,7 +13,6 @@
  */
 
 import type { AuthoringApi, ComposedRecords } from "../host/authoring.js";
-import type { CoreApi, RegistriesLike } from "../host/context.js";
 import type { Seams } from "../host/seams.js";
 import type { Actions } from "./actions.js";
 import type { AppState } from "./store.js";
@@ -55,8 +54,4 @@ export interface Workshop {
   readonly records: ComposedRecords;
   readonly tips: Tooltips;
   readonly doc: Document;
-  /** The engine. Reached by exactly one screen, to spawn something. */
-  readonly core: CoreApi;
-  /** The bound registries, for resolving a name to something the game can place. */
-  readonly registries?: RegistriesLike;
 }

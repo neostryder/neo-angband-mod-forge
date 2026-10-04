@@ -21,7 +21,6 @@
  */
 
 import type { AuthoringApi, ComposedRecords } from "../host/authoring.js";
-import type { CoreApi, RegistriesLike } from "../host/context.js";
 import type { Seams } from "../host/seams.js";
 import { sessionRefusal } from "../model/files.js";
 import { fill, h, setText, useDocument } from "./dom.js";
@@ -56,8 +55,6 @@ export interface AppDeps {
   readonly seams: Seams;
   readonly api: AuthoringApi;
   readonly records: ComposedRecords;
-  readonly core: CoreApi;
-  readonly registries?: RegistriesLike;
 }
 
 export interface App {
@@ -76,8 +73,6 @@ export function mountApp(deps: AppDeps): App {
     records: deps.records,
     tips,
     doc: deps.doc,
-    core: deps.core,
-    ...(deps.registries === undefined ? {} : { registries: deps.registries }),
   };
 
   /* ---------------------------------------------------------------- *
