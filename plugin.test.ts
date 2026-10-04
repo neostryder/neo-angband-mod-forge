@@ -24,7 +24,6 @@ function ctx(flags: Record<string, boolean>): BuilderCtx {
     id: "builder",
     engine: "0.25.0",
     flags,
-    core: {} as BuilderCtx["core"],
     log: () => undefined,
     prefs: {
       get: () => undefined,

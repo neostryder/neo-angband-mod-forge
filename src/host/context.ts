@@ -17,27 +17,8 @@
 
 import type { AuthoringApi, JsonRecord } from "./authoring.js";
 
-/** The engine, as a type. Type-only syntax, so the built plugin.js has no import. */
-export type CoreApi = typeof import("@rpgm-tools/neo-angband-core");
-
 /** One JSON value, as the record files carry them. */
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
-
-/**
- * The bound content registries, structurally, narrowed to what the workshop
- * reads.
- *
- * The workshop reads these for two things only: resolving a name to the live
- * `ridx` or `kidx` a spawn needs, and telling the player that a record they are
- * about to base something on came from another mod. Everything the AUTHORING
- * side needs is raw JSON and comes from `composedRecords` instead - a bound
- * `MonsterRace` has no `base` field to compare peers on, because `base` was
- * resolved away at bind time.
- */
-export interface RegistriesLike {
-  readonly monsters?: { readonly races?: readonly { readonly name?: string }[] };
-  readonly objects?: { readonly kinds?: readonly { readonly name?: string }[] };
-}
 
 /** One JSON value of this mod's own, kept outside every character's save. */
 export interface PrefsLike {
@@ -181,11 +162,9 @@ export interface BuilderCtx {
   readonly id: string;
   readonly engine: string;
   readonly flags: Readonly<Record<string, boolean>>;
-  readonly core: CoreApi;
   readonly log?: (msg: string) => void;
   readonly prefs?: PrefsLike;
   readonly state?: GameStateLike;
-  readonly registries?: RegistriesLike;
 
   /** Seam 1. The mod SDK's authoring surface. See docs/ENGINE_SEAMS.md. */
   readonly authoring?: AuthoringApi;

@@ -18,7 +18,6 @@ function ctxWith(extra: Partial<BuilderCtx>): BuilderCtx {
     id: "builder",
     engine: "0.25.0",
     flags: {},
-    core: {} as BuilderCtx["core"],
     ...extra,
   };
 }

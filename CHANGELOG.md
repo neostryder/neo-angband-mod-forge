@@ -26,6 +26,7 @@ were not retagged.
 
 ### Removed
 
+- [Internal] [Modding-API] **The workshop's screens no longer receive the game's engine or its content tables, which none of them used.** Everything the workshop reads from a running game now comes through one file.
 - [Internal] **Removed this repo's own Discord release announcer.** Its workflow, script and test are gone. The releases site at releases.rpgm.tools now posts each new release to the Neo Angband announcements forum.
 
 ## [1.4.2] - 2026-09-26

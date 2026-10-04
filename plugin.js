@@ -8605,9 +8605,7 @@ function mountApp(deps) {
     api: deps.api,
     records: deps.records,
     tips,
-    doc: deps.doc,
-    core: deps.core,
-    ...deps.registries === void 0 ? {} : { registries: deps.registries }
+    doc: deps.doc
   };
   const illum = h("div", { class: "mb-illum", text: "M" });
   const title = h("h1", { class: "mb-title", text: "ModForge" });
@@ -10733,9 +10731,7 @@ function openWorkshop(ctx, doc2) {
     acts,
     seams,
     api: seams.authoring.api,
-    records: seams.authoring.records,
-    core: ctx.core,
-    ...ctx.registries === void 0 ? {} : { registries: ctx.registries }
+    records: seams.authoring.records
   });
   launchHandle.focus();
   overlay.onClose(() => {

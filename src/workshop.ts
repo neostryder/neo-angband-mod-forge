@@ -136,8 +136,6 @@ export function openWorkshop(ctx: BuilderCtx, doc: Document | undefined): Worksh
     seams,
     api: seams.authoring.api,
     records: seams.authoring.records,
-    core: ctx.core,
-    ...(ctx.registries === undefined ? {} : { registries: ctx.registries }),
   });
 
   /* `mountApp`'s own render() just moved focus onto its first screen's first
