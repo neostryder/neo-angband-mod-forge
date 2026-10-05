@@ -7,7 +7,7 @@
  * subset also states exactly what the mod touches, which is the honest form of
  * "the mod uses no private path".
  *
- * FIVE MEMBERS HERE MAY NOT EXIST. `authoring`, `composedRecords`, `installMod`,
+ * FOUR MEMBERS HERE MAY NOT EXIST. `authoring`, `composedRecords`,
  * `loadModForSession` and `wizard` are the seams in `docs/ENGINE_SEAMS.md`.
  * Supported production hosts provide the first two, but this narrower structural
  * interface keeps them optional for the standalone preview and partial test
@@ -167,8 +167,6 @@ export interface BuilderCtx {
   readonly authoring?: AuthoringApi;
   /** Seam 2. The raw records the running game was composed from. */
   readonly composedRecords?: Readonly<Record<string, readonly JsonRecord[]>>;
-  /** Seam 3. Install a mod from the bytes of a zip. Gated by `mod:install`. */
-  readonly installMod?: (bytes: Uint8Array) => Promise<InstallModResult>;
   /**
    * Seam 3. Save and reload, so a staged mod takes effect: plugin teardown, autoplayer
    * keyboard handback, character write, session resume. Gated by either `mod:install`
@@ -180,8 +178,8 @@ export interface BuilderCtx {
   /**
    * Seam 5. Load a mod for THIS SESSION only. Gated by `mod:session`.
    *
-   * Content only, on the same terms `installMod` is - this is the same door with
-   * the library step removed, not a looser one. What it changes is that the pack
+   * Content only, on the same terms the game's own install door is - this is the
+   * same door with the library step removed, not a looser one. What it changes is that the pack
    * composes on the next reload without waiting to be switched on, and that the
    * archive is forgotten when the game is closed.
    *

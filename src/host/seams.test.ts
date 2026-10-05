@@ -56,15 +56,40 @@ describe("the install seam", () => {
     expect(outcome.ok).toBe(false);
   });
 
-  it("uses the real door when one is offered", async () => {
-    const seams = resolveSeams(
-      ctxWith({
-        installMod: async () => ({ ok: true, id: "x", version: "1.0.0", lines: [] }),
-      }),
-    );
-    expect(seams.install.available).toBe(true);
-    expect(seams.install.reloadByHand).toBe(true);
-    expect((await seams.install.install(new Uint8Array())).ok).toBe(true);
+  it("stays off even when a host offers an install door", async () => {
+    /* ModForge does not request mod:install, so even an offered door is ignored. */
+    let installs = 0;
+    const offered = {
+      ...ctxWith({ authoring: STUB_AUTHORING, composedRecords: STUB_RECORDS }),
+      installMod: async () => {
+        installs += 1;
+        return { ok: true, id: "x", version: "1.0.0", lines: [] };
+      },
+    } as BuilderCtx;
+    const seams = resolveSeams(offered);
+    expect(seams.install.available).toBe(false);
+    expect(seams.install.why).toContain("does not install mods itself");
+    expect((await seams.install.install(new Uint8Array())).ok).toBe(false);
+    expect(installs).toBe(0);
+  });
+});
+
+describe("the session seam", () => {
+  it("says the game has no such door when there is no real host", () => {
+    const seams = resolveSeams(ctxWith({}));
+    expect(seams.session.available).toBe(false);
+    expect(seams.session.why).toContain("no way to load a mod for one session");
+  });
+
+  it("says the permission is missing when a real host leaves it out", async () => {
+    /* A host with the authoring library is a real game, and a real game has this
+     * door, so its absence means a refused permission. */
+    const seams = resolveSeams(ctxWith({ authoring: STUB_AUTHORING, composedRecords: STUB_RECORDS }));
+    expect(seams.session.available).toBe(false);
+    expect(seams.session.why).toContain("no permission to load a mod for one session");
+    const outcome = await seams.session.load(new Uint8Array());
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.problem).toBe(seams.session.why);
   });
 });
 
@@ -82,6 +107,12 @@ describe("the wizard seam", () => {
     const seams = resolveSeams(ctxWith({ flags: on, state: {} }));
     expect(seams.wizard.available).toBe(false);
     expect(seams.wizard.why).toContain("does not give the workshop its debug commands");
+  });
+
+  it("is off, and says the permission is missing, when a real host leaves the seam out", () => {
+    const seams = resolveSeams(ctxWith({ flags: on, state: {}, authoring: STUB_AUTHORING }));
+    expect(seams.wizard.available).toBe(false);
+    expect(seams.wizard.why).toContain("no permission to use the game's debug commands");
   });
 
   it("is off, and says there is no character, when no game is running", () => {
@@ -191,7 +222,7 @@ describe("reloading", () => {
 describe("every seam", () => {
   it("carries a reason whenever it is unavailable, and none when it is not", () => {
     const seams = resolveSeams(ctxWith({}));
-    for (const seam of [seams.authoring, seams.install, seams.wizard]) {
+    for (const seam of [seams.authoring, seams.install, seams.session, seams.wizard]) {
       if (seam.available) expect(seam.why).toBeUndefined();
       else expect(seam.why).toBeTruthy();
     }

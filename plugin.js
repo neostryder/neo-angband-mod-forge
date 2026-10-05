@@ -1619,23 +1619,18 @@ var STUB_AUTHORING = {
 // src/host/seams.ts
 var NO_AUTHORING = "This game does not yet give the workshop its authoring library, so every number below comes from the workshop's own demonstration content instead of from the game.";
 var NO_RECORDS = "This game does not yet give the workshop its own content, so the records you can base something on come from the workshop's demonstration set, not from the real game.";
-var NO_INSTALL = "This game has no way for a mod to install another mod, so the workshop saves the finished mod as a file and you add it with Import a zip on the Mods screen. That takes two extra steps, and you end up with a file you can read, keep and share.";
+var NO_INSTALL = "The workshop does not install mods itself, so it saves the finished mod as a file and you add it with Import a zip on the Mods screen. That takes two extra steps, and you end up with a file you can read, keep and share.";
 var NO_SESSION = "This game has no way to load a mod for one session, so to try one you have to install it: the workshop saves the finished mod as a file, then you add it with Import a zip on the Mods screen, turn it on and reload. The mod then stays in your library, where you would want it once it is finished anyway.";
+var SESSION_NOT_GRANTED = "This copy of the workshop has no permission to load a mod for one session. The game gives that permission only to the workshop installed from its own repository, and asks you about it on its own. Without it, to try a mod you have to install it: the workshop saves the finished mod as a file, then you add it with Import a zip on the Mods screen, turn it on and reload.";
 var NO_WIZARD_SEAM = "This game does not give the workshop its debug commands, so it cannot put anything in front of you or take you anywhere. Forge the mod, try it for the session, reload, and go and find the thing yourself.";
+var WIZARD_NOT_GRANTED = "This mod has no permission to use the game's debug commands, so it cannot put anything in front of you or take you anywhere. Forge the mod, try it for the session, reload, and go and find the thing yourself.";
 var WIZARD_OFF = 'The "Let me test what I built" setting is off for this mod. Turn it on in the mod manager.';
 var NO_GAME = "There is no character in play, so there is nothing to test with.";
 function resolveSeams(ctx) {
   const realApi = ctx.authoring;
   const realRecords = ctx.composedRecords;
   const authoring = realApi ? realRecords ? { available: true, api: realApi, records: realRecords, demonstration: false } : { available: false, why: NO_RECORDS, api: realApi, records: STUB_RECORDS, demonstration: true } : { available: false, why: NO_AUTHORING, api: STUB_AUTHORING, records: realRecords ?? STUB_RECORDS, demonstration: true };
-  const installer = ctx.installMod;
-  const reloader = ctx.reloadGame;
-  const install = installer ? {
-    available: true,
-    install: installer,
-    reload: reloader ?? (async () => void 0),
-    reloadByHand: reloader === void 0
-  } : {
+  const install = {
     available: false,
     why: NO_INSTALL,
     install: async () => ({
@@ -1646,20 +1641,21 @@ function resolveSeams(ctx) {
     reload: async () => void 0,
     reloadByHand: true
   };
+  const realHost = realApi !== void 0;
   const reload = resolveReload(ctx);
   const stager = ctx.loadModForSession;
   const session = stager ? { available: true, load: stager, reload: reload ?? (() => void 0), reloadByHand: reload === null } : {
     available: false,
-    why: NO_SESSION,
-    load: async () => ({ ok: false, problem: NO_SESSION }),
+    why: realHost ? SESSION_NOT_GRANTED : NO_SESSION,
+    load: async () => ({ ok: false, problem: realHost ? SESSION_NOT_GRANTED : NO_SESSION }),
     reload: () => void 0,
     reloadByHand: true
   };
-  return { authoring, install, session, wizard: resolveWizard(ctx), engine: ctx.engine };
+  return { authoring, install, session, wizard: resolveWizard(ctx, realHost), engine: ctx.engine };
 }
-function resolveWizard(ctx) {
+function resolveWizard(ctx, realHost) {
   if (ctx.flags[FLAG.cheatSpawn] !== true) return { available: false, why: WIZARD_OFF };
-  if (ctx.wizard === void 0) return { available: false, why: NO_WIZARD_SEAM };
+  if (ctx.wizard === void 0) return { available: false, why: realHost ? WIZARD_NOT_GRANTED : NO_WIZARD_SEAM };
   if (ctx.state === void 0) return { available: false, why: NO_GAME, api: ctx.wizard };
   return { available: true, api: ctx.wizard };
 }
