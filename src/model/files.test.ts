@@ -370,6 +370,59 @@ describe("a mod that ships code", () => {
     expect(outcome.why).toContain('"api"');
   });
 
+  it("refuses an api in the manifest that is a string but not a range", () => {
+    const source = withPlugin();
+    const doc = JSON.parse(fileText(api, source, MANIFEST) ?? "{}") as { data: { api: unknown } };
+    doc.data.api = "banana";
+    const outcome = writeFileText(api, source, MANIFEST, JSON.stringify(doc));
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.why).toContain('"banana"');
+    expect(outcome.why).toContain("not a version range");
+  });
+
+  it("refuses an api in the manifest that disagrees with the script, naming both", () => {
+    const source = withPlugin();
+    const doc = JSON.parse(fileText(api, source, MANIFEST) ?? "{}") as { data: { api: unknown } };
+    doc.data.api = API2_RANGE;
+    const outcome = writeFileText(api, source, MANIFEST, JSON.stringify(doc));
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.why).toContain(`"${API2_RANGE}"`);
+    expect(outcome.why).toContain(`"${API1_RANGE}"`);
+  });
+
+  it("refuses a runtime in the manifest that disagrees with the code, naming both", () => {
+    const source = withPlugin();
+    const doc = JSON.parse(fileText(api, source, MANIFEST) ?? "{}") as { data: { runtime: unknown } };
+    doc.data.runtime = "worker";
+    const outcome = writeFileText(api, source, MANIFEST, JSON.stringify(doc));
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.why).toContain('"worker"');
+    expect(outcome.why).toContain('"in-process"');
+  });
+
+  it("refuses an api or a runtime on a mod with no code", () => {
+    const doc = JSON.parse(fileText(api, draft(), MANIFEST) ?? "{}") as { data: { api: unknown; runtime: unknown } };
+    doc.data.api = API1_RANGE;
+    const outcome = writeFileText(api, draft(), MANIFEST, JSON.stringify(doc));
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.why).toContain(`"${API1_RANGE}"`);
+    expect(outcome.why).toContain('"*"');
+  });
+
+  it("accepts an api and a runtime that agree with the script, and keeps neither as an override", () => {
+    const source = withPlugin();
+    const text = fileText(api, source, MANIFEST) ?? "{}";
+    const outcome = writeFileText(api, source, MANIFEST, text);
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.draft.manifestExtras?.["api"]).toBeUndefined();
+    expect(outcome.draft.manifestExtras?.["runtime"]).toBeUndefined();
+  });
+
   it("refuses a hand-edited manifest that would take the facet away", () => {
     const source = withPlugin();
     const doc = JSON.parse(fileText(api, source, MANIFEST) ?? "{}") as { data: { facets: string[] } };

@@ -1033,22 +1033,102 @@ function provenanceOf(record: unknown): RecordProvenance | undefined {
   };
 }
 
-function satisfies(version: string, range: string): boolean {
-  /* Enough of a semver range for the one thing the workshop asks: is the running
-   * engine inside the range an emitted mod would declare. Only the ">=x.y.z"
-   * form and "*", because those are the only two the workshop ever writes. */
-  if (range.trim() === "*" || range.trim() === "") return true;
-  const m = /^>=\s*(\d+)\.(\d+)\.(\d+)/.exec(range.trim());
-  if (!m) return true;
-  const v = /^(\d+)\.(\d+)\.(\d+)/.exec(version.trim());
-  if (!v) return false;
-  for (let i = 1; i <= 3; i++) {
-    const have = Number(v[i] ?? 0);
-    const need = Number(m[i] ?? 0);
-    if (have > need) return true;
-    if (have < need) return false;
+/*
+ * The SDK's semver range grammar, transcribed: `*` and `x`, exact and partial
+ * versions, caret and tilde ranges, and space-separated comparators ANDed
+ * together, with prerelease tags ordered by the semver rule. A malformed version
+ * or range throws, as the SDK's does, because the workshop reads that throw as
+ * "not a range" when it checks a manifest's `api` and engine range.
+ */
+interface StubVersion {
+  readonly major: number;
+  readonly minor: number;
+  readonly patch: number;
+  readonly prerelease: string | null;
+}
+
+const PARTIAL_VERSION_RE = /^(\d+|[xX*])(?:\.(\d+|[xX*]))?(?:\.(\d+|[xX*]))?(?:-([0-9A-Za-z.-]+))?$/;
+
+function partialVersion(s: string): { major: number | null; minor: number | null; patch: number | null; prerelease: string | null } {
+  const match = PARTIAL_VERSION_RE.exec(s);
+  if (!match) throw new Error(`malformed version: ${s}`);
+  const part = (p: string | undefined): number | null => (p === undefined || /^[xX*]$/.test(p) ? null : Number(p));
+  return { major: part(match[1]), minor: part(match[2]), patch: part(match[3]), prerelease: match[4] ?? null };
+}
+
+function comparePrerelease(a: string, b: string): number {
+  const left = a.split(".");
+  const right = b.split(".");
+  for (let i = 0; i < Math.max(left.length, right.length); i++) {
+    const l = left[i];
+    const r = right[i];
+    if (l === undefined) return -1;
+    if (r === undefined) return 1;
+    if (l === r) continue;
+    const lNum = /^\d+$/.test(l);
+    const rNum = /^\d+$/.test(r);
+    if (lNum !== rNum) return lNum ? -1 : 1;
+    if (lNum) return Number(l) < Number(r) ? -1 : 1;
+    return l < r ? -1 : 1;
   }
-  return true;
+  return 0;
+}
+
+function compareVersions(a: StubVersion, b: StubVersion): number {
+  if (a.major !== b.major) return a.major < b.major ? -1 : 1;
+  if (a.minor !== b.minor) return a.minor < b.minor ? -1 : 1;
+  if (a.patch !== b.patch) return a.patch < b.patch ? -1 : 1;
+  if (a.prerelease === b.prerelease) return 0;
+  if (a.prerelease === null) return 1;
+  if (b.prerelease === null) return -1;
+  return comparePrerelease(a.prerelease, b.prerelease);
+}
+
+function rangeToken(token: string, v: StubVersion): boolean {
+  if (token === "*" || token.toLowerCase() === "x") return true;
+  const op = /^(?:>=|<=|\^|~|>|<|=)?/.exec(token)?.[0] ?? "";
+  const p = partialVersion(token.slice(op.length));
+  if (p.major === null) return true;
+  const major = p.major;
+  const bound: StubVersion = { major, minor: p.minor ?? 0, patch: p.patch ?? 0, prerelease: p.prerelease };
+  const at = (ma: number, mi: number, pa: number): StubVersion => ({ major: ma, minor: mi, patch: pa, prerelease: null });
+  const within = (lower: StubVersion, upper: StubVersion): boolean =>
+    compareVersions(v, lower) >= 0 && compareVersions(v, upper) < 0;
+  switch (op) {
+    case "^":
+      return within(
+        bound,
+        major > 0 ? at(major + 1, 0, 0) : bound.minor > 0 ? at(0, bound.minor + 1, 0) : at(0, 0, bound.patch + 1),
+      );
+    case "~":
+      return within(bound, p.minor === null ? at(major + 1, 0, 0) : at(major, bound.minor + 1, 0));
+    case ">=":
+      return compareVersions(v, bound) >= 0;
+    case ">":
+      return compareVersions(v, bound) > 0;
+    case "<=":
+      return compareVersions(v, bound) <= 0;
+    case "<":
+      return compareVersions(v, bound) < 0;
+    case "=":
+      return compareVersions(v, bound) === 0;
+    default:
+      if (p.minor === null) return within(at(major, 0, 0), at(major + 1, 0, 0));
+      if (p.patch === null) return within(at(major, p.minor, 0), at(major, p.minor + 1, 0));
+      return compareVersions(v, bound) === 0;
+  }
+}
+
+function satisfies(version: string, range: string): boolean {
+  const trimmed = range.trim();
+  if (trimmed.length === 0) throw new Error("empty version range");
+  if (trimmed === "*" || trimmed.toLowerCase() === "x") return true;
+  const p = partialVersion(version);
+  if (p.major === null || p.minor === null || p.patch === null) {
+    throw new Error(`expected a full major.minor.patch version, got: ${version}`);
+  }
+  const v: StubVersion = { major: p.major, minor: p.minor, patch: p.patch, prerelease: p.prerelease };
+  return trimmed.split(/\s+/).every((token) => rangeToken(token, v));
 }
 
 /** The stub, as one object satisfying the interface the workshop consumes. */

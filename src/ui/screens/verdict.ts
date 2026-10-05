@@ -148,7 +148,7 @@ export function verdictScreen(shop: Workshop): View {
       ...(shop.seams.authoring.demonstration
         ? [h("p", null, h("b", { text: "These checks are the workshop's own small set, not the game's. " }), shop.seams.authoring.why ?? "")]
         : []),
-      ...(script !== undefined && isApi2Range(scriptApi(script).range)
+      ...(script !== undefined && isApi2Range(scriptApi(script).range, (version, range) => shop.api.satisfies(version, range))
         ? [
             h(
               "p",

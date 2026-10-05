@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { manifestToV2, MOD_API2_DEFAULT_RANGE, MOD_API_1_RANGE } from "@rpgm-tools/neo-angband-mod-sdk";
+import {
+  manifestToV2,
+  MOD_API2_DEFAULT_RANGE,
+  MOD_API_1_RANGE,
+  satisfies,
+  WORKER_PREVIEW_API,
+} from "@rpgm-tools/neo-angband-mod-sdk";
 import type { PackManifest as SdkPackManifest } from "@rpgm-tools/neo-angband-mod-sdk";
+import { STUB_AUTHORING } from "../host/authoring-stub.js";
 import type { JsonRecord, PackManifest } from "../host/authoring.js";
 import {
   API1_RANGE,
@@ -35,10 +42,75 @@ describe("which API a script is written for", () => {
     expect(scriptApi("export default {};")).toEqual({ range: API1_RANGE, api1: true });
   });
 
-  it("tells an API 2 range apart from an API 1 one", () => {
-    expect(isApi2Range(API2_RANGE)).toBe(true);
-    expect(isApi2Range(API1_RANGE)).toBe(false);
+  it("reads past a range in a comment", () => {
+    const line = '// later: api: ">=2.0.0 <3.0.0"\nexport default { api: 1, hooks() { return {}; } };\n';
+    expect(scriptApi(line)).toEqual({ range: API1_RANGE, api1: true });
+    const block = '/* api: ">=2.0.0 <3.0.0" */\nexport default {\n  /* api: ">=2.0.0 <3.0.0" */\n  api: 1,\n};\n';
+    expect(scriptApi(block)).toEqual({ range: API1_RANGE, api1: true });
   });
+
+  it("reads past a range inside a string", () => {
+    const source = 'const NOTE = "api: \\">=2.0.0 <3.0.0\\"";\nconst T = `api: ">=2.0.0 <3.0.0"`;\nexport default { api: 1 };\n';
+    expect(scriptApi(source)).toEqual({ range: API1_RANGE, api1: true });
+  });
+
+  it("reads the default export, not another object that has an api", () => {
+    const source = 'const LEGACY = { api: "1" };\nexport default {\n  api: ">=2.0.0 <3.0.0",\n  start(mod) {},\n};\n';
+    expect(scriptApi(source)).toEqual({ range: API2_RANGE, api1: false });
+  });
+
+  it("reads the default export's own api, not one nested inside it", () => {
+    const source = 'export default {\n  meta: { api: ">=2.0.0 <3.0.0" },\n  api: 1,\n};\n';
+    expect(scriptApi(source)).toEqual({ range: API1_RANGE, api1: true });
+    const later = 'export default {\n  hooks(ctx) { const x = { api: 1 }; return {}; },\n  api: ">=2.0.0 <3.0.0",\n};\n';
+    expect(scriptApi(later)).toEqual({ range: API2_RANGE, api1: false });
+  });
+
+  it("reads a quoted key and a plain template literal", () => {
+    expect(scriptApi('export default { "api": ">=2.0.0 <3.0.0" };').range).toBe(API2_RANGE);
+    expect(scriptApi("export default { api: `>=2.0.0 <3.0.0` };").range).toBe(API2_RANGE);
+  });
+
+  it("is not thrown by a regular expression holding a quote", () => {
+    const source = 'const Q = /"/g;\nexport default { api: ">=2.0.0 <3.0.0", start() {} };\n';
+    expect(scriptApi(source).range).toBe(API2_RANGE);
+    const division = 'const half = total / 2; const slash = "/";\nexport default { api: ">=2.0.0 <3.0.0" };\n';
+    expect(scriptApi(division).range).toBe(API2_RANGE);
+  });
+
+  it("reads past a template literal whose substitution holds braces and another template", () => {
+    const source = 'const T = `a ${ { b: `api: ">=2.0.0 <3.0.0"` }.b } c`;\nexport default { note: `x ${T}`, api: 1 };\n';
+    expect(scriptApi(source)).toEqual({ range: API1_RANGE, api1: true });
+  });
+
+  it("takes an api it cannot read as API 1", () => {
+    expect(scriptApi("export default { api: RANGE };").api1).toBe(true);
+    expect(scriptApi('export default { api: ">=2.0.0" + suffix };').api1).toBe(true);
+    expect(scriptApi("export default { api: `>=${major}.0.0` };").api1).toBe(true);
+    expect(scriptApi('const mod = { api: ">=2.0.0 <3.0.0" };\nexport default mod;\n').api1).toBe(true);
+  });
+});
+
+describe("whether a range is API 2", () => {
+  const ranges: [string, boolean][] = [
+    [API2_RANGE, true],
+    [API1_RANGE, false],
+    ["^2.0.0", true],
+    ["2.x", true],
+    [">=2.1.0", true],
+    ["~2.3", true],
+    [">1.9.9", false],
+    [">=1.5.0 <3.0.0", false],
+    ["^1.4.0", false],
+    ["*", false],
+    ["banana", false],
+  ];
+  for (const [range, api2] of ranges) {
+    it(`calls "${range}" ${api2 ? "API 2" : "not API 2"}, with the SDK's semver and with the stub's`, () => {
+      expect(isApi2Range(range, satisfies)).toBe(api2);
+      expect(isApi2Range(range, STUB_AUTHORING.satisfies)).toBe(api2);
+    });
+  }
 });
 
 describe("reading a manifest in any of its three shapes", () => {
@@ -150,6 +222,79 @@ describe("the schema 2 document the demonstration library writes", () => {
       runtime: "in-process",
       modApi: 1,
     },
+    {
+      id: "listed",
+      name: "Listed",
+      version: "0.1.0",
+      shape: "content",
+      facets: ["content"],
+      engine: ">=1.22.0",
+      engineBecause: ENGINE_BECAUSE,
+      changelog: "CHANGELOG.md",
+      screenshots: ["shots/town.png"],
+      listing: { tags: ["shops"], changelog: "OLD.md" },
+      text: { default: "en", locales: { en: "text/en.json" } },
+      budget: { msPerTurn: 20 },
+    } as unknown as PackManifest,
+    {
+      id: "worker",
+      name: "Worker",
+      version: "0.1.0",
+      shape: "content",
+      facets: ["content", "plugin"],
+      api: WORKER_PREVIEW_API,
+      runtime: "worker",
+      entry: "worker.js",
+    } as unknown as PackManifest,
+    {
+      id: "in-process-entry",
+      name: "In process, with an entry",
+      version: "0.1.0",
+      shape: "content",
+      facets: ["content", "plugin"],
+      api: API2_RANGE,
+      runtime: "in-process",
+      entry: "plugin.js",
+    } as unknown as PackManifest,
+    {
+      id: "schema-one-plugin",
+      name: "Schema 1 plugin",
+      version: "0.1.0",
+      shape: "content",
+      facets: ["content", "plugin"],
+      modApi: 1,
+    },
+    {
+      id: "schema-one-worker",
+      name: "Schema 1 worker",
+      version: "0.1.0",
+      shape: "content",
+      facets: ["content", "plugin"],
+      modApi: 2,
+      runtime: "worker",
+      workerEntry: "worker.js",
+    } as unknown as PackManifest,
+    {
+      id: "api-without-runtime",
+      name: "An api with no runtime",
+      version: "0.1.0",
+      shape: "content",
+      facets: ["content", "plugin"],
+      api: API2_RANGE,
+      modApi: 1,
+    },
+    {
+      id: "conflicted",
+      name: "Conflicted",
+      version: "0.1.0",
+      shape: "content",
+      dependencies: { core: "*" },
+      compat: [
+        { with: "rival", claim: "conflicts", because: "Both rewrite the shops." },
+        { with: "other", claim: "conflicts", scope: "monster", because: "Both retune wolves." },
+        { with: "core", claim: "conflicts", because: "Listed as a dependency too." },
+      ],
+    } as unknown as PackManifest,
   ];
 
   for (const manifest of manifests) {
@@ -160,6 +305,12 @@ describe("the schema 2 document the demonstration library writes", () => {
       expect(ours["data"]).toEqual(manifestToV2(manifest as unknown as SdkPackManifest));
     });
   }
+
+  it("refuses a schema 1 API the SDK has no mapping for, as the SDK does", () => {
+    const manifest = { id: "odd", name: "Odd", version: "0.1.0", shape: "content", facets: ["content", "plugin"], modApi: 3 } as PackManifest;
+    expect(() => manifestToV2(manifest as unknown as SdkPackManifest)).toThrow(/modApi 3/u);
+    expect(() => manifestDocument(manifest)).toThrow(/modApi 3/u);
+  });
 
   it("leaves out a key schema 2 does not define, as the SDK does", () => {
     const manifest = { ...manifests[0], flavour: "mint" } as unknown as PackManifest;
