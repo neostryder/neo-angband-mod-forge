@@ -173,10 +173,18 @@ export function detailsScreen(shop: Workshop): View {
         ? undefined
         : "Required, and it has to look like an address: local://something, or a real https:// URL you own.",
     );
+    let fits: boolean | undefined;
+    try {
+      fits = shop.api.satisfies(shop.seams.engine, current.engine);
+    } catch {
+      fits = undefined;
+    }
     engine.setProblem(
-      shop.api.satisfies(shop.seams.engine, current.engine)
+      fits === true
         ? undefined
-        : `This range excludes the build you are running (${shop.seams.engine}), so you could not install what you are making.`,
+        : fits === undefined
+          ? `This is not a version range the game can read. Write one such as >=${shop.seams.engine}.`
+          : `This range excludes the build you are running (${shop.seams.engine}), so you could not install what you are making.`,
     );
     /* The id is not editable here on purpose: the game treats a renamed mod as a
      * different mod, so offering the field would be offering a mistake. */

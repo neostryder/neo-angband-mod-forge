@@ -287,7 +287,7 @@ export function writeFileText(api: AuthoringApi, draft: Draft, path: string, tex
   if (shape !== undefined) return { ok: false, why: shape };
   switch (classify(api, path)) {
     case "manifest":
-      return emittable(api, writeManifest(draft, text));
+      return emittable(api, writeManifest(api, draft, text));
     case "records":
       return writeRecordFile(draft, path.slice(0, -".json".length), text);
     case "extra": {
@@ -390,13 +390,19 @@ const DERIVED = [
   "dependencies",
   "affectsGameplay",
   "modApi",
-  "api",
-  "runtime",
   "engineBecause",
   "sections",
 ] as const;
 
-function writeManifest(draft: Draft, text: string): WriteOutcome {
+/**
+ * `api` and `runtime` come from plugin.js. The game runs the script, not the
+ * manifest, so a manifest that says otherwise is refused on save. A matching
+ * value is dropped rather than stored, and the next change to the script
+ * carries the manifest with it.
+ */
+const FROM_CODE = ["api", "runtime"] as const;
+
+function writeManifest(api: AuthoringApi, draft: Draft, text: string): WriteOutcome {
   const parsed = parseObject(text, "The manifest");
   if (!parsed.ok) return parsed;
   const read = manifestFields(parsed.value);
@@ -453,9 +459,17 @@ function writeManifest(draft: Draft, text: string): WriteOutcome {
   /* A mod with no code declares no API, and schema 2 writes that as `api: "*"` and
    * `runtime: "data"`. Those two are what a manifest with no code reads back. */
   const derivedNow: Record<string, JsonValue> = { api: "*", runtime: "data", ...derived };
+  const code = scriptFiles(next);
+  for (const key of FROM_CODE) {
+    const value = raw[key];
+    if (value === undefined) continue;
+    const refusal = codeKeyRefusal(api, key, value, derivedNow[key], code);
+    if (refusal !== undefined) return { ok: false, why: refusal };
+  }
   const extras: JsonRecord = {};
   for (const [key, value] of Object.entries(raw)) {
     if ((OWNED as readonly string[]).includes(key)) continue;
+    if ((FROM_CODE as readonly string[]).includes(key)) continue;
     if ((DERIVED as readonly string[]).includes(key) && JSON.stringify(derivedNow[key]) === JSON.stringify(value)) {
       continue;
     }
@@ -468,13 +482,13 @@ function writeManifest(draft: Draft, text: string): WriteOutcome {
    * An override that removes one is refused here. Shipped, it would give a mod
    * that installs and does nothing, or one that does not install, and the author
    * would have no reason to suspect the line they changed. */
-  if (scriptFiles(next).length > 0) {
+  if (code.length > 0) {
     const facets = extras["facets"];
     if (facets !== undefined && !(Array.isArray(facets) && facets.includes("plugin"))) {
       return {
         ok: false,
         why:
-          `This mod ships ${scriptFiles(next).join(", ")}, so "facets" has to include "plugin" or the game will ` +
+          `This mod ships ${code.join(", ")}, so "facets" has to include "plugin" or the game will ` +
           `not run the code. Leave the line out and the workshop fills it in.`,
       };
     }
@@ -484,15 +498,42 @@ function writeManifest(draft: Draft, text: string): WriteOutcome {
         why: `"modApi" has to be a whole number. It is the schema 1 number for the mod API the code is written for.`,
       };
     }
-    if (extras["api"] !== undefined && typeof extras["api"] !== "string") {
-      return {
-        ok: false,
-        why: `"api" has to be a version range in quotes, such as ">=2.0.0 <3.0.0". It names the mod API the code is written for.`,
-      };
-    }
   }
 
   return { ok: true, draft: { ...next, manifestExtras: extras } };
+}
+
+/**
+ * Why the manifest's `api` or `runtime` cannot be saved, or undefined when it
+ * matches what the mod's code makes it. The range is read with the authoring
+ * library's semver, so a range the game cannot read is refused as one.
+ */
+function codeKeyRefusal(
+  api: AuthoringApi,
+  key: (typeof FROM_CODE)[number],
+  value: JsonValue,
+  want: JsonValue | undefined,
+  code: readonly string[],
+): string | undefined {
+  if (key === "api") {
+    if (typeof value !== "string") {
+      return `"api" has to be a version range in quotes, such as ">=2.0.0 <3.0.0". It names the mod API the code is written for.`;
+    }
+    try {
+      api.satisfies("0.0.0", value);
+    } catch {
+      return `"api" in the manifest is ${JSON.stringify(value)}, which is not a version range. Write one such as ">=2.0.0 <3.0.0", or leave the line out and the workshop fills it in.`;
+    }
+  }
+  if (JSON.stringify(value) === JSON.stringify(want)) return undefined;
+  const is = `"${key}" in the manifest is ${JSON.stringify(value)}`;
+  if (code.length === 0) {
+    return `${is}, but this mod ships no code, so it has to be ${JSON.stringify(want)}. Leave the line out and the workshop fills it in.`;
+  }
+  if (key === "api") {
+    return `${is}, but the api in plugin.js makes it ${JSON.stringify(want)}. The game goes by the script, so change the api there and the manifest follows, or leave the line out here.`;
+  }
+  return `${is}, but the game runs this mod's code in its own page, so it has to be ${JSON.stringify(want)}. Leave the line out and the workshop fills it in.`;
 }
 
 /** The record-file keys this draft models: four direct contributions and named sections of them. */

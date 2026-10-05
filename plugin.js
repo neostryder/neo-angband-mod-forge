@@ -13,13 +13,226 @@ var MANIFEST_FORMAT = "neo-angband/mod/manifest";
 var API1_RANGE = ">=1.0.0 <2.0.0";
 var ENGINE_BECAUSE = "Made in ModForge on this version of the game. Older versions have not been tried.";
 function scriptApi(source) {
-  const quoted = source === void 0 ? null : /\bapi\s*:\s*(["'`])([^"'`\n]+)\1/u.exec(source);
-  const range = quoted?.[2]?.trim();
-  if (range === void 0 || range === "") return { range: API1_RANGE, api1: true };
+  const api1 = { range: API1_RANGE, api1: true };
+  if (source === void 0) return api1;
+  const value = defaultExportApi(scanScript(source));
+  if (typeof value !== "string") return api1;
+  const range = value.trim();
+  if (range === "") return api1;
   return { range, api1: range === API1_RANGE };
 }
-function isApi2Range(range) {
-  return /^>=\s*2\./u.test(range.trim());
+var REGEX_AFTER_WORD = /* @__PURE__ */ new Set([
+  "return",
+  "typeof",
+  "instanceof",
+  "in",
+  "of",
+  "new",
+  "delete",
+  "void",
+  "throw",
+  "case",
+  "do",
+  "else",
+  "yield",
+  "await"
+]);
+var ESCAPES = { n: "\n", t: "	", r: "\r", b: "\b", f: "\f", v: "\v", "0": "\0" };
+function scanScript(source) {
+  const out = source.split("");
+  const literals = /* @__PURE__ */ new Map();
+  const blank = (from, to) => {
+    for (let k = from; k < to; k++) if (out[k] !== "\n") out[k] = " ";
+  };
+  const substitutions = [];
+  const openTemplates = [];
+  let braces = 0;
+  let last = "";
+  let lastWord = "";
+  let i = 0;
+  const templateText = (start, from, value) => {
+    let text = value;
+    let k = from;
+    while (k < source.length) {
+      const c = source[k];
+      if (c === "\\") {
+        const next = source[k + 1] ?? "";
+        if (text !== null) text += ESCAPES[next] ?? next;
+        k += 2;
+        continue;
+      }
+      if (c === "`") {
+        blank(from, k);
+        literals.set(start, { value: text, end: k + 1 });
+        last = "`";
+        return k + 1;
+      }
+      if (c === "$" && source[k + 1] === "{") {
+        blank(from, k + 2);
+        literals.set(start, { value: null, end: -1 });
+        openTemplates.push(start);
+        substitutions.push(braces);
+        last = "{";
+        return k + 2;
+      }
+      if (text !== null) text += c;
+      k++;
+    }
+    blank(from, source.length);
+    literals.set(start, { value: null, end: source.length });
+    return source.length;
+  };
+  while (i < source.length) {
+    const c = source[i] ?? "";
+    const next = source[i + 1] ?? "";
+    if (c === "/" && next === "/") {
+      const end = source.indexOf("\n", i);
+      const stop = end < 0 ? source.length : end;
+      blank(i, stop);
+      i = stop;
+      continue;
+    }
+    if (c === "/" && next === "*") {
+      const end = source.indexOf("*/", i + 2);
+      const stop = end < 0 ? source.length : end + 2;
+      blank(i, stop);
+      i = stop;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      let value = "";
+      let k = i + 1;
+      while (k < source.length && source[k] !== c && source[k] !== "\n") {
+        if (source[k] === "\\") {
+          const escaped = source[k + 1] ?? "";
+          value += ESCAPES[escaped] ?? escaped;
+          k += 2;
+          continue;
+        }
+        value += source[k];
+        k++;
+      }
+      blank(i + 1, k);
+      literals.set(i, { value, end: k + 1 });
+      last = c;
+      i = k + 1;
+      continue;
+    }
+    if (c === "`") {
+      i = templateText(i, i + 1, "");
+      continue;
+    }
+    if (c === "}" && substitutions.length > 0 && substitutions[substitutions.length - 1] === braces) {
+      substitutions.pop();
+      out[i] = " ";
+      const start = openTemplates.pop() ?? i;
+      i = templateText(start, i + 1, null);
+      continue;
+    }
+    if (c === "/" && (last === "" || "(,=:[!&|?{};+-*%<>~^".includes(last) || last === "a" && REGEX_AFTER_WORD.has(lastWord))) {
+      let k = i + 1;
+      let inClass = false;
+      while (k < source.length && source[k] !== "\n") {
+        const r = source[k];
+        if (r === "\\") {
+          k += 2;
+          continue;
+        }
+        if (r === "[") inClass = true;
+        else if (r === "]") inClass = false;
+        else if (r === "/" && !inClass) break;
+        k++;
+      }
+      if (source[k] === "/") {
+        blank(i + 1, k);
+        last = ")";
+        i = k + 1;
+        continue;
+      }
+    }
+    if (/[A-Za-z_$0-9]/u.test(c)) {
+      let k = i;
+      while (k < source.length && /[A-Za-z_$0-9]/u.test(source[k] ?? "")) k++;
+      lastWord = source.slice(i, k);
+      last = "a";
+      i = k;
+      continue;
+    }
+    if (c === "{") braces++;
+    else if (c === "}") braces--;
+    if (!/\s/u.test(c)) last = c;
+    i++;
+  }
+  return { code: out.join(""), literals };
+}
+function defaultExportApi({ code, literals }) {
+  const opening = /\bexport\s+default\s*\{/u.exec(code);
+  if (opening === null) return void 0;
+  const skipSpace = (k2) => {
+    while (k2 < code.length && /\s/u.test(code[k2] ?? "")) k2++;
+    return k2;
+  };
+  const endsMember = (k2) => {
+    const c = code[skipSpace(k2)];
+    return c === "," || c === "}";
+  };
+  let k = opening.index + opening[0].length;
+  while (k < code.length) {
+    k = skipSpace(k);
+    if (code[k] === "}") return void 0;
+    let key;
+    let afterKey = k;
+    const literal = literals.get(k);
+    if (literal !== void 0 && (code[k] === '"' || code[k] === "'")) {
+      key = literal.value ?? void 0;
+      afterKey = literal.end;
+    } else {
+      const name = /^[A-Za-z_$][A-Za-z0-9_$]*/u.exec(code.slice(k));
+      if (name !== null) {
+        key = name[0];
+        afterKey = k + name[0].length;
+      }
+    }
+    const colon = skipSpace(afterKey);
+    if (key === "api" && code[colon] === ":") {
+      const at = skipSpace(colon + 1);
+      const value = literals.get(at);
+      if (value !== void 0 && "\"'`".includes(code[at] ?? "")) {
+        return value.value !== null && endsMember(value.end) ? value.value : void 0;
+      }
+      const number = /^\d+/u.exec(code.slice(at));
+      if (number !== null && number[0] === "1" && endsMember(at + 1)) return 1;
+      return void 0;
+    }
+    let depth = 0;
+    for (; k < code.length; k++) {
+      const c = code[k];
+      if (c === "{" || c === "(" || c === "[") depth++;
+      else if (c === "}" || c === ")" || c === "]") {
+        if (depth === 0) return void 0;
+        depth--;
+      } else if (c === "," && depth === 0) break;
+    }
+    k++;
+  }
+  return void 0;
+}
+function isApi2Range(range, satisfies2) {
+  const candidates = /* @__PURE__ */ new Set(["1.0.0"]);
+  for (const bound of range.matchAll(/(\d+)(?:\.(\d+))?(?:\.(\d+))?/gu)) {
+    if (Number(bound[1]) !== 1) continue;
+    const minor = Number(bound[2] ?? 0);
+    const patch = Number(bound[3] ?? 0);
+    candidates.add(`1.${minor}.${patch}`);
+    candidates.add(`1.${minor}.${patch + 1}`);
+    candidates.add(`1.${minor + 1}.0`);
+  }
+  try {
+    satisfies2("0.0.0", range);
+    return ![...candidates].some((version) => satisfies2(version, range));
+  } catch {
+    return false;
+  }
 }
 var isObject = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 function manifestFields(raw) {
@@ -96,34 +309,95 @@ var KEPT_FIELDS = [
   "affectsGameplay",
   "capabilities"
 ];
-function manifestDocument(manifest) {
-  const m = manifest;
-  const code = manifest.shape === "plugin" || (manifest.facets ?? []).includes("plugin");
-  const runtime = manifest.runtime ?? (code ? "in-process" : "data");
-  const api = manifest.api ?? (code ? manifest.modApi === 1 ? API1_RANGE : "" : "*");
-  const data = { id: manifest.id, name: manifest.name, version: manifest.version, api, runtime };
-  if (manifest.engine !== void 0) {
-    data["engine"] = { range: manifest.engine, because: manifest.engineBecause ?? ENGINE_BECAUSE };
-  }
-  const reasons = m["dependencyReasons"] ?? {};
-  const deps = (map) => map === void 0 ? void 0 : Object.fromEntries(
-    Object.entries(map).map(([id, range]) => [
-      id,
-      typeof reasons[id] === "string" ? { range, because: reasons[id] } : { range }
-    ])
-  );
-  const required = deps(manifest.dependencies);
-  const optional = deps(manifest.optionalDependencies);
-  if (required !== void 0 || optional !== void 0) {
-    data["dependencies"] = {
-      ...required === void 0 ? {} : { required },
-      ...optional === void 0 ? {} : { optional }
+var WORKER_PREVIEW_API = "2.0.0-worker";
+var CONVERTED_ENGINE_REASON = "Carried over from a schema 1 manifest, which gave no reason.";
+function runtimeOf(m) {
+  if (m["api"] !== void 0 && m["runtime"] !== void 0) {
+    return {
+      runtime: m["runtime"],
+      api: m["api"],
+      ...m["runtime"] === "worker" && m["entry"] !== void 0 ? { entry: m["entry"] } : {}
     };
   }
+  const facets = Array.isArray(m["facets"]) ? m["facets"] : [m["shape"] ?? null];
+  const code = facets.includes("plugin") || m["shape"] === "plugin";
+  const modApi = m["modApi"];
+  if (modApi === 2 && m["runtime"] === "worker" && typeof m["workerEntry"] === "string") {
+    return { runtime: "worker", api: WORKER_PREVIEW_API, entry: m["workerEntry"] };
+  }
+  if (modApi === 1 && (m["runtime"] === void 0 || m["runtime"] === "in-process")) {
+    return { runtime: "in-process", api: API1_RANGE };
+  }
+  if (modApi === void 0 && !code) return { runtime: "data", api: "*" };
+  return null;
+}
+function manifestDocument(manifest) {
+  const m = manifest;
+  const mapped = runtimeOf(m);
+  if (mapped === null) {
+    const id = String(m["id"]);
+    throw new Error(
+      m["modApi"] === void 0 ? `manifest ${id}: ships code but declares no modApi, so there is no API to convert it to; add "modApi": 1 first` : `manifest ${id}: modApi ${String(m["modApi"])}${m["runtime"] === void 0 ? "" : ` with runtime "${String(m["runtime"])}"`} has no schema 2 mapping`
+    );
+  }
+  const data = {
+    id: manifest.id,
+    name: manifest.name,
+    version: manifest.version,
+    api: mapped.api,
+    runtime: mapped.runtime,
+    ...mapped.entry === void 0 ? {} : { entry: mapped.entry }
+  };
+  if (m["engine"] !== void 0 && m["engineBecause"] !== void 0) {
+    data["engine"] = { range: m["engine"], because: m["engineBecause"] };
+  } else if (typeof m["engine"] === "string") {
+    data["engine"] = { range: m["engine"], because: CONVERTED_ENGINE_REASON };
+  }
+  const reasons = m["dependencyReasons"] ?? {};
+  const deps = (map) => {
+    if (!isObject(map)) return void 0;
+    const out = {};
+    for (const [id, range] of Object.entries(map)) {
+      out[id] = typeof reasons[id] === "string" ? { range: String(range), because: reasons[id] } : { range: String(range) };
+    }
+    return out;
+  };
+  const required = deps(m["dependencies"]);
+  const optional = deps(m["optionalDependencies"]);
+  const compat = Array.isArray(m["compat"]) ? m["compat"] : void 0;
+  const conflicts = {};
+  const keptCompat = [];
+  if (compat !== void 0) {
+    const wholeMod = compat.filter((c) => c["claim"] === "conflicts" && c["scope"] === void 0);
+    for (const claim of compat) {
+      const other = String(claim["with"]);
+      const movable = claim["claim"] === "conflicts" && claim["scope"] === void 0 && wholeMod.filter((c) => c["with"] === claim["with"]).length === 1 && required?.[other] === void 0 && optional?.[other] === void 0;
+      if (movable) {
+        conflicts[other] = {
+          ...claim["range"] === void 0 ? {} : { range: claim["range"] },
+          ...claim["because"] === void 0 ? {} : { because: claim["because"] }
+        };
+      } else {
+        keptCompat.push(claim);
+      }
+    }
+  }
+  const dependencies = {};
+  if (required !== void 0) dependencies["required"] = required;
+  if (optional !== void 0) dependencies["optional"] = optional;
+  if (Object.keys(conflicts).length > 0) dependencies["conflicts"] = conflicts;
+  if (Object.keys(dependencies).length > 0) data["dependencies"] = dependencies;
   for (const key of KEPT_FIELDS) {
     if (m[key] !== void 0) data[key] = m[key];
   }
-  if (Array.isArray(m["compat"]) && m["compat"].length > 0) data["compat"] = m["compat"];
+  if (compat !== void 0 && keptCompat.length > 0) data["compat"] = keptCompat;
+  const listing = {};
+  if (Array.isArray(m["screenshots"])) listing["screenshots"] = m["screenshots"];
+  if (typeof m["changelog"] === "string") listing["changelog"] = m["changelog"];
+  if (m["listing"] !== void 0) data["listing"] = { ...isObject(m["listing"]) ? m["listing"] : {}, ...listing };
+  else if (Object.keys(listing).length > 0) data["listing"] = listing;
+  if (m["text"] !== void 0) data["text"] = m["text"];
+  if (m["budget"] !== void 0) data["budget"] = m["budget"];
   return { format: MANIFEST_FORMAT, schemaVersion: 2, data };
 }
 
@@ -1237,19 +1511,82 @@ function provenanceOf(record) {
     ...isRecord(was) ? { was } : {}
   };
 }
-function satisfies(version, range) {
-  if (range.trim() === "*" || range.trim() === "") return true;
-  const m = /^>=\s*(\d+)\.(\d+)\.(\d+)/.exec(range.trim());
-  if (!m) return true;
-  const v = /^(\d+)\.(\d+)\.(\d+)/.exec(version.trim());
-  if (!v) return false;
-  for (let i = 1; i <= 3; i++) {
-    const have = Number(v[i] ?? 0);
-    const need = Number(m[i] ?? 0);
-    if (have > need) return true;
-    if (have < need) return false;
+var PARTIAL_VERSION_RE = /^(\d+|[xX*])(?:\.(\d+|[xX*]))?(?:\.(\d+|[xX*]))?(?:-([0-9A-Za-z.-]+))?$/;
+function partialVersion(s) {
+  const match = PARTIAL_VERSION_RE.exec(s);
+  if (!match) throw new Error(`malformed version: ${s}`);
+  const part = (p) => p === void 0 || /^[xX*]$/.test(p) ? null : Number(p);
+  return { major: part(match[1]), minor: part(match[2]), patch: part(match[3]), prerelease: match[4] ?? null };
+}
+function comparePrerelease(a, b) {
+  const left = a.split(".");
+  const right = b.split(".");
+  for (let i = 0; i < Math.max(left.length, right.length); i++) {
+    const l = left[i];
+    const r = right[i];
+    if (l === void 0) return -1;
+    if (r === void 0) return 1;
+    if (l === r) continue;
+    const lNum = /^\d+$/.test(l);
+    const rNum = /^\d+$/.test(r);
+    if (lNum !== rNum) return lNum ? -1 : 1;
+    if (lNum) return Number(l) < Number(r) ? -1 : 1;
+    return l < r ? -1 : 1;
   }
-  return true;
+  return 0;
+}
+function compareVersions(a, b) {
+  if (a.major !== b.major) return a.major < b.major ? -1 : 1;
+  if (a.minor !== b.minor) return a.minor < b.minor ? -1 : 1;
+  if (a.patch !== b.patch) return a.patch < b.patch ? -1 : 1;
+  if (a.prerelease === b.prerelease) return 0;
+  if (a.prerelease === null) return 1;
+  if (b.prerelease === null) return -1;
+  return comparePrerelease(a.prerelease, b.prerelease);
+}
+function rangeToken(token, v) {
+  if (token === "*" || token.toLowerCase() === "x") return true;
+  const op = /^(?:>=|<=|\^|~|>|<|=)?/.exec(token)?.[0] ?? "";
+  const p = partialVersion(token.slice(op.length));
+  if (p.major === null) return true;
+  const major = p.major;
+  const bound = { major, minor: p.minor ?? 0, patch: p.patch ?? 0, prerelease: p.prerelease };
+  const at = (ma, mi, pa) => ({ major: ma, minor: mi, patch: pa, prerelease: null });
+  const within = (lower, upper) => compareVersions(v, lower) >= 0 && compareVersions(v, upper) < 0;
+  switch (op) {
+    case "^":
+      return within(
+        bound,
+        major > 0 ? at(major + 1, 0, 0) : bound.minor > 0 ? at(0, bound.minor + 1, 0) : at(0, 0, bound.patch + 1)
+      );
+    case "~":
+      return within(bound, p.minor === null ? at(major + 1, 0, 0) : at(major, bound.minor + 1, 0));
+    case ">=":
+      return compareVersions(v, bound) >= 0;
+    case ">":
+      return compareVersions(v, bound) > 0;
+    case "<=":
+      return compareVersions(v, bound) <= 0;
+    case "<":
+      return compareVersions(v, bound) < 0;
+    case "=":
+      return compareVersions(v, bound) === 0;
+    default:
+      if (p.minor === null) return within(at(major, 0, 0), at(major + 1, 0, 0));
+      if (p.patch === null) return within(at(major, p.minor, 0), at(major, p.minor + 1, 0));
+      return compareVersions(v, bound) === 0;
+  }
+}
+function satisfies(version, range) {
+  const trimmed = range.trim();
+  if (trimmed.length === 0) throw new Error("empty version range");
+  if (trimmed === "*" || trimmed.toLowerCase() === "x") return true;
+  const p = partialVersion(version);
+  if (p.major === null || p.minor === null || p.patch === null) {
+    throw new Error(`expected a full major.minor.patch version, got: ${version}`);
+  }
+  const v = { major: p.major, minor: p.minor, patch: p.patch, prerelease: p.prerelease };
+  return trimmed.split(/\s+/).every((token) => rangeToken(token, v));
 }
 var STUB_AUTHORING = {
   BLUEPRINT_FILES: Object.keys(BLUEPRINTS).sort(),
@@ -2006,7 +2343,7 @@ function writeFileText(api, draft, path, text) {
   if (shape !== void 0) return { ok: false, why: shape };
   switch (classify(api, path)) {
     case "manifest":
-      return emittable(api, writeManifest(draft, text));
+      return emittable(api, writeManifest(api, draft, text));
     case "records":
       return writeRecordFile(draft, path.slice(0, -".json".length), text);
     case "extra": {
@@ -2075,12 +2412,11 @@ var DERIVED = [
   "dependencies",
   "affectsGameplay",
   "modApi",
-  "api",
-  "runtime",
   "engineBecause",
   "sections"
 ];
-function writeManifest(draft, text) {
+var FROM_CODE = ["api", "runtime"];
+function writeManifest(api, draft, text) {
   const parsed = parseObject(text, "The manifest");
   if (!parsed.ok) return parsed;
   const read = manifestFields(parsed.value);
@@ -2117,20 +2453,28 @@ function writeManifest(draft, text) {
   const next = { ...draft, ...strings, fields };
   const derived = manifestFor({ ...next, manifestExtras: {} });
   const derivedNow = { api: "*", runtime: "data", ...derived };
+  const code = scriptFiles(next);
+  for (const key of FROM_CODE) {
+    const value = raw[key];
+    if (value === void 0) continue;
+    const refusal = codeKeyRefusal(api, key, value, derivedNow[key], code);
+    if (refusal !== void 0) return { ok: false, why: refusal };
+  }
   const extras = {};
   for (const [key, value] of Object.entries(raw)) {
     if (OWNED.includes(key)) continue;
+    if (FROM_CODE.includes(key)) continue;
     if (DERIVED.includes(key) && JSON.stringify(derivedNow[key]) === JSON.stringify(value)) {
       continue;
     }
     extras[key] = value;
   }
-  if (scriptFiles(next).length > 0) {
+  if (code.length > 0) {
     const facets = extras["facets"];
     if (facets !== void 0 && !(Array.isArray(facets) && facets.includes("plugin"))) {
       return {
         ok: false,
-        why: `This mod ships ${scriptFiles(next).join(", ")}, so "facets" has to include "plugin" or the game will not run the code. Leave the line out and the workshop fills it in.`
+        why: `This mod ships ${code.join(", ")}, so "facets" has to include "plugin" or the game will not run the code. Leave the line out and the workshop fills it in.`
       };
     }
     if (extras["modApi"] !== void 0 && typeof extras["modApi"] !== "number") {
@@ -2139,14 +2483,29 @@ function writeManifest(draft, text) {
         why: `"modApi" has to be a whole number. It is the schema 1 number for the mod API the code is written for.`
       };
     }
-    if (extras["api"] !== void 0 && typeof extras["api"] !== "string") {
-      return {
-        ok: false,
-        why: `"api" has to be a version range in quotes, such as ">=2.0.0 <3.0.0". It names the mod API the code is written for.`
-      };
-    }
   }
   return { ok: true, draft: { ...next, manifestExtras: extras } };
+}
+function codeKeyRefusal(api, key, value, want, code) {
+  if (key === "api") {
+    if (typeof value !== "string") {
+      return `"api" has to be a version range in quotes, such as ">=2.0.0 <3.0.0". It names the mod API the code is written for.`;
+    }
+    try {
+      api.satisfies("0.0.0", value);
+    } catch {
+      return `"api" in the manifest is ${JSON.stringify(value)}, which is not a version range. Write one such as ">=2.0.0 <3.0.0", or leave the line out and the workshop fills it in.`;
+    }
+  }
+  if (JSON.stringify(value) === JSON.stringify(want)) return void 0;
+  const is = `"${key}" in the manifest is ${JSON.stringify(value)}`;
+  if (code.length === 0) {
+    return `${is}, but this mod ships no code, so it has to be ${JSON.stringify(want)}. Leave the line out and the workshop fills it in.`;
+  }
+  if (key === "api") {
+    return `${is}, but the api in plugin.js makes it ${JSON.stringify(want)}. The game goes by the script, so change the api there and the manifest follows, or leave the line out here.`;
+  }
+  return `${is}, but the game runs this mod's code in its own page, so it has to be ${JSON.stringify(want)}. Leave the line out and the workshop fills it in.`;
 }
 var CONTRIBUTIONS = ["records", "fieldPatches", "replaces", "removes", "sections"];
 function writeRecordFile(draft, file, text) {
@@ -4541,8 +4900,14 @@ function detailsScreen(shop) {
     repository.setProblem(
       /^(?:[a-z][a-z0-9+.-]*:\/\/|git@)/.test(current.repository) ? void 0 : "Required, and it has to look like an address: local://something, or a real https:// URL you own."
     );
+    let fits;
+    try {
+      fits = shop.api.satisfies(shop.seams.engine, current.engine);
+    } catch {
+      fits = void 0;
+    }
     engine.setProblem(
-      shop.api.satisfies(shop.seams.engine, current.engine) ? void 0 : `This range excludes the build you are running (${shop.seams.engine}), so you could not install what you are making.`
+      fits === true ? void 0 : fits === void 0 ? `This is not a version range the game can read. Write one such as >=${shop.seams.engine}.` : `This range excludes the build you are running (${shop.seams.engine}), so you could not install what you are making.`
     );
     const idProblem = ID_RE2.test(current.id) ? "" : ` The id "${current.id}" is not one the game will accept.`;
     const deps = Object.keys(dependenciesFor(allChanges(current)));
@@ -8731,7 +9096,7 @@ function verdictScreen(shop) {
         text: `${size.added} new record${size.added === 1 ? "" : "s"}, ${size.patched} adjusted, ${size.removed} removed, ${current.sections?.length ?? 0} switchable section${(current.sections?.length ?? 0) === 1 ? "" : "s"}, across ${files.length} file${files.length === 1 ? "" : "s"}. Checked against the game as it is loaded right now, mods included, since that is what your changes will apply to.`
       }),
       ...shop.seams.authoring.demonstration ? [h("p", null, h("b", { text: "These checks are the workshop's own small set, not the game's. " }), shop.seams.authoring.why ?? "")] : [],
-      ...script !== void 0 && isApi2Range(scriptApi(script).range) ? [
+      ...script !== void 0 && isApi2Range(scriptApi(script).range, (version, range) => shop.api.satisfies(version, range)) ? [
         h(
           "p",
           null,
