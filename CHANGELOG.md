@@ -27,6 +27,7 @@ were not retagged.
 ### Changed
 
 - [Visible] [Modding-API] **The workshop now writes `manifest.json` as a schema 2 document, and the file screen can start a `plugin.js` for mod API 2 as well as for API 1.** API 1 stays the default because this game loads it, and the review screen warns when a script targets API 2 and will not run yet. The SDK docs inside the workshop now include the API 2 reference and its migration guide. ModForge's own manifest is schema 2 as well, so this version needs a game that reads schema 2 manifests.
+- [Visible] [UI] **A greyed-out Try it in the game button or Test panel now tells you when ModForge is missing a permission.** Only the copy of ModForge installed from its own repository may load a mod for one session, and the game asks about that and about the debug commands separately. A copy loaded from a folder or a zip, or one whose permission you turned down, used to say the game had no such feature. The note under Forge and install no longer says the game cannot install mods; the workshop saves the finished mod as a file, and you add it with Import a zip.
 
 ### Removed
 

@@ -96,18 +96,28 @@ const NO_RECORDS =
   "from the workshop's demonstration set, not from the real game.";
 
 const NO_INSTALL =
-  "This game has no way for a mod to install another mod, so the workshop saves the finished mod as a file " +
-  "and you add it with Import a zip on the Mods screen. That takes two extra steps, and you end up with " +
-  "a file you can read, keep and share.";
+  "The workshop does not install mods itself, so it saves the finished mod as a file and you add it with " +
+  "Import a zip on the Mods screen. That takes two extra steps, and you end up with a file you can read, " +
+  "keep and share.";
 
 const NO_SESSION =
   "This game has no way to load a mod for one session, so to try one you have to install it: the workshop saves " +
   "the finished mod as a file, then you add it with Import a zip on the Mods screen, turn it on and reload. The " +
   "mod then stays in your library, where you would want it once it is finished anyway.";
 
+const SESSION_NOT_GRANTED =
+  "This copy of the workshop has no permission to load a mod for one session. The game gives that permission " +
+  "only to the workshop installed from its own repository, and asks you about it on its own. Without it, to try " +
+  "a mod you have to install it: the workshop saves the finished mod as a file, then you add it with Import a " +
+  "zip on the Mods screen, turn it on and reload.";
+
 const NO_WIZARD_SEAM =
   "This game does not give the workshop its debug commands, so it cannot put anything in front of you or take " +
   "you anywhere. Forge the mod, try it for the session, reload, and go and find the thing yourself.";
+
+const WIZARD_NOT_GRANTED =
+  "This mod has no permission to use the game's debug commands, so it cannot put anything in front of you or " +
+  "take you anywhere. Forge the mod, try it for the session, reload, and go and find the thing yourself.";
 
 const WIZARD_OFF = 'The "Let me test what I built" setting is off for this mod. Turn it on in the mod manager.';
 
@@ -124,26 +134,25 @@ export function resolveSeams(ctx: BuilderCtx): Seams {
       : { available: false, why: NO_RECORDS, api: realApi, records: STUB_RECORDS, demonstration: true }
     : { available: false, why: NO_AUTHORING, api: STUB_AUTHORING, records: realRecords ?? STUB_RECORDS, demonstration: true };
 
-  const installer = ctx.installMod;
-  const reloader = ctx.reloadGame;
-  const install: InstallSeam = installer
-    ? {
-        available: true,
-        install: installer,
-        reload: reloader ?? (async () => undefined),
-        reloadByHand: reloader === undefined,
-      }
-    : {
-        available: false,
-        why: NO_INSTALL,
-        install: async () => ({
-          ok: false as const,
-          problem: NO_INSTALL,
-          lines: [NO_INSTALL],
-        }),
-        reload: async () => undefined,
-        reloadByHand: true,
-      };
+  /* ModForge does not request mod:install, so the game never passes
+   * ctx.installMod and this seam stays off. See seam 3 in docs/ENGINE_SEAMS.md. */
+  const install: InstallSeam = {
+    available: false,
+    why: NO_INSTALL,
+    install: async () => ({
+      ok: false as const,
+      problem: NO_INSTALL,
+      lines: [NO_INSTALL],
+    }),
+    reload: async () => undefined,
+    reloadByHand: true,
+  };
+
+  /* Engine 1.0.0, the oldest this mod loads on, already has the session and
+   * debug seams. If the authoring library is here and a seam is not, the player
+   * refused that permission or this copy is not the one installed from the mod's
+   * repository. No library means a preview or a test host. */
+  const realHost = realApi !== undefined;
 
   /**
    * RELOADING IS A SEAM NOW, for the session case, and the preference order below is
@@ -165,13 +174,13 @@ export function resolveSeams(ctx: BuilderCtx): Seams {
     ? { available: true, load: stager, reload: reload ?? ((): void => undefined), reloadByHand: reload === null }
     : {
         available: false,
-        why: NO_SESSION,
-        load: async () => ({ ok: false as const, problem: NO_SESSION }),
+        why: realHost ? SESSION_NOT_GRANTED : NO_SESSION,
+        load: async () => ({ ok: false as const, problem: realHost ? SESSION_NOT_GRANTED : NO_SESSION }),
         reload: (): void => undefined,
         reloadByHand: true,
       };
 
-  return { authoring, install, session, wizard: resolveWizard(ctx), engine: ctx.engine };
+  return { authoring, install, session, wizard: resolveWizard(ctx, realHost), engine: ctx.engine };
 }
 
 /**
@@ -198,9 +207,9 @@ export function resolveSeams(ctx: BuilderCtx): Seams {
  * browser in from it. Deciding what to test is how a player decides whether to
  * detach at all.
  */
-function resolveWizard(ctx: BuilderCtx): WizardSeam {
+function resolveWizard(ctx: BuilderCtx, realHost: boolean): WizardSeam {
   if (ctx.flags[FLAG.cheatSpawn] !== true) return { available: false, why: WIZARD_OFF };
-  if (ctx.wizard === undefined) return { available: false, why: NO_WIZARD_SEAM };
+  if (ctx.wizard === undefined) return { available: false, why: realHost ? WIZARD_NOT_GRANTED : NO_WIZARD_SEAM };
   if (ctx.state === undefined) return { available: false, why: NO_GAME, api: ctx.wizard };
   return { available: true, api: ctx.wizard };
 }

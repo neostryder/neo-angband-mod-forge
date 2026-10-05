@@ -204,11 +204,7 @@ installed.
 
 ## Seam 3. `ctx.installMod` - install the bytes - DECLINED; reload LANDED
 
-The install contract below records the evaluated shape, but ModForge does not ask
-for the capability and the engine does not expose this field. The session-loading
-door already supplies the authoring loop without granting a mod permission to make
-another mod permanent. `ctx.reloadGame`, also recorded in this section, did land
-for callers holding `mod:session` or `mod:install`.
+The install contract below records the evaluated shape. ModForge does not ask for `mod:install`, so the game never hands it `ctx.installMod`, and the workshop's install button stays off. The session-loading door already supplies the authoring loop without granting a mod permission to make another mod permanent. `ctx.reloadGame`, also recorded in this section, did land for callers holding `mod:session` or `mod:install`.
 
 The `mod:install` capability would require a new string, a new arm in `parseCapability`, and a new arm
 in `grantCovers`, new arm in `describeCapability` with elevated consent text. The
@@ -343,9 +339,7 @@ The workshop uses it in these ways:
   can invalidate references held by live entities and by generation code. The loop is
   forge, play, test - and forging and playing is now one button.
 
-Without it, the Test panel is reachable, disabled, and says which of three
-reasons applies: the setting is off, the engine has no seam, or there is no live
-game. The catalogue browser still fills in whenever there is a game to read.
+Without it, the Test panel still opens, with its controls off and the reason on screen. The setting may be off, the player may have refused `debug:wizard`, the game may have no such seam, or no game is running. A game that hands over the authoring library always has the seam, so there the reason given is the refused permission. The catalogue browser fills in whenever there is a game to read.
 
 ---
 
@@ -356,6 +350,8 @@ The `mod:session` capability landed in the engine. It is a separate string from
 player: an install arrives switched off and waits to be turned on, and a session
 load is on as soon as the game reloads. The engine's `grantCovers` compares the
 action so neither consent sentence can be spent on the other.
+
+`mod:session` belongs to the game's management permissions. Only the copy of ModForge installed from its own repository, with unchanged files, can hold it, and the game asks about it separately from the rest. Load ModForge from a folder or a zip and it runs without it.
 
 ```ts
 /**
@@ -409,9 +405,7 @@ pack gone, that character's mod-owned monsters and items belong to something tha
 is not installed. "Only for this session" reads as a safety feature and is not
 one, so the note under the button says the other half in the same breath.
 
-Without it, the Try button is present, disabled, and says that this game has
-no way to load a mod for one session, so trying one means installing it - which
-is the loop that already worked, spelled out rather than implied.
+Without it, the Try button is there but greyed out, with a note under it. If the game handed over the authoring library, the note says the workshop lacks the permission. Otherwise it says this game has no way to load a mod for one session, so trying one means installing it.
 
 ## Seam 6. `ctx.readMod` - a mod, read rather than installed
 

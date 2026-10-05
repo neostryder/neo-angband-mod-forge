@@ -522,6 +522,14 @@ describe("the player's journey", () => {
     expect(screenText()).toContain("no way to load a mod for one session");
   });
 
+  it("says the permission is missing when a real game leaves the session door out", () => {
+    walkToTheEditor({ authoring: STUB_AUTHORING, composedRecords: STUB_RECORDS });
+    type(fieldInput("name"), "dire wolf");
+    control("Review it").click();
+    expect((control("Forge it and play it now") as HTMLButtonElement).disabled).toBe(true);
+    expect(screenText()).toContain("no permission to load a mod for one session");
+  });
+
   it("has its primary action live on the FIRST paint of the review screen", () => {
     /* THE CHECK USED TO BE DEBOUNCED HERE and this test used to wait for it, with a
      * comment explaining that the button is disabled on the first paint. That was
