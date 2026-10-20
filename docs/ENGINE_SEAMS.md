@@ -1,5 +1,25 @@
 # The engine seams this mod needs
 
+```mermaid
+flowchart TD
+  C["Plugin context"] --> S["src/host/seams.ts<br/>resolveSeams"]
+  S --> A["Seam 1<br/>ctx.authoring<br/>no capability"]
+  S --> R["Seam 2<br/>ctx.composedRecords<br/>latched after boot"]
+  S --> I["Seam 3<br/>ctx.installMod<br/>declined and absent"]
+  S --> W["Seam 4<br/>ctx.wizard<br/>debug:wizard"]
+  S --> L["Seam 5<br/>ctx.loadModForSession<br/>mod:session"]
+  S -.-> READ["Seam 6<br/>ctx.readMod<br/>requested and absent"]
+  S --> RELOAD["ctx.reloadGame<br/>mod:session or mod:install"]
+  A --> UI["Workshop screens"]
+  R --> UI
+  W --> UI
+  L --> UI
+  RELOAD --> UI
+  MAN["manifest.json<br/>ui:region.create<br/>mod:session<br/>debug:wizard"] --> C
+```
+
+*Source of truth: `docs/ENGINE_SEAMS.md`, `src/host/seams.ts`, and `manifest.json`. The host refuses a mod that names a capability it does not know.*
+
 Six seam decisions, each stated as a shape rather than a wish: what it is called,
 what capability gates it, what it takes, what it returns, and what the mod does
 when it is absent. Seams 1, 2, 4 and 5 are in Neo Angband 1.0.0. The install half

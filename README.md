@@ -24,6 +24,28 @@ It needs Neo Angband 1.0.0 or newer. That release gives the workshop everything 
 If either of the two live-data connections is missing, the workshop still opens, but it falls back to a small built-in demonstration data set and shows a banner saying so that cannot be dismissed. In the normal in-game setup, on any engine version this release supports, the banner does not appear.
 ## Mod authoring features
 
+```mermaid
+flowchart TD
+  S["resolveSeams"] --> API["ctx.authoring<br/>or STUB_AUTHORING when absent"]
+  S --> REC["ctx.composedRecords<br/>or STUB_RECORDS when absent"]
+  S -->|"Either live seam absent"| DEMO["Demonstration banner"]
+  D["Draft"] --> MF["manifestFor"]
+  API --> BUILD["buildDraft<br/>ModProject.build and checkRecords"]
+  REC --> BASE["basePacks and mergeBase"]
+  MF --> BUILD
+  BASE --> BUILD
+  BUILD --> FIND["ProjectBuild<br/>errors, warnings and hints"]
+  D --> EMIT["emitDraft<br/>ModProject.emit and withHandWritten"]
+  API --> EMIT
+  EMIT --> ZIP["zipDraft"]
+  ZIP --> SAVE["Save zip<br/>Import a zip in Mods"]
+  ZIP --> GATE{"Content only<br/>and no capabilities"}
+  GATE -->|"yes"| SESSION["loadModForSession"]
+  GATE -->|"no"| SAVE
+```
+
+*Source of truth: `src/model/build.ts`, `src/model/files.ts`, and `src/host/seams.ts`. Session loading refuses script extensions and undeclared capabilities.*
+
 You can add a new monster, sword, potion or artifact to any of the forty-odd record files the game builds one record at a time. You base it on something that already exists, and the workshop fills it in from what similar things in the game actually carry instead of leaving it blank. It copies shape and scale but none of the powers: a new orc arrives with an orc's hit points and armour and no attacks until you give it some.
 
 When you change a record the game already has, your mod ships only the difference. The base game keeps owning the record, and two mods changing different fields of the same record both work.
@@ -40,6 +62,30 @@ Nudging a number writes "three more than whatever this is" instead of a fixed va
 
 You can fork an existing mod into one of your own: a mod installed in this game, a mod folder picked from disk, or a mod saved as a zip. A fork owns its content outright instead of patching somebody else's, so the original does not need to be installed for yours to work. The fork needs an id of its own before you can take it, keeps the original's licence, and records in its manifest what it was forked from. Anything the fork could not carry over is listed where you made it, since those differences are worth reading. You cannot fork straight from a repository address, because fetching one is the game's job and nothing passes that job to a mod. Install the mod first and fork it from the list, or download its folder and pick that.
 ## When you outgrow the screens: editing the files
+
+```mermaid
+flowchart TD
+  SCREEN["Record screen"] --> D["Draft"]
+  D --> E["projectFiles and fileText<br/>derive monster.json"]
+  E --> K{"Text or binary"}
+  K -->|"binary"| BYTES["Byte panel<br/>replace exact bytes"]
+  BYTES --> D
+  K -->|"text"| B["Buffer<br/>text and from"]
+  B --> L["lintFile<br/>writeFileText into candidate draft"]
+  L --> C["buildDraft<br/>shared checkRecords"]
+  B --> SAVE["saveFile"]
+  D --> FRESH["Derive current fileText"]
+  FRESH --> SAME{"Current text equals from<br/>or Save anyway"}
+  SAVE --> SAME
+  SAME -->|"no"| WARN["Show stale-file notice"]
+  SAME -->|"yes"| PARSE["writeFileText"]
+  PARSE -->|"Valid parse"| D
+  PARSE -->|"Invalid parse"| ERR["Show parse refusal"]
+  B -->|"Ctrl+Z in editor"| UNDO["Browser typing undo"]
+  D -->|"Ctrl+Z outside editor"| HIST["Workshop draft undo"]
+```
+
+*Source of truth: `src/ui/store.ts`, `src/ui/actions.ts`, and `src/ui/screens/files.ts`. Unsaved editor buffers do not survive a reload.*
 
 Every screen above asks a question and writes the answer into a file. One more screen, opened with **Edit the files directly** from a mod's own page, shows you those files.
 
@@ -86,6 +132,37 @@ what each released version changed.
 
 ## Using it
 
+```mermaid
+flowchart TD
+  I["initialState"] --> Q{"seenTour"}
+  Q -->|"false"| T["tour"]
+  Q -->|"true"| M["mods"]
+  T -->|"Finish tour"| M
+  M -->|"Create or open a draft"| D["details"]
+  D -->|"Add or change something"| K["kinds"]
+  K -->|"Choose New or Change"| B["base<br/>mode new or change"]
+  B -->|"Choose a record"| R["record"]
+  K -->|"Retune a set"| RB["rebalance"]
+  R -->|"Back to the mod"| D
+  RB -->|"Back to the mod"| D
+  D -->|"Review it"| V["verdict"]
+  R -->|"Review it"| V
+  D -->|"Test setting enabled"| X["test"]
+  D -->|"Edit the files directly"| F["files"]
+  F -->|"Search everywhere"| S["search"]
+  F -->|"See the changes"| DF["diff"]
+  DF -->|"Back to the file"| F
+  D -->|"Header Guide"| T
+  D -->|"Header Docs"| DOC["docs"]
+  D -->|"Header About"| A["about"]
+  R -->|"Escape with nested path"| R
+  F -->|"Escape with open file"| F
+  D -->|"Escape"| M
+  M -->|"Escape"| C["Workshop closed"]
+```
+
+*Source of truth: `src/ui/store.ts`, `src/ui/actions.ts`, and `src/ui/screens/`. Escape closes a tooltip before it changes the route.*
+
 A tab reading `Build a mod` appears in the bottom corner of the main screen. Tap
 it. The workshop opens over the game, takes the keyboard while it is open, and
 gives it back when you close it. Nothing you do in there touches the game until
@@ -99,6 +176,42 @@ anything.
 saves the open file into the mod when the caret is in the file editor.
 
 ## Getting the mod out
+
+```mermaid
+sequenceDiagram
+  actor Player
+  participant Workshop as Workshop actions
+  participant Session as Session seam
+  participant Host as Engine reload
+  Player->>Workshop: Press Try for this session
+  Workshop->>Workshop: sessionRefusal checks scripts and capabilities
+  alt Content-only draft
+    Workshop->>Workshop: Flush drafts, emitDraft and zipDraft
+    Workshop->>Session: loadModForSession with zip bytes
+    alt Host refuses or staging will not survive reload
+      Session-->>Workshop: problem or survivesReload false
+      Workshop-->>Player: Show reason and keep workshop open
+    else Staging survives reload
+      Session-->>Workshop: ok and survivesReload true
+      alt ctx.reloadGame exists
+        Workshop->>Host: reloadGame
+        Host->>Host: Tear down plugins and return keyboard
+        Host->>Host: Write character and resume session
+      else ctx.reload override exists
+        Workshop->>Host: ctx.reload
+      else location.reload exists
+        Workshop->>Host: location.reload
+      else No reload function exists
+        Workshop-->>Player: Ask player to reload
+      end
+    end
+  else Draft ships code or capabilities
+    Workshop-->>Player: Save a zip and use Import a zip
+  end
+  Note over Player,Host: Test controls require builder.cheatSpawn and wizard.sandbox
+```
+
+*Source of truth: `src/ui/actions.ts`, `src/host/seams.ts`, and `src/ui/screens/test.ts`. Trying a mod detaches the sandbox, so later saves for that session are not kept.*
 
 Save it as a file. This is always available. You get a zip, which the Mods screen's `Import a zip` accepts, and which you can also open, read, hand to somebody or push to a repository. It is the only copy of your work outside the browser's storage, which is why the button is on every screen.
 
