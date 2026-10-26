@@ -15,7 +15,7 @@ flowchart TD
   W --> UI
   L --> UI
   RELOAD --> UI
-  MAN["manifest.json<br/>registry:menu<br/>ui:panel.mount<br/>mod:authoring<br/>mod:session<br/>debug:wizard"] --> C
+  MAN["manifest.json<br/>ui:menu.row<br/>ui:panel.mount<br/>mod:authoring<br/>mod:session<br/>debug:wizard"] --> C
 ```
 
 *Source of truth: `docs/ENGINE_SEAMS.md`, `src/host/seams.ts`, and `manifest.json`. The host refuses a mod that names a capability it does not know.*
@@ -32,7 +32,7 @@ The declared engine range starts at 1.22.0, the first build that runs a mod API 
 definition from a mod folder. On mod API 2 every seam is a call on the mod's
 `manage` domain, and the manifest declares the capability each call needs:
 `mod:authoring` for seam 1, `debug:wizard` for seam 4, `mod:session` for seam 5
-and the reload, plus `registry:menu` for the way in and `ui:panel.mount` for the
+and the reload, plus `ui:menu.row` for the way in and `ui:panel.mount` for the
 page the workshop draws on. Seam 2 is `content.records`, which needs none.
 
 The production route for this mod is concrete. Choosing the Build a mod row in the
@@ -70,7 +70,7 @@ Two rules apply to all five:
   already exist. A new capability therefore arrives here paired with an `engine`
   range starting at the release that carries it, which a player meets as "this
   needs a newer game" rather than as a mod that fails to load. The manifest
-  declares `registry:menu`, `ui:panel.mount`, `mod:authoring`, `mod:session` and `debug:wizard`.
+  declares `ui:menu.row`, `ui:panel.mount`, `mod:authoring`, `mod:session` and `debug:wizard`.
 
 ---
 
@@ -492,7 +492,7 @@ that disagrees with the game's own is worse than none, because it is believed.
 A `ui:dom.overlay` capability was an earlier shape of this design, and it is not
 requested. On mod API 2 a first-party in-process mod gets `ui.overlay`, which
 makes a modal page with a closed shadow root, stacks it over the game and draws
-the host's own close button, and the workshop builds into that page under
+the host's own close button in the corner the page names (`closeAt`, the bottom right here), and the workshop builds into that page under
 `ui:panel.mount`. A host that will not make one (a test, a refusal) leaves the
 workshop to draw its own element on the document, as it did before.
 
@@ -512,7 +512,7 @@ Implemented in `src/ui/overlay.ts`, with the remaining browser-level edge case
 described above.
 
 A menu-row dispatch seam is not needed. The way in is a row in the Game menu,
-registered with `ui.gameMenu.register` under `registry:menu`.
+registered with `ui.gameMenu.register` under `ui:menu.row`.
 
 A live content-preview seam was considered and rejected; the reasoning is under
 seam 4.

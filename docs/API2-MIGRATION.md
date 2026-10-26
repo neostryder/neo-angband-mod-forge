@@ -24,20 +24,20 @@ Every seam the workshop needs has an API 2 home, so none of them waits on a Core
 | `ctx.prefs` | `store.prefs` | Moved. The slot is asynchronous and the draft store reads synchronously, so `buildBuilderCtx` reads it once when the workshop opens and writes through on every save. A write the game refuses is logged instead of shown on the workshop's status line. |
 | `ctx.state` (only whether a game is running) | `manage.wizard().where()` answering null | Moved. The debug commands report whether a character is in play, which is the only thing the workshop asks of the state. |
 | `ctx.composedRecords` | `content.records(file)` | Moved. One call per file the authoring library's blueprints list. |
-| `regions` plugin member (the workshop tab) | `ui.gameMenu.register` | Moved. A "Build a mod..." row in the Game menu replaces the tab painted into the text grid, because API 2 has no regions. The capability is `registry:menu` instead of `ui:region.create`. |
+| `regions` plugin member (the workshop tab) | `ui.gameMenu.register` | Moved. A "Build a mod..." row in the Game menu replaces the tab painted into the text grid, because API 2 has no regions. The capability is `ui:menu.row` instead of `ui:region.create`. |
 | `ctx.authoring` | `manage.authoring()` | Moved. Needs `mod:authoring`. |
 | `ctx.installMod` | Removed | Removed. ModForge does not declare `mod:install`, and `seams.ts` no longer reads it. The workshop saves a file for Import a zip instead. |
 | `ctx.reloadGame` | `manage.reloadGame()` | Moved. Needs `mod:session`. |
 | `ctx.loadModForSession` | `manage.loadForSession(bytes)` | Moved. Needs `mod:session`, a first-party permission that the game asks about with its own question. |
 | `ctx.wizard` | `manage.wizard()` | Moved. Needs `debug:wizard`. |
-| The workshop overlay (`document`, reached through `globalThis`) | `ui.overlay({ id, modal: true })` | Moved. The game makes the page, with a closed shadow root, and draws its own close button. The workshop still listens for keys on the window so that it owns the keyboard while open; a host that will not make a page leaves it to draw its own element, as before. |
+| The workshop overlay (`document`, reached through `globalThis`) | `ui.overlay({ id, modal: true, closeAt: "bottom-right" })` | Moved. The game makes the page, with a closed shadow root, and draws its own close button in the bottom right corner, clear of the workshop's header buttons. The workshop still listens for keys on the window so that it owns the keyboard while open; a host that will not make a page leaves it to draw its own element, as before. |
 | `ctx.reload` (`location.reload`) | Stays | The host does not supply this one. When `manage.reloadGame` is not granted, `seams.ts` falls back to `location.reload` in the page. |
 
 ## What changed for the player
 
 - The workshop opens from a Game-menu row instead of a corner tab. The setting that switched the tab on and off keeps its identifier (`builder.showTab`), so a stored choice carries over, and its title now names the row.
-- The manifest asks for `registry:menu`, `ui:panel.mount`, and `mod:authoring` where it used to ask for `ui:region.create`. `mod:session` and `debug:wizard` are unchanged. `mod:authoring` used to be handed over implicitly and is now declared.
-- The workshop sits on a page the game draws, with the game's own close button, so a second Close control appears in the top right corner beside the workshop's.
+- The manifest asks for `ui:menu.row`, `ui:panel.mount`, and `mod:authoring` where it used to ask for `ui:region.create`. `mod:session` and `debug:wizard` are unchanged. `mod:authoring` used to be handed over implicitly and is now declared.
+- The game draws its own Close button on the workshop page. The workshop asks for it in the bottom right corner, which keeps it off the header buttons and the launch screen's Skip button.
 
 ## Checking the mod with the game's tools
 

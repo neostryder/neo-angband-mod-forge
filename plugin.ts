@@ -22,7 +22,7 @@
  * ------------------------------------------------------------------
  *
  * `start` registers one row, "Build a mod...", in the game's own menu, and the
- * row opens the workshop. That needs `registry:menu` and nothing else. The tab
+ * row opens the workshop. That needs `ui:menu.row` and nothing else. The tab
  * this mod used to paint in the corner of the main screen belonged to API 1's
  * region system, which API 2 does not have; a menu row is the way a mod gets a
  * door without restyling any screen of the game's.
@@ -52,6 +52,9 @@ import type { WorkshopHandle } from "./src/workshop.js";
 /** The menu row's label. */
 const ROW = "Build a mod...";
 
+/** The corner for the game's own close control, which stays on every panel; the workshop draws its title bar buttons in the top right. */
+const CLOSE_AT = "bottom-right";
+
 /** One handle for the session. Opening the workshop twice would mean two overlays fighting over the keyboard. */
 let handle: WorkshopHandle | undefined;
 let opening = false;
@@ -67,7 +70,7 @@ async function open(mod: ModApi2): Promise<void> {
      * one (a test, a refusal) leaves the workshop to draw its own. */
     let panel: HostPanel | undefined;
     if (mod.ui.overlay) {
-      const made = await mod.ui.overlay({ id: "workshop", modal: true, label: "ModForge" });
+      const made = await mod.ui.overlay({ id: "workshop", modal: true, label: "ModForge", closeAt: CLOSE_AT });
       if (made.ok) panel = made.value;
       else mod.meta.log(`the game would not make a page for the workshop (${made.message}), so it draws its own`);
     }

@@ -19,7 +19,7 @@
       }
     },
     "capabilities": [
-      "registry:menu",
+      "ui:menu.row",
       "ui:panel.mount",
       "mod:authoring",
       "mod:session",
