@@ -277,9 +277,9 @@ function defaultExportApi({ code, literals }: Scanned): string | 1 | undefined {
 }
 
 /**
- * Whether today's folder loader would refuse this range in process. It does
- * when the range admits no 1.x version at all: ">=1.5.0 <3.0.0" still loads as
- * API 1, "^2.0.0" does not. An unreadable range counts as not API 2.
+ * Whether this range names API 2 only, so the mod needs a game that runs it. It
+ * does when the range admits no 1.x version at all: ">=1.5.0 <3.0.0" still loads
+ * as API 1, "^2.0.0" does not. An unreadable range counts as not API 2.
  *
  * The check calls the authoring library's `satisfies` on 1.0.0 and on each 1.x
  * bound the range names, plus the next patch and minor after it, because the

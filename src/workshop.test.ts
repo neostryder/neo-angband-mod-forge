@@ -1270,7 +1270,7 @@ describe("editing the mod as files", () => {
 
     /* The keys the host needs before it will import a plugin, all written,
      * because the plugin facet alone is a mod that installs and does nothing.
-     * The template the button starts from is the API 1 one, which this game loads. */
+     * The template the button starts from is the API 2 one, which the game runs from 1.22.0. */
     const manifest = readManifest(openFile("manifest.json").value) as {
       facets?: string[];
       api?: string;
@@ -1279,23 +1279,22 @@ describe("editing the mod as files", () => {
     };
     expect(manifest.facets).toContain("plugin");
     expect(manifest.facets).toContain(manifest.shape);
-    expect(manifest.api).toBe(API1_RANGE);
+    expect(manifest.api).toBe(API2_RANGE);
     expect(manifest.runtime).toBe("in-process");
   });
 
-  it("starts an API 2 entry point on request, and says which API this game loads", () => {
-    walkToAMod("api2-mod");
+  it("starts an API 1 entry point on request, and says which API a new script uses", () => {
+    walkToAMod("api1-mod");
     control("Edit the files directly").click();
-    expect(screenText()).toContain("This game loads API 1 scripts.");
-    control("Start an API 2 plugin.js").click();
+    expect(screenText()).toContain("A new plugin.js is written for mod API 2");
+    control("Start an API 1 plugin.js").click();
 
     const area = shadow().querySelector<HTMLTextAreaElement>("textarea.mb-ed-area");
-    expect(area?.value).toContain('api: ">=2.0.0 <3.0.0"');
+    expect(area?.value).toContain("api: 1,");
     expect(area?.value).not.toContain("ctx.core");
 
-    const manifest = readManifest(openFile("manifest.json").value) as { api?: string; modApi?: number };
-    expect(manifest.api).toBe(API2_RANGE);
-    expect(manifest.modApi).toBeUndefined();
+    const manifest = readManifest(openFile("manifest.json").value) as { api?: string };
+    expect(manifest.api).toBe(API1_RANGE);
   });
 
   it("emits an API 2 mod through the game's own library", () => {
@@ -1309,7 +1308,7 @@ describe("editing the mod as files", () => {
     type(idBox, "api2-real");
     control("Start a new mod").click();
     control("Edit the files directly").click();
-    control("Start an API 2 plugin.js").click();
+    control("Start a plugin.js").click();
 
     const doc = JSON.parse(openFile("manifest.json").value) as {
       schemaVersion?: number;
@@ -1319,9 +1318,9 @@ describe("editing the mod as files", () => {
     expect(doc.data?.api).toBe(API2_RANGE);
     expect(doc.data?.runtime).toBe("in-process");
     control("Review it").click();
-    /* The game's library accepts the folder; the loader of this game is what refuses
-     * an API 2 plugin, and the review screen says so instead of only "This will install". */
-    expect(screenText()).toContain("This game will not run it yet.");
+    /* The game's library accepts the folder, and the review screen says the mod needs a
+     * game that runs API 2 instead of only "This will install". */
+    expect(screenText()).toContain("It needs a game that runs API 2.");
   });
 
   it("opens the complete plugin API from the file editor", () => {
