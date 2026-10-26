@@ -29,7 +29,7 @@ ModForge is a first-party mod and the authoring seam for every other mod, so its
 | `ctx.loadModForSession` | `manage.loadForSession(bytes)` | Moved. Needs `mod:session`, a first-party permission that the game asks about with its own question. |
 | `ctx.wizard` | `manage.wizard()` | Moved. Needs `debug:wizard`. |
 | The workshop overlay (`document`, reached through `globalThis`) | `ui.overlay({ id, modal: true })` | Moved. The game makes the page, with a closed shadow root, and draws its own close button. The workshop still listens for keys on the window so that it owns the keyboard while open; a host that will not make a page leaves it to draw its own element, as before. |
-| `ctx.reload` (`location.reload`) | Stays | Not a host member. `seams.ts` resolves it to `location.reload` in the page when `manage.reloadGame` is not granted. |
+| `ctx.reload` (`location.reload`) | Stays | The host does not supply this one. When `manage.reloadGame` is not granted, `seams.ts` falls back to `location.reload` in the page. |
 
 ## What changed for the player
 
