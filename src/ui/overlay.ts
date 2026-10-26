@@ -70,29 +70,48 @@ const HOST_ID = "neo-angband-mod-forge";
  */
 const Z = 2000;
 
-export function mountOverlay(doc: Document, options: { readonly label: string }): Overlay {
-  const existing = doc.getElementById(HOST_ID);
-  if (existing) existing.remove();
+/**
+ * The panel the game hands a first-party mod through `ui.overlay`, narrowed to
+ * what the overlay uses. Its shadow root is CLOSED, which matters below.
+ */
+export interface HostPanel {
+  readonly root: ShadowRoot;
+  readonly open: boolean;
+  readonly closed: Promise<void>;
+  close(): void;
+}
 
-  const host = doc.createElement("div");
-  host.id = HOST_ID;
-  host.setAttribute("role", "dialog");
-  host.setAttribute("aria-modal", "true");
-  host.setAttribute("aria-label", options.label);
-  host.style.position = "fixed";
-  host.style.inset = "0";
-  host.style.zIndex = String(Z);
-  /* `dvh` rather than `vh`, so a mobile browser's collapsing toolbar does not
-   * leave the bottom row of the workshop under it. */
-  host.style.height = "100dvh";
-  host.style.width = "100vw";
+export function mountOverlay(doc: Document, options: { readonly label: string; readonly panel?: HostPanel }): Overlay {
+  const panel = options.panel;
+  let host: HTMLElement;
+  let root: ShadowRoot;
+  if (panel) {
+    /* The game made the element, sized it over the whole viewport, stacked it and
+     * gave it the close button. This file only builds into it and listens. */
+    root = panel.root;
+    host = root.host as HTMLElement;
+  } else {
+    doc.getElementById(HOST_ID)?.remove();
 
-  const root = host.attachShadow({ mode: "open" });
+    host = doc.createElement("div");
+    host.id = HOST_ID;
+    host.setAttribute("role", "dialog");
+    host.setAttribute("aria-modal", "true");
+    host.setAttribute("aria-label", options.label);
+    host.style.position = "fixed";
+    host.style.inset = "0";
+    host.style.zIndex = String(Z);
+    /* `dvh` rather than `vh`, so a mobile browser's collapsing toolbar does not
+     * leave the bottom row of the workshop under it. */
+    host.style.height = "100dvh";
+    host.style.width = "100vw";
+    root = host.attachShadow({ mode: "open" });
+  }
   const style = doc.createElement("style");
   style.textContent = THEME_CSS;
   root.appendChild(style);
 
-  doc.body.appendChild(host);
+  if (!panel) doc.body.appendChild(host);
 
   const closeHandlers: (() => void)[] = [];
   const keyHandlers: ((event: KeyboardEvent) => boolean)[] = [];
@@ -170,7 +189,13 @@ export function mountOverlay(doc: Document, options: { readonly label: string })
    * test does and not what a keyboard does, so the whole class of bug was invisible
    * to them by construction.
    */
-  const deepest = (event: Event): EventTarget | null => event.composedPath()[0] ?? event.target;
+  const deepest = (event: Event): EventTarget | null => {
+    const first = event.composedPath()[0] ?? event.target;
+    /* A CLOSED root hides its own nodes from every listener outside it, so the
+     * path ends at the host and the real element is only known to the root. For
+     * a key, that element is the focused one. */
+    return first === host && root.activeElement ? root.activeElement : first;
+  };
 
   const insideUs = (event: Event): boolean => {
     const target = deepest(event);
@@ -290,6 +315,10 @@ export function mountOverlay(doc: Document, options: { readonly label: string })
     win?.addEventListener(type, listener, capture);
   }
 
+  /* The game can close its own panel (its close button, a permission prompt
+   * taking the screen), and the workshop must hear about that the same way. */
+  if (panel) void panel.closed.then(() => overlay.close());
+
   const overlay: Overlay = {
     root,
     get open() {
@@ -318,7 +347,8 @@ export function mountOverlay(doc: Document, options: { readonly label: string })
        * state on acquire and release" from `PLANNED.md`. */
       for (const key of [...heldKeys]) releaseKey(key);
       for (const button of [...heldButtons]) releaseButton(button);
-      host.remove();
+      if (panel) panel.close();
+      else host.remove();
       for (const handler of [...closeHandlers]) handler();
     },
   };

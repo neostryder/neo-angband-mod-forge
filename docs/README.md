@@ -19,16 +19,16 @@ switch has no flag of its own, the game knows it by its section id instead.
 
 | Setting | Identifier | Default | What it does |
 | --- | --- | --- | --- |
-| Show the workshop tab | `builder.showTab` | on | Puts a small tab in the corner of the main screen. |
+| Show Build a mod in the Game menu | `builder.showTab` | on | Adds a Build a mod row to the Game menu. |
 | Remember work in progress | `builder.keepDrafts` | on | Keeps unfinished mods between sessions, in this install's own settings rather than in any character's save. |
 | Let me test what I built, in the game | `builder.cheatSpawn` | off | Adds a Test panel that uses the game's own debug commands to set things up around the thing you just made: put one in front of you, take you to the depth it belongs at, make you the level it is balanced for, give you the gold a shop would want for it, and map the level so you can find it. |
 
 ## What it needs
 
-- **Engine:** `>=1.0.0`
+- **Engine:** `>=1.22.0`
 - **Shape:** `plugin`
 - **Facets:** `plugin`
-- **Capabilities:** `ui:region.create`, `mod:session`, `debug:wizard`
+- **Capabilities:** `registry:menu`, `ui:panel.mount`, `mod:authoring`, `mod:session`, `debug:wizard`
 
 What a capability string permits, and what a mod that asks for one cannot do
 without it, is in [the mod lifecycle

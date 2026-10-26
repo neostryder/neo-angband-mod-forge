@@ -1,161 +1,163 @@
 /**
  * @vitest-environment jsdom
  *
- * The plugin's own surface: the tab, and the one gesture that opens the workshop.
+ * The plugin's own surface: the way in, and the one gesture that opens the
+ * workshop.
  *
- * These are the tests the host's own checks cannot make. `place` runs on every
- * frame and has to be cheap, total and pure, so a grid narrower than the label
- * has to produce a rectangle inside the grid rather than an exception in the
- * paint loop. And the tab has to be absent, not blank, when the player has turned
- * it off.
+ * These are the tests the host's own checks cannot make. The row has to be
+ * absent, not inert, when the player has turned it off, and opening has to build
+ * into the page the game made rather than onto the document behind it.
  */
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { api2NotGranted, api2Ok, api2Unavailable, type ModApi2 } from "@rpgm-tools/neo-angband-mod-sdk";
 import plugin from "./plugin.js";
-import type { BuilderCtx } from "./src/host/context.js";
 
 afterEach(() => {
+  plugin.stop();
   document.getElementById("neo-angband-mod-forge")?.remove();
   document.body.replaceChildren();
 });
 
-function ctx(flags: Record<string, boolean>): BuilderCtx {
-  return {
-    id: "builder",
-    engine: "0.25.0",
-    flags,
-    log: () => undefined,
-    prefs: {
-      get: () => undefined,
-      set: () => undefined,
-    },
-  };
+interface Fake {
+  readonly mod: ModApi2;
+  readonly rows: { action: string; label: string; run: () => void | Promise<void> }[];
+  readonly logs: string[];
+  readonly overlay: ReturnType<typeof vi.fn>;
 }
 
-/** A surface that records what was painted into it. */
-function surface(cols: number, rows: number): {
-  size(): { cols: number; rows: number };
-  clear(): void;
-  print(x: number, y: number, text: string, fg: string, bg?: string): void;
-  prt(x: number, y: number, text: string, fg: string): void;
-  eraseToEol(x: number, y: number): void;
-  setCursor(x: number, y: number): void;
-  hideCursor(): void;
-  written: string[];
-} {
-  const written: string[] = [];
-  return {
-    size: () => ({ cols, rows }),
-    clear: () => undefined,
-    print: (_x, _y, text) => {
-      written.push(text);
+/** The slice of the game this entry touches: flags, the menu, the overlay, and the stored drafts. */
+function fake(flags: Record<string, boolean>, options: { overlay?: "page" | "refused" | "absent"; menu?: "ok" | "refused" } = {}): Fake {
+  const rows: Fake["rows"] = [];
+  const logs: string[] = [];
+  let panelRoot: ShadowRoot | undefined;
+  const overlay = vi.fn(async () => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    panelRoot = mount.attachShadow({ mode: "closed" });
+    let settle: () => void = () => undefined;
+    const closed = new Promise<void>((resolveClosed) => {
+      settle = resolveClosed;
+    });
+    const panel = {
+      id: "forge:workshop",
+      root: panelRoot,
+      open: true,
+      closed,
+      close() {
+        mount.remove();
+        settle();
+      },
+    };
+    return api2Ok(panel);
+  });
+  const ui: Record<string, unknown> = {
+    gameMenu: {
+      register: vi.fn(async (action: string, label: string, run: () => void | Promise<void>) => {
+        if (options.menu === "refused") return api2NotGranted("registry:menu");
+        rows.push({ action, label, run });
+        return api2Ok(null);
+      }),
     },
-    prt: (_x, _y, text) => {
-      written.push(text);
-    },
-    eraseToEol: () => undefined,
-    setCursor: () => undefined,
-    hideCursor: () => undefined,
-    written,
   };
+  if (options.overlay !== "absent") {
+    ui["overlay"] = options.overlay === "refused" ? vi.fn(async () => api2Unavailable("no page")) : overlay;
+  }
+  const mod = {
+    meta: {
+      id: "forge",
+      api: "2.0.0",
+      engine: "test",
+      tier: "first-party",
+      flags,
+      granted: () => false,
+      log: (message: string) => logs.push(message),
+    },
+    ui,
+    content: { records: async () => api2Ok([]) },
+    store: { prefs: { get: async () => api2Ok(null), set: async () => api2Ok(null) } },
+  } as unknown as ModApi2;
+  return { mod, rows, logs, overlay };
 }
 
 describe("the plugin's shape", () => {
-  it("declares the API the manifest's range names", () => {
-    /* The manifest is schema 2 and names the API as a range; the code says `api: 1`.
-     * The jsdom environment gives no file URL, so the path is the package root's. */
+  it("declares the API range the manifest names", () => {
     const manifest = JSON.parse(readFileSync(resolve(process.cwd(), "manifest.json"), "utf8")) as {
       data: { api?: string };
     };
-    expect(plugin.api).toBe(1);
-    expect(manifest.data.api).toBe(">=1.0.0 <2.0.0");
+    expect(plugin.api).toBe(">=2.0.0 <3.0.0");
+    expect(manifest.data.api).toBe(plugin.api);
   });
 
-  it("supplies regions, which is what makes it a plugin the host will load", () => {
-    expect(typeof plugin.regions).toBe("function");
-  });
-});
-
-describe("the tab", () => {
-  it("is absent, not blank, when the player has switched it off", () => {
-    /* Not merely inert: a region declared and painted with nothing would still
-     * take a rectangle of the screen away from the game. */
-    expect(plugin.regions(ctx({ "builder.showTab": false }))).toEqual([]);
-    expect(plugin.regions(ctx({}))).toEqual([]);
-  });
-
-  it("is one row, in the bottom right, on a normal terminal", () => {
-    const region = plugin.regions(ctx({ "builder.showTab": true }))[0];
-    if (!region) throw new Error("no region declared");
-    expect(region.id).toBe("workshop");
-    expect(region.layer).toBe("overlay");
-    const cells = region.place({ cols: 80, rows: 24 });
-    expect(cells.rows).toBe(1);
-    expect(cells.row).toBe(23);
-    expect(cells.col + cells.cols).toBe(80);
-  });
-
-  it("stays inside a grid too small for its own label", () => {
-    const region = plugin.regions(ctx({ "builder.showTab": true }))[0];
-    if (!region) throw new Error("no region declared");
-    for (const grid of [
-      { cols: 1, rows: 1 },
-      { cols: 4, rows: 2 },
-      { cols: 0, rows: 0 },
-    ]) {
-      const cells = region.place(grid);
-      expect(cells.col).toBeGreaterThanOrEqual(0);
-      expect(cells.row).toBeGreaterThanOrEqual(0);
-      expect(cells.cols).toBeGreaterThanOrEqual(1);
-      expect(cells.col + cells.cols).toBeLessThanOrEqual(Math.max(1, grid.cols));
-    }
-  });
-
-  it("paints its label, clipped to whatever room it was given", () => {
-    const region = plugin.regions(ctx({ "builder.showTab": true }))[0];
-    if (!region) throw new Error("no region declared");
-    const wide = surface(13, 1);
-    region.paint(wide);
-    expect(wide.written.join("")).toContain("Build a mod");
-
-    const narrow = surface(5, 1);
-    region.paint(narrow);
-    expect((narrow.written[0] ?? "").length).toBe(5);
-  });
-
-  it("paints nothing rather than throwing when it has no room at all", () => {
-    const region = plugin.regions(ctx({ "builder.showTab": true }))[0];
-    if (!region) throw new Error("no region declared");
-    const none = surface(0, 0);
-    expect(() => region.paint(none)).not.toThrow();
-    expect(none.written).toEqual([]);
+  it("starts the game's way and declares no API 1 members", () => {
+    expect(typeof plugin.start).toBe("function");
+    expect("regions" in plugin).toBe(false);
   });
 });
 
-describe("tapping the tab", () => {
-  it("opens the workshop", () => {
-    const region = plugin.regions(ctx({ "builder.showTab": true }))[0];
-    if (!region?.input) throw new Error("the region takes no input");
-    region.input({ col: 0, row: 0, kind: "tap" });
+describe("the way in", () => {
+  it("is one Game-menu row", async () => {
+    const game = fake({ "builder.showTab": true });
+    await plugin.start(game.mod);
+    expect(game.rows.map((row) => [row.action, row.label])).toEqual([["open-workshop", "Build a mod..."]]);
+  });
+
+  it("is absent, not inert, when the player has switched it off", async () => {
+    const off = fake({ "builder.showTab": false });
+    await plugin.start(off.mod);
+    expect(off.rows).toEqual([]);
+    const unset = fake({});
+    await plugin.start(unset.mod);
+    expect(unset.rows).toEqual([]);
+  });
+
+  it("says so in the log when the game will not take the row", async () => {
+    const game = fake({ "builder.showTab": true }, { menu: "refused" });
+    await plugin.start(game.mod);
+    expect(game.logs.join("\n")).toContain("no way in");
+  });
+});
+
+describe("choosing the row", () => {
+  it("opens the workshop in the page the game made", async () => {
+    const game = fake({ "builder.showTab": true });
+    await plugin.start(game.mod);
+    await game.rows[0]!.run();
+    expect(game.overlay).toHaveBeenCalledWith({ id: "workshop", modal: true, label: "ModForge" });
+    /* The workshop drew nothing of its own on the document. */
+    expect(document.getElementById("neo-angband-mod-forge")).toBeNull();
+  });
+
+  it("opens it once, however many times the row is chosen", async () => {
+    const game = fake({ "builder.showTab": true });
+    await plugin.start(game.mod);
+    await Promise.all([game.rows[0]!.run(), game.rows[0]!.run()]);
+    await game.rows[0]!.run();
+    expect(game.overlay).toHaveBeenCalledTimes(1);
+  });
+
+  it("draws its own overlay when the game will not make a page, and says so", async () => {
+    const game = fake({ "builder.showTab": true }, { overlay: "refused" });
+    await plugin.start(game.mod);
+    await game.rows[0]!.run();
+    expect(document.getElementById("neo-angband-mod-forge")).not.toBeNull();
+    expect(game.logs.join("\n")).toContain("draws its own");
+  });
+
+  it("draws its own overlay on a host that has no overlay member", async () => {
+    const game = fake({ "builder.showTab": true }, { overlay: "absent" });
+    await plugin.start(game.mod);
+    await game.rows[0]!.run();
     expect(document.getElementById("neo-angband-mod-forge")).not.toBeNull();
   });
 
-  it("opens it once, however many times it is tapped", () => {
-    /* Two overlays would fight over the keyboard, and the second one's listeners
-     * would outlive the first one's element. */
-    const region = plugin.regions(ctx({ "builder.showTab": true }))[0];
-    if (!region?.input) throw new Error("the region takes no input");
-    region.input({ col: 0, row: 0, kind: "tap" });
-    region.input({ col: 0, row: 0, kind: "tap" });
-    expect(document.querySelectorAll("#neo-angband-mod-forge")).toHaveLength(1);
-  });
-
-  it("ignores anything that is not a tap", () => {
-    const region = plugin.regions(ctx({ "builder.showTab": true }))[0];
-    if (!region?.input) throw new Error("the region takes no input");
-    region.input({ col: 0, row: 0, kind: "context" });
+  it("closes the workshop when the mod is stopped", async () => {
+    const game = fake({ "builder.showTab": true }, { overlay: "absent" });
+    await plugin.start(game.mod);
+    await game.rows[0]!.run();
+    plugin.stop();
     expect(document.getElementById("neo-angband-mod-forge")).toBeNull();
   });
 });

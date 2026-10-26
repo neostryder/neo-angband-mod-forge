@@ -13,13 +13,13 @@ It never asks you what JSON is. It also never hides it: every screen can show yo
 the exact file it is about to write, and a mod it built can be taken away,
 hand-edited and brought back.
 
-![The ModForge workshop landing screen, reached from the town's "Build a mod" tab](docs/img/modforge-workshop.jpg)
+![The ModForge workshop landing screen, reached from the Game menu's "Build a mod" row](docs/img/modforge-workshop.jpg)
 
 ## Status
 
 ModForge works today: the workshop opens, every screen works, the mod it writes is a real mod, and you can load that mod into the running game for the rest of the session.
 
-It needs Neo Angband 1.0.0 or newer. That release gives the workshop everything it uses: the game's own authoring tools, the full set of records the current session was built from (including any content mods you have enabled), loading a mod for one session, and the test tools. So its suggestions, comparison tables, checks and list of content kinds all describe the game you are playing. [docs/ENGINE_SEAMS.md](docs/ENGINE_SEAMS.md) covers the production path and all six seams in detail.
+It needs a Neo Angband build that runs mod API 2 from a mod folder (1.22.0 or newer). That build gives the workshop everything it uses: the game's own authoring tools, the full set of records the current session was built from (including any content mods you have enabled), loading a mod for one session, and the test tools. So its suggestions, comparison tables, checks and list of content kinds all describe the game you are playing. [docs/ENGINE_SEAMS.md](docs/ENGINE_SEAMS.md) covers the production path and all six seams in detail.
 
 If either of the two live-data connections is missing, the workshop still opens, but it falls back to a small built-in demonstration data set and shows a banner saying so that cannot be dismissed. In the normal in-game setup, on any engine version this release supports, the banner does not appear.
 ## Mod authoring features
@@ -163,8 +163,7 @@ flowchart TD
 
 *Source of truth: `src/ui/store.ts`, `src/ui/actions.ts`, and `src/ui/screens/`. Escape closes a tooltip before it changes the route.*
 
-A tab reading `Build a mod` appears in the bottom corner of the main screen. Tap
-it. The workshop opens over the game, takes the keyboard while it is open, and
+A row reading `Build a mod` appears in the Game menu. Choose it. The workshop opens over the game, takes the keyboard while it is open, and
 gives it back when you close it. Nothing you do in there touches the game until
 you try the mod for this session or add its saved file through the Mods screen.
 
@@ -249,7 +248,7 @@ See the [settings reference](SETTINGS.md) for every flag, its default, and when 
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| Show the workshop tab | on | The tab in the corner, which is the only way in. |
+| Show Build a mod in the Game menu | on | The Game-menu row, which is the only way in. |
 | Remember work in progress | on | Keep unfinished mods between sessions. |
 | Let me test what I built, in the game | **off** | A Test panel that arranges the game around the thing you made. |
 
@@ -284,9 +283,9 @@ To look at the workshop in a browser with no game at all:
 pnpm preview
 ```
 
-That serves the repository on the loopback interface and opens a harness page, which builds the smallest context the mod reads, hands it to the plugin, and taps the tab. Every seam is absent by default, so the fallback is easy to inspect; the in-game path on Neo Angband 1.0.0 supplies the authoring SDK and the composed records instead. The harness loads the same `plugin.js` the game loads, not a separate build.
+That serves the repository on the loopback interface and opens a harness page, which builds the smallest context the mod reads, hands it to the plugin, and chooses the Game-menu row. Every seam is absent by default, so the fallback is easy to inspect; the in-game path supplies the authoring SDK and the composed records instead. The harness loads the same `plugin.js` the game loads, not a separate build.
 
-Adding `?authoring=sdk` to the page URL puts the real mod SDK behind `ctx.authoring`. That is the only live-data seam a standalone harness can supply for real: the SDK is already a devDependency here, its `dist` is plain ES modules, and the preview server serves the repository. Use it for anything that reads a field's measured shape, because the stand-in in `src/host/authoring-stub.ts` is a small subset with no field-type rule and none of the companion rules, so passing against the stand-in proves very little.
+Adding `?authoring=sdk` to the page URL puts the real mod SDK behind `manage.authoring`. That is the only live-data seam a standalone harness can supply for real: the SDK is already a devDependency here, its `dist` is plain ES modules, and the preview server serves the repository. Use it for anything that reads a field's measured shape, because the stand-in in `src/host/authoring-stub.ts` is a small subset with no field-type rule and none of the companion rules, so passing against the stand-in proves very little.
 
 `ctx.composedRecords` stays the fixture in the standalone preview even with that flag, because the published core package carries the engine's code but not its content pack. Inside the game, the boot path supplies the real composition. In the preview, anything that reads the whole composed world is checked against a few dozen invented records, and the workshop's banner stays up to say so.
 

@@ -127,27 +127,6 @@ manifest with it. Specified in `docs/ENGINE_SEAMS.md` under seam 6.
 
 ---
 
-## The tab
-
-### The tab is absent on a screen whose full-screen erase is undeclared - NEEDS A SEAM
-
-One of the game's remaining full-screen erases is not known to the region
-system, so the tab that opens the workshop is simply absent on those screens
-until the next frame that declares its regions. This is the game's own row 21
-work and not a mod's. Tracked as neo-angband#50.
-
-### A keyboard way in - DECLINED
-
-A mod can take one of the game's menus with `ui:menu.replace` and route a row of
-its own into the workshop, which would give it a keyboard entry point today. It is
-not done, because a presenter has to draw the whole question it takes, so a mod
-whose real job is elsewhere would be restyling one of the game's own screens as
-the price of having a door. A one-row tab is the smaller promise. If the game ever
-grows a way for a menu row to dispatch into mod code without taking the menu's
-presentation with it, this becomes trivial and worth doing.
-
----
-
 ## Content the workshop cannot write
 
 ### A `plugin.js` the workshop COMPILES - NOT APPLICABLE

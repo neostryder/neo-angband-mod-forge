@@ -15,7 +15,7 @@ flowchart TD
   W --> UI
   L --> UI
   RELOAD --> UI
-  MAN["manifest.json<br/>ui:region.create<br/>mod:session<br/>debug:wizard"] --> C
+  MAN["manifest.json<br/>registry:menu<br/>ui:panel.mount<br/>mod:authoring<br/>mod:session<br/>debug:wizard"] --> C
 ```
 
 *Source of truth: `docs/ENGINE_SEAMS.md`, `src/host/seams.ts`, and `manifest.json`. The host refuses a mod that names a capability it does not know.*
@@ -28,18 +28,20 @@ mod that stages session content. Seam 6 is asked for and does not exist yet. The
 compatibility fallbacks remain so the standalone preview and a partial test
 context still render every screen.
 
-The declared engine range starts at 1.0.0, where the complete production path
-used by this release exists. The manifest declares the capabilities for seams 4
-and 5 plus its `ui:region.create` entry point. Seams 1 and 2 need no capability.
+The declared engine range starts at 1.22.0, the first build that runs a mod API 2
+definition from a mod folder. On mod API 2 every seam is a call on the mod's
+`manage` domain, and the manifest declares the capability each call needs:
+`mod:authoring` for seam 1, `debug:wizard` for seam 4, `mod:session` for seam 5
+and the reload, plus `registry:menu` for the way in and `ui:panel.mount` for the
+page the workshop draws on. Seam 2 is `content.records`, which needs none.
 
-The production route for this mod is concrete. `main.ts` finishes boot, calls
-`setModRegistries(booted.registries)` and
-`setModComposedRecords(composedObjects(composedRecords()))`, then builds
-`displayCandidateContext` over `modPluginContext`. `installRegions` uses that
-context builder when it invokes this plugin's `regions(ctx)` declaration. The
-tap handler closes over the same context and passes it to `openWorkshop`, so the
-SDK and the composed records reach a `facet: "plugin"` mod using
-`ui:region.create`; there is no separate region-only context path.
+The production route for this mod is concrete. Choosing the Build a mod row in the
+Game menu runs `open` in `plugin.ts`, which calls `buildBuilderCtx`
+(`src/host/api2-ctx.ts`). That function makes the `manage` and `content` calls
+once, answers a refused call by leaving its member off, and returns the same
+`BuilderCtx` shape the workshop has always read, so `seams.ts` and every screen
+are unchanged. `open` then asks `ui.overlay` for a page and passes it to
+`openWorkshop`.
 
 **Reloading was not one of these when this was first written, and pretending it
 was cost the try-it loop three steps.** Composing content takes a reload, so a mod
@@ -68,7 +70,7 @@ Two rules apply to all five:
   already exist. A new capability therefore arrives here paired with an `engine`
   range starting at the release that carries it, which a player meets as "this
   needs a newer game" rather than as a mod that fails to load. The manifest
-  declares `ui:region.create`, `mod:session` and `debug:wizard`.
+  declares `registry:menu`, `ui:panel.mount`, `mod:authoring`, `mod:session` and `debug:wizard`.
 
 ---
 
@@ -182,8 +184,8 @@ In production, `packages/web/src/pack.ts` composes it and memoises the
 result as `memo.composed`, alongside `packs`, `dropped` and `refused`. After the
 game has booted, `main.ts` calls
 `setModComposedRecords(composedObjects(composedRecords()))` beside the bound
-registry latch. Every later `modPluginContext` reads that latch, including the
-context `installRegions` gives ModForge. `composedObjects` is the SDK's own
+registry latch. Every later `modPluginContext` reads that latch, and
+`content.records(file)` answers from it for a mod on API 2. `composedObjects` is the SDK's own
 narrowing of `Record<string, unknown[]>` to `ComposedRecords`, so the host and the
 authoring functions agree about which passthrough elements are records.
 
@@ -197,8 +199,8 @@ composed record already carries.
 Without it, during content composition or in a standalone or partial test
 context, the field is honestly absent and ModForge's stub record set stands in.
 Everything renders; nothing from that fallback is presented as evidence about
-the running game. On the supported in-game path it is present before regions are
-installed.
+the running game. On the supported in-game path it is present by the time the player
+can choose the menu row.
 
 ---
 
@@ -487,17 +489,14 @@ that disagrees with the game's own is worse than none, because it is believed.
 
 ## What is deliberately not asked for
 
-A DOM overlay seam was an earlier shape of this design. It asked for
-`ui:dom.overlay`, granting a mounted element, host-managed stacking, and
-suppression of the game's own keyboard and pointer input while the overlay is
-open. It is not requested, because four sample plugins that ship with the game
-already create their own elements with the ambient `document`, position them from
-`RegionPixels`, and manage their own listeners, and the region documentation names
-that as the pattern rather than tolerating it. A capability would also not be a
-boundary: in-process mod code reaches `document` whether or not `ctx` mentions
-it, which the engine's own capability documentation states plainly.
+A `ui:dom.overlay` capability was an earlier shape of this design, and it is not
+requested. On mod API 2 a first-party in-process mod gets `ui.overlay`, which
+makes a modal page with a closed shadow root, stacks it over the game and draws
+the host's own close button, and the workshop builds into that page under
+`ui:panel.mount`. A host that will not make one (a test, a refusal) leaves the
+workshop to draw its own element on the document, as it did before.
 
-What the seam would genuinely buy is one thing the mod cannot do properly for
+What the page does not do is the one thing the mod cannot do properly for
 itself: the host clearing held-key and pointer-button state as the overlay takes
 and releases input, so that closing the workshop with a key held does not move
 the character. The mod's own capture-phase listeners get most of the way there
@@ -512,8 +511,8 @@ longer hear the release of. That narrows the edge case; it does not close it.
 Implemented in `src/ui/overlay.ts`, with the remaining browser-level edge case
 described above.
 
-A menu-row dispatch seam is not needed. The way in is a region the mod paints
-and taps, declared with `ui:region.create`, which exists.
+A menu-row dispatch seam is not needed. The way in is a row in the Game menu,
+registered with `ui.gameMenu.register` under `registry:menu`.
 
 A live content-preview seam was considered and rejected; the reasoning is under
 seam 4.
