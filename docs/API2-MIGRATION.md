@@ -1,14 +1,16 @@
 # ModForge and mod API 2
 
-ModForge is a first-party mod and the authoring seam for every other mod, so its move to mod API 2 has two halves: what ModForge itself reads from the game, and what ModForge writes for authors. This page records both against the API 2 surface in `@rpgm-tools/neo-angband-mod-sdk`.
+ModForge is the first-party workshop where players build Neo Angband mods, and other mods are authored through it. Moving it to mod API 2 touched two sides: the calls ModForge makes into the game, and the files it writes for authors. The table on this page maps everything ModForge used from API 1 to its home in the API 2 surface of `@rpgm-tools/neo-angband-mod-sdk`.
 
 ## Where it stands
 
-- ModForge's own code runs on mod API 2. `plugin.ts` default-exports an `Api2ModDefinition` with `start` and `stop`, the manifest names `>=2.0.0 <3.0.0`, and the engine floor is 1.22.0, the first build that runs an API 2 definition from a mod folder.
-- What ModForge writes has moved. A generated manifest is a schema 2 document with an `api` range, and the file screen offers two `plugin.js` templates: an API 1 one (the default, because this game still loads API 1 plugins from a folder) and an API 2 one (an `Api2ModDefinition` with `start` and `stop`, results instead of exceptions, and no `ctx.core`). The review screen says when a draft's script is API 2 and so needs a game that runs it.
-- Every seam the workshop needs now has an API 2 home, so none waits on a Core request: the authoring library, the composed records, the debug commands, loading a mod for one session, reloading into it, and a page to draw on. The four Core requests this page used to carry are all served by `manage` and `ui.overlay`.
+ModForge's own code runs on mod API 2. `plugin.ts` default-exports an `Api2ModDefinition` with `start` and `stop`, and the manifest names `>=2.0.0 <3.0.0` with an engine floor of 1.22.0, the first build that runs an API 2 definition from a mod folder.
 
-## The table
+The files ModForge writes have moved as well. A generated manifest is a schema 2 document with an `api` range. The file screen offers two `plugin.js` templates, and the API 1 one is the default because this game still loads API 1 plugins from a folder. The API 2 template is an `Api2ModDefinition` with `start` and `stop` that works with results instead of exceptions and has no `ctx.core`. When a draft's script is API 2, the review screen says so and notes that it needs a game that runs it.
+
+Every seam the workshop needs has an API 2 home, so none of them waits on a Core request: the authoring library, the composed records, the debug commands, loading a mod for one session, reloading into it, and a page to draw on. `manage` and `ui.overlay` serve all four of the Core requests this page used to carry.
+
+## From API 1 to API 2
 
 | API 1 member | API 2 home | Notes |
 | --- | --- | --- |
@@ -33,14 +35,14 @@ ModForge is a first-party mod and the authoring seam for every other mod, so its
 
 ## What changed for the player
 
-- The way in is a Game-menu row, not a corner tab. The setting that switched the tab on and off keeps its identifier (`builder.showTab`), so a stored choice carries over, and its title now names the row.
-- The manifest asks for `registry:menu`, `ui:panel.mount` and `mod:authoring` where it asked for `ui:region.create`. `mod:session` and `debug:wizard` are unchanged. `mod:authoring` was handed over implicitly before and is declared now.
-- The workshop sits inside the game's own close button, so a second Close control appears in the top right corner beside the workshop's.
+- The workshop opens from a Game-menu row instead of a corner tab. The setting that switched the tab on and off keeps its identifier (`builder.showTab`), so a stored choice carries over, and its title now names the row.
+- The manifest asks for `registry:menu`, `ui:panel.mount`, and `mod:authoring` where it used to ask for `ui:region.create`. `mod:session` and `debug:wizard` are unchanged. `mod:authoring` used to be handed over implicitly and is now declared.
+- The workshop sits on a page the game draws, with the game's own close button, so a second Close control appears in the top right corner beside the workshop's.
 
 ## Checking the mod with the game's tools
 
-The game's fixed checks pass with `--first-party`. Run from the Core repository, `node packages/mod-sdk/bin/neo-angband-mod-check.mjs <folder> --first-party` reports no block and one note, that the manifest declares no `budget.msPerTurn`, so the mod gets the default.
+The game's fixed checks pass with `--first-party`. From the Core repository, `node packages/mod-sdk/bin/neo-angband-mod-check.mjs <folder> --first-party` reports no block and one note: the manifest declares no `budget.msPerTurn`, so the mod gets the default.
 
 ## Release order
 
-A schema 2 `manifest.json` that names API 2 is read only by a game whose release contains the API 2 loader for mod folders. A ModForge release with this change needs that game build, and its engine floor says so.
+Only a game whose release contains the API 2 loader for mod folders can read a schema 2 `manifest.json` that names API 2. A ModForge release with this change needs that game build, and its engine floor says so.
