@@ -56,7 +56,7 @@ function fake(flags: Record<string, boolean>, options: { overlay?: "page" | "ref
   const ui: Record<string, unknown> = {
     gameMenu: {
       register: vi.fn(async (action: string, label: string, run: () => void | Promise<void>) => {
-        if (options.menu === "refused") return api2NotGranted("registry:menu");
+        if (options.menu === "refused") return api2NotGranted("ui:menu.row");
         rows.push({ action, label, run });
         return api2Ok(null);
       }),
@@ -125,7 +125,7 @@ describe("choosing the row", () => {
     const game = fake({ "builder.showTab": true });
     await plugin.start(game.mod);
     await game.rows[0]!.run();
-    expect(game.overlay).toHaveBeenCalledWith({ id: "workshop", modal: true, label: "ModForge" });
+    expect(game.overlay).toHaveBeenCalledWith({ id: "workshop", modal: true, label: "ModForge", closeAt: "bottom-right" });
     /* The workshop drew nothing of its own on the document. */
     expect(document.getElementById("neo-angband-mod-forge")).toBeNull();
   });

@@ -28,7 +28,7 @@ switch has no flag of its own, the game knows it by its section id instead.
 - **Engine:** `>=1.22.0`
 - **Shape:** `plugin`
 - **Facets:** `plugin`
-- **Capabilities:** `registry:menu`, `ui:panel.mount`, `mod:authoring`, `mod:session`, `debug:wizard`
+- **Capabilities:** `ui:menu.row`, `ui:panel.mount`, `mod:authoring`, `mod:session`, `debug:wizard`
 
 What a capability string permits, and what a mod that asks for one cannot do
 without it, is in [the mod lifecycle
