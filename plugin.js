@@ -6548,7 +6548,7 @@ function isRecord3(value) {
 
 // src/ui/screens/files.ts
 var PLUGIN_TEMPLATE = `/*
- * The entry point, written for mod API 1, which this game loads.
+ * The entry point, written for mod API 1.
  *
  * No imports: a module loaded from a mod folder cannot resolve a package by name.
  * What the plugin works with arrives in the ctx argument the game passes in.
@@ -6563,8 +6563,7 @@ export default {
 };
 `;
 var PLUGIN_TEMPLATE_API2 = `/*
- * The entry point, written for mod API 2. This version of the game does not load
- * an API 2 mod from a folder yet; a later one will.
+ * The entry point, written for mod API 2.
  *
  * Every call on mod answers with a result and never throws for a refusal. Check
  * ok, and read reason when it is false.
@@ -6610,26 +6609,26 @@ function filesScreen(shop, path, line) {
     tiny: true,
     tip: "Makes an empty file of your own in the mod folder. A path with a slash in it puts the file in a folder.",
     onClick: () => {
-      shop.acts.createFile(newName.value.trim(), newName.value.trim() === PLUGIN ? PLUGIN_TEMPLATE : "");
+      shop.acts.createFile(newName.value.trim(), newName.value.trim() === PLUGIN ? PLUGIN_TEMPLATE_API2 : "");
       newName.value = "";
     }
   });
   const plugin = button({
     label: `Start a ${PLUGIN}`,
     tiny: true,
-    tip: "Writes a working API 1 entry point with nothing in it yet, so a mod that runs code is one file away. The manifest gets the plugin facet and the API range with it, since a mod that ships code without declaring it installs and then does nothing.",
-    onClick: () => shop.acts.createFile(PLUGIN, PLUGIN_TEMPLATE)
-  });
-  const pluginApi2 = button({
-    label: `Start an API 2 ${PLUGIN}`,
-    tiny: true,
-    tip: "Writes an entry point for mod API 2 instead, and the manifest names the API 2 range. Use it to get a script ready for a later version of the game.",
+    tip: "Writes a working API 2 entry point with nothing in it yet, so a mod that runs code is one file away. The manifest gets the plugin facet and the API 2 range with it, since a mod that ships code without declaring it installs and then does nothing.",
     onClick: () => shop.acts.createFile(PLUGIN, PLUGIN_TEMPLATE_API2)
+  });
+  const pluginApi1 = button({
+    label: `Start an API 1 ${PLUGIN}`,
+    tiny: true,
+    tip: "Writes an entry point for mod API 1 instead, and the manifest names the API 1 range. Use it for a mod that has to run on a game older than 1.22.0.",
+    onClick: () => shop.acts.createFile(PLUGIN, PLUGIN_TEMPLATE)
   });
   const apiNote = h(
     "div",
     { class: "mb-why" },
-    "This game loads API 1 scripts. An API 2 script is for a later version of the game and does not run here yet."
+    "A new plugin.js is written for mod API 2, which the game runs from 1.22.0 on. An API 1 script still loads, and is the choice for a mod that has to run on an older game."
   );
   const api2Docs = button({
     label: "Read about API 2",
@@ -6675,7 +6674,7 @@ function filesScreen(shop, path, line) {
     h("div", { class: "mb-ed-new" }, newName, add),
     newProblem,
     h("div", { class: "mb-row-actions" }, plugin, pluginDocs),
-    h("div", { class: "mb-row-actions" }, pluginApi2, api2Docs),
+    h("div", { class: "mb-row-actions" }, pluginApi1, api2Docs),
     apiNote,
     loadRow,
     h("div", { class: "mb-row-actions" }, searchAll),
@@ -9163,8 +9162,8 @@ function verdictScreen(shop) {
         h(
           "p",
           null,
-          h("b", { text: "This game will not run it yet. " }),
-          "The plugin.js here is written for mod API 2, and this version of the game loads API 1 plugins only, so it refuses the mod when the Mods screen loads it. Keep it for a later version, or start the script again from the API 1 template."
+          h("b", { text: "It needs a game that runs API 2. " }),
+          "The plugin.js here is written for mod API 2, so the mod loads only on 1.22.0 or later, and the manifest's engine floor says so. To support an older game, start the script again from the API 1 template."
         )
       ] : []
     );

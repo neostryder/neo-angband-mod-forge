@@ -6,7 +6,7 @@ ModForge is the first-party workshop where players build Neo Angband mods, and o
 
 ModForge's own code runs on mod API 2. `plugin.ts` default-exports an `Api2ModDefinition` with `start` and `stop`, and the manifest names `>=2.0.0 <3.0.0` with an engine floor of 1.22.0, the first build that runs an API 2 definition from a mod folder.
 
-The files ModForge writes have moved as well. A generated manifest is a schema 2 document with an `api` range. The file screen offers two `plugin.js` templates, and the API 1 one is the default because this game still loads API 1 plugins from a folder. The API 2 template is an `Api2ModDefinition` with `start` and `stop` that works with results instead of exceptions and has no `ctx.core`. When a draft's script is API 2, the review screen says so and notes that it needs a game that runs it.
+The files ModForge writes have moved as well. A generated manifest is a schema 2 document with an `api` range. The file screen offers two `plugin.js` templates, and the API 2 one is the default because the game runs an API 2 definition from a mod folder as of 1.22.0. The API 2 template is an `Api2ModDefinition` with `start` and `stop` that works with results instead of exceptions and has no `ctx.core`. The API 1 template stays available for a mod that has to run on an older game. When a draft's script is API 2, the review screen says so and notes that it needs a game that runs it.
 
 Every seam the workshop needs has an API 2 home, so none of them waits on a Core request: the authoring library, the composed records, the debug commands, loading a mod for one session, reloading into it, and a page to draw on. `manage` and `ui.overlay` serve all four of the Core requests this page used to carry.
 
@@ -16,7 +16,7 @@ Every seam the workshop needs has an API 2 home, so none of them waits on a Core
 | --- | --- | --- |
 | `modApi` in ModForge's own manifest | `api` range in a schema 2 manifest | Moved. The manifest names `>=2.0.0 <3.0.0`. |
 | `modApi` in a generated manifest | `api` range in a schema 2 manifest | Moved. The range comes from the `api` the script's default export names, so the code and the manifest cannot disagree. |
-| `api: 1` and `ctx.core` in the generated `plugin.js` | `Api2ModDefinition` template | Moved. The API 1 template stays the default and no longer mentions `ctx.core`; the API 2 template is a labelled second choice. |
+| `api: 1` and `ctx.core` in the generated `plugin.js` | `Api2ModDefinition` template | Moved. The API 2 template is the default; the API 1 template no longer mentions `ctx.core` and is a labelled second choice. |
 | `ctx.id` | `meta.id` | Moved. |
 | `ctx.engine` | `meta.engine` | Moved. ModForge uses it as the engine floor it writes into a draft. `Api2Meta` marks it as diagnostic, so a draft's floor is a suggestion the author can change. |
 | `ctx.flags` | `meta.flags` | Moved. Read for the menu-row switch, kept drafts and the spawn test. |

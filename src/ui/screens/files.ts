@@ -58,12 +58,12 @@ import { asideSection, button, empty, fillList, listRow } from "../widgets.js";
 import type { View, Workshop } from "../view.js";
 
 /**
- * A starting point for an API 1 script, so a new one is not a blank page. This is
- * the template the plain "Start" button and a typed `plugin.js` use, because API 1
- * is the API this game loads from a mod folder.
+ * A starting point for an API 1 script, so a mod that has to run on a game older
+ * than 1.22.0 is not a blank page. The "Start an API 1 plugin.js" button uses it;
+ * the plain "Start" button and a typed `plugin.js` use the API 2 template.
  */
 export const PLUGIN_TEMPLATE = `/*
- * The entry point, written for mod API 1, which this game loads.
+ * The entry point, written for mod API 1.
  *
  * No imports: a module loaded from a mod folder cannot resolve a package by name.
  * What the plugin works with arrives in the ctx argument the game passes in.
@@ -80,12 +80,12 @@ export default {
 
 /**
  * A starting point for an API 2 script: a definition with `start` and `stop`,
- * where every call answers with a result instead of throwing. Today's folder
- * loader refuses an API 2 mod, so the screen says this one is for a later game.
+ * where every call answers with a result instead of throwing. It is the template
+ * the plain "Start" button and a typed `plugin.js` use, because the game's folder
+ * loader runs an API 2 definition from 1.22.0 on.
  */
 export const PLUGIN_TEMPLATE_API2 = `/*
- * The entry point, written for mod API 2. This version of the game does not load
- * an API 2 mod from a folder yet; a later one will.
+ * The entry point, written for mod API 2.
  *
  * Every call on mod answers with a result and never throws for a refusal. Check
  * ok, and read reason when it is false.
@@ -138,7 +138,7 @@ export function filesScreen(shop: Workshop, path: string, line?: number): View {
     tiny: true,
     tip: "Makes an empty file of your own in the mod folder. A path with a slash in it puts the file in a folder.",
     onClick: () => {
-      shop.acts.createFile(newName.value.trim(), newName.value.trim() === PLUGIN ? PLUGIN_TEMPLATE : "");
+      shop.acts.createFile(newName.value.trim(), newName.value.trim() === PLUGIN ? PLUGIN_TEMPLATE_API2 : "");
       newName.value = "";
     },
   });
@@ -146,23 +146,24 @@ export function filesScreen(shop: Workshop, path: string, line?: number): View {
     label: `Start a ${PLUGIN}`,
     tiny: true,
     tip:
-      "Writes a working API 1 entry point with nothing in it yet, so a mod that runs code is one file away. The " +
-      "manifest gets the plugin facet and the API range with it, since a mod that ships code without declaring it " +
-      "installs and then does nothing.",
-    onClick: () => shop.acts.createFile(PLUGIN, PLUGIN_TEMPLATE),
+      "Writes a working API 2 entry point with nothing in it yet, so a mod that runs code is one file away. The " +
+      "manifest gets the plugin facet and the API 2 range with it, since a mod that ships code without declaring " +
+      "it installs and then does nothing.",
+    onClick: () => shop.acts.createFile(PLUGIN, PLUGIN_TEMPLATE_API2),
   });
-  const pluginApi2 = button({
-    label: `Start an API 2 ${PLUGIN}`,
+  const pluginApi1 = button({
+    label: `Start an API 1 ${PLUGIN}`,
     tiny: true,
     tip:
-      "Writes an entry point for mod API 2 instead, and the manifest names the API 2 range. Use it to get a " +
-      "script ready for a later version of the game.",
-    onClick: () => shop.acts.createFile(PLUGIN, PLUGIN_TEMPLATE_API2),
+      "Writes an entry point for mod API 1 instead, and the manifest names the API 1 range. Use it for a mod " +
+      "that has to run on a game older than 1.22.0.",
+    onClick: () => shop.acts.createFile(PLUGIN, PLUGIN_TEMPLATE),
   });
   const apiNote = h(
     "div",
     { class: "mb-why" },
-    "This game loads API 1 scripts. An API 2 script is for a later version of the game and does not run here yet.",
+    "A new plugin.js is written for mod API 2, which the game runs from 1.22.0 on. An API 1 script still loads, " +
+      "and is the choice for a mod that has to run on an older game.",
   );
   const api2Docs = button({
     label: "Read about API 2",
@@ -218,7 +219,7 @@ export function filesScreen(shop: Workshop, path: string, line?: number): View {
     h("div", { class: "mb-ed-new" }, newName, add),
     newProblem,
     h("div", { class: "mb-row-actions" }, plugin, pluginDocs),
-    h("div", { class: "mb-row-actions" }, pluginApi2, api2Docs),
+    h("div", { class: "mb-row-actions" }, pluginApi1, api2Docs),
     apiNote,
     loadRow,
     h("div", { class: "mb-row-actions" }, searchAll),
