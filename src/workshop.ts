@@ -22,6 +22,7 @@ import { mountApp } from "./ui/app.js";
 import { useDocument } from "./ui/dom.js";
 import type { Dismissable } from "./ui/launch.js";
 import { mountExit, mountLaunch } from "./ui/launch.js";
+import type { HostPanel } from "./ui/overlay.js";
 import { mountOverlay } from "./ui/overlay.js";
 import { initialState, Store } from "./ui/store.js";
 
@@ -37,8 +38,12 @@ export interface WorkshopHandle {
  * legitimate host rather than an error: a headless harness and a test both run
  * the game with no page. Declining quietly is the right answer, and the game's
  * own sample plugins decline the same way for the same reason.
+ *
+ * `panel` is the page the game made for the workshop (`ui.overlay`). Without one
+ * the workshop builds its own overlay on the document, which is what a test and a
+ * host with no overlay get.
  */
-export function openWorkshop(ctx: BuilderCtx, doc: Document | undefined): WorkshopHandle | undefined {
+export function openWorkshop(ctx: BuilderCtx, doc: Document | undefined, panel?: HostPanel): WorkshopHandle | undefined {
   if (!doc || !doc.body) return undefined;
 
   const seams = resolveSeams(ctx);
@@ -60,7 +65,7 @@ export function openWorkshop(ctx: BuilderCtx, doc: Document | undefined): Worksh
     log(`draft storage refused ${outcome.bytes} bytes: ${outcome.why}`);
   });
 
-  const overlay = mountOverlay(doc, { label: "ModForge" });
+  const overlay = mountOverlay(doc, { label: "ModForge", ...(panel ? { panel } : {}) });
 
   let closed = false;
   let launchHandle: Dismissable | undefined;

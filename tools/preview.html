@@ -39,8 +39,8 @@
       /*
        * A harness for looking at the workshop in a real browser, with no game.
        *
-       * It builds the narrowest context the mod actually reads, hands it to the
-       * plugin's own `regions` factory, and taps the tab. By default every seam is
+       * It builds the narrowest `ModApi2` the mod actually reads, hands it to the
+       * plugin's own `start`, and chooses the Game-menu row it registers. By default every seam is
        * absent, which is exactly the state a player is in on the engine this was
        * built against, so what appears here is what appears there.
        *
@@ -53,7 +53,7 @@
        * ----------------------------------------------------------------
        *
        * WHY IT IS NOT THE DEFAULT. The default has to be what a player gets, and a
-       * player today gets no `ctx.authoring` at all. A preview that quietly ran on
+       * player on a host without the seam gets no authoring library at all. A preview that quietly ran on
        * the real SDK would be a preview of a game nobody is running.
        *
        * WHY IT EXISTS ANYWAY. Without it the field checks cannot be judged here at
@@ -67,7 +67,7 @@
        * the same loopback port with no build step.
        *
        * WHAT IS STILL A STAND-IN WITH THIS ON, said plainly because it decides what
-       * a green result here is worth: `ctx.composedRecords`. The published core
+       * a green result here is worth: the composed records. The published core
        * package carries the engine's CODE and not its content pack, so the game's
        * own records are not obtainable outside the game. The blueprints are real -
        * they are generated data that ships inside the SDK - so every check that
@@ -95,38 +95,58 @@
       }
       document.getElementById("floor").textContent = rows.join("\n");
 
-      /* One JSON value, in memory, standing in for the host's own preference
+      /* One JSON value, in memory, standing in for the game's own preference
        * store. Reload the page and the drafts are gone, which is the point of a
        * preview and not what a player gets. */
-      let held;
-      const prefs = {
-        get: () => held,
-        set: (value) => {
-          held = value;
-        },
-      };
+      let held = null;
 
-      const ctx = {
-        id: "builder",
-        engine: "0.25.0",
-        flags: { "builder.showTab": true, "builder.keepDrafts": true, "builder.cheatSpawn": false },
-        core: {},
-        prefs,
-        log: (msg) => console.log(`[builder] ${msg}`),
-        ...(authoring === undefined ? {} : { authoring }),
+      /* The smallest `ModApi2` the entry reads: the flags, the Game menu, the
+       * preference slot, and the calls a refused host answers. With
+       * `?authoring=sdk` the authoring call answers with the SDK; every other
+       * seam answers "unavailable", so the workshop shows its fallbacks. */
+      const unavailable = async () => ({ ok: false, code: "unavailable", message: "this preview has no game" });
+      let row;
+      const mod = {
+        meta: {
+          id: "builder",
+          api: "2.0.0",
+          engine: "preview",
+          tier: "first-party",
+          flags: { "builder.showTab": true, "builder.keepDrafts": true, "builder.cheatSpawn": false },
+          granted: (capability) => capability === "mod:authoring" && authoring !== undefined,
+          log: (msg) => console.log(`[builder] ${msg}`),
+        },
+        ui: {
+          gameMenu: {
+            register: async (action, label, run) => {
+              row = { action, label, run };
+              return { ok: true, value: null };
+            },
+          },
+        },
+        manage: { authoring: async () => (authoring === undefined ? await unavailable() : { ok: true, value: authoring }) },
+        content: { records: unavailable },
+        store: {
+          prefs: {
+            get: async () => ({ ok: true, value: held }),
+            set: async (value) => {
+              held = value;
+              return { ok: true, value: null };
+            },
+          },
+        },
       };
 
       document.querySelector(".note").textContent =
         authoring === undefined
           ? "Stand-in for the game. The workshop opens over it. Add ?authoring=sdk for the real checker."
-          : "Stand-in for the game, with the real mod SDK behind ctx.authoring. Its records are still the fixture.";
+          : "Stand-in for the game, with the real mod SDK behind manage.authoring. Its records are still the fixture.";
 
-      const regions = plugin.regions(ctx);
-      const workshop = regions[0];
-      if (!workshop) throw new Error("the plugin declared no region, so there is no tab to tap");
+      await plugin.start(mod);
+      if (!row) throw new Error("the plugin registered no Game-menu row, so there is no way in");
 
-      /* Tap it, so the page opens on the workshop rather than on the stand-in. */
-      workshop.input({ col: 0, row: 0, kind: "tap" });
+      /* Choose it, so the page opens on the workshop rather than on the stand-in. */
+      await row.run();
     </script>
   </body>
 </html>

@@ -5,11 +5,11 @@
     "id": "forge",
     "name": "ModForge",
     "version": "1.4.2",
-    "api": ">=1.0.0 <2.0.0",
+    "api": ">=2.0.0 <3.0.0",
     "runtime": "in-process",
     "engine": {
-      "range": ">=1.0.0",
-      "because": "The workshop reads the authoring library and the composed records that the game hands to mods from 1.0.0 on."
+      "range": ">=1.22.0",
+      "because": "The workshop needs the game build that runs mod API 2 definitions from a mod folder, and the authoring, session and debug seams it hands to a first-party mod."
     },
     "dependencies": {
       "required": {
@@ -19,11 +19,13 @@
       }
     },
     "capabilities": [
-      "ui:region.create",
+      "registry:menu",
+      "ui:panel.mount",
+      "mod:authoring",
       "mod:session",
       "debug:wizard"
     ],
-    "description": "Make your own mod from inside the game. Start from something that already exists, such as a monster, a sword, a shop or a spell, and the workshop shows you what it is made of, how each of its numbers compares with similar things in the game, and what you would need to change to get the thing you have in mind. When you are happy with it, one button forges the mod, loads it for this session and reloads the game so you are playing it. You can also save it as a file to give to someone else.\n\nYou do not have to know JSON to use it. If you want to see it, every screen can show you the exact file it is about to write, and a mod it built can be taken away, edited by hand and brought back.\n\nThe workshop tab appears in the corner of the screen. Tap it to open the workshop.",
+    "description": "Make your own mod from inside the game. Start from something that already exists, such as a monster, a sword, a shop or a spell, and the workshop shows you what it is made of, how each of its numbers compares with similar things in the game, and what you would need to change to get the thing you have in mind. When you are happy with it, one button forges the mod, loads it for this session and reloads the game so you are playing it. You can also save it as a file to give to someone else.\n\nYou do not have to know JSON to use it. If you want to see it, every screen can show you the exact file it is about to write, and a mod it built can be taken away, edited by hand and brought back.\n\nChoose Build a mod in the Game menu to open the workshop.",
     "author": "neostryder",
     "license": "GPL-2.0-only",
     "repository": "https://github.com/neostryder/neo-angband-mod-forge",
@@ -35,8 +37,8 @@
     "rules": [
       {
         "flag": "builder.showTab",
-        "title": "Show the workshop tab",
-        "description": "Puts a small tab in the corner of the main screen. Tapping it opens the workshop. On by default, since the tab is the only way to open the workshop.",
+        "title": "Show Build a mod in the Game menu",
+        "description": "Adds a Build a mod row to the Game menu. Choosing it opens the workshop. On by default, since the row is the only way to open the workshop.",
         "default": true,
         "requiresReload": true
       },
