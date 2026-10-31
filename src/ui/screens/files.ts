@@ -59,7 +59,7 @@ import type { View, Workshop } from "../view.js";
 
 /**
  * A starting point for an API 1 script, so a mod that has to run on a game older
- * than 1.22.0 is not a blank page. The "Start an API 1 plugin.js" button uses it;
+ * than 1.23.0-beta.1 is not a blank page. The "Start an API 1 plugin.js" button uses it;
  * the plain "Start" button and a typed `plugin.js` use the API 2 template.
  */
 export const PLUGIN_TEMPLATE = `/*
@@ -82,7 +82,7 @@ export default {
  * A starting point for an API 2 script: a definition with `start` and `stop`,
  * where every call answers with a result instead of throwing. It is the template
  * the plain "Start" button and a typed `plugin.js` use, because the game's folder
- * loader runs an API 2 definition from 1.22.0 on.
+ * loader runs an API 2 definition from 1.23.0-beta.1 on.
  */
 export const PLUGIN_TEMPLATE_API2 = `/*
  * The entry point, written for mod API 2.
@@ -156,13 +156,13 @@ export function filesScreen(shop: Workshop, path: string, line?: number): View {
     tiny: true,
     tip:
       "Writes an entry point for mod API 1 instead, and the manifest names the API 1 range. Use it for a mod " +
-      "that has to run on a game older than 1.22.0.",
+      "that has to run on a game older than 1.23.0-beta.1.",
     onClick: () => shop.acts.createFile(PLUGIN, PLUGIN_TEMPLATE),
   });
   const apiNote = h(
     "div",
     { class: "mb-why" },
-    "A new plugin.js is written for mod API 2, which the game runs from 1.22.0 on. An API 1 script still loads, " +
+    "A new plugin.js is written for mod API 2, which the game runs from 1.23.0-beta.1 on. An API 1 script still loads, " +
       "and is the choice for a mod that has to run on an older game.",
   );
   const api2Docs = button({
