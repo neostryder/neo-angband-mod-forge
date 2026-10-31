@@ -154,7 +154,7 @@ export function verdictScreen(shop: Workshop): View {
               "p",
               null,
               h("b", { text: "It needs a game that runs API 2. " }),
-              "The plugin.js here is written for mod API 2, so the mod loads only on 1.22.0 or later, and the " +
+              "The plugin.js here is written for mod API 2, so the mod loads only on 1.23.0-beta.1 or later, and the " +
                 "manifest's engine floor says so. To support an older game, start the script again from the API 1 " +
                 "template.",
             ),

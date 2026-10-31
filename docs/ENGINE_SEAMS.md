@@ -28,7 +28,7 @@ mod that stages session content. Seam 6 is asked for and does not exist yet. The
 compatibility fallbacks remain so the standalone preview and a partial test
 context still render every screen.
 
-The declared engine range starts at 1.22.0, the first build that runs a mod API 2
+The declared engine range starts at 1.23.0-beta.1, the first build that runs a mod API 2
 definition from a mod folder. On mod API 2 every seam is a call on the mod's
 `manage` domain, and the manifest declares the capability each call needs:
 `mod:authoring` for seam 1, `debug:wizard` for seam 4, `mod:session` for seam 5

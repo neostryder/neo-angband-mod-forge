@@ -4,9 +4,9 @@ ModForge is the first-party workshop where players build Neo Angband mods, and o
 
 ## Where it stands
 
-ModForge's own code runs on mod API 2. `plugin.ts` default-exports an `Api2ModDefinition` with `start` and `stop`, and the manifest names `>=2.0.0 <3.0.0` with an engine floor of 1.22.0, the first build that runs an API 2 definition from a mod folder.
+ModForge's own code runs on mod API 2. `plugin.ts` default-exports an `Api2ModDefinition` with `start` and `stop`, and the manifest names `>=2.0.0 <3.0.0` with an engine floor of 1.23.0-beta.1, the first build that runs an API 2 definition from a mod folder.
 
-The files ModForge writes have moved as well. A generated manifest is a schema 2 document with an `api` range. The file screen offers two `plugin.js` templates, and the API 2 one is the default because the game runs an API 2 definition from a mod folder as of 1.22.0. The API 2 template is an `Api2ModDefinition` with `start` and `stop` that works with results instead of exceptions and has no `ctx.core`. The API 1 template stays available for a mod that has to run on an older game. When a draft's script is API 2, the review screen says so and notes that it needs a game that runs it.
+The files ModForge writes have moved as well. A generated manifest is a schema 2 document with an `api` range. The file screen offers two `plugin.js` templates, and the API 2 one is the default because the game runs an API 2 definition from a mod folder as of 1.23.0-beta.1. The API 2 template is an `Api2ModDefinition` with `start` and `stop` that works with results instead of exceptions and has no `ctx.core`. The API 1 template stays available for a mod that has to run on an older game. When a draft's script is API 2, the review screen says so and notes that it needs a game that runs it.
 
 Every seam the workshop needs has an API 2 home, so none of them waits on a Core request: the authoring library, the composed records, the debug commands, loading a mod for one session, reloading into it, and a page to draw on. `manage` and `ui.overlay` serve all four of the Core requests this page used to carry.
 

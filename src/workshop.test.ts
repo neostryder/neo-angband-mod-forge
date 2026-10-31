@@ -1270,7 +1270,7 @@ describe("editing the mod as files", () => {
 
     /* The keys the host needs before it will import a plugin, all written,
      * because the plugin facet alone is a mod that installs and does nothing.
-     * The template the button starts from is the API 2 one, which the game runs from 1.22.0. */
+     * The template the button starts from is the API 2 one, which the game runs from 1.23.0-beta.1. */
     const manifest = readManifest(openFile("manifest.json").value) as {
       facets?: string[];
       api?: string;

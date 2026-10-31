@@ -25,7 +25,7 @@ switch has no flag of its own, the game knows it by its section id instead.
 
 ## What it needs
 
-- **Engine:** `>=1.22.0`
+- **Engine:** `>=1.23.0-beta.1`
 - **Shape:** `plugin`
 - **Facets:** `plugin`
 - **Capabilities:** `ui:menu.row`, `ui:panel.mount`, `mod:authoring`, `mod:session`, `debug:wizard`
