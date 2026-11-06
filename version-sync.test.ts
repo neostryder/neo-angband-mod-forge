@@ -28,7 +28,7 @@ describe("the two version sites", () => {
     /* Released headings are spelled `## [1.2.0] - date` here and `## 1.4.0 - date`
      * in some siblings, so the brackets are optional rather than assumed. */
     const changelog = readFileSync(new URL("./CHANGELOG.md", import.meta.url), "utf8");
-    const newest = /^## \[?(\d+\.\d+\.\d+)\]? - /mu.exec(changelog);
+    const newest = /^## \[?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)\]? - /mu.exec(changelog);
     expect(newest?.[1]).toBe(read("./manifest.json"));
   });
 });

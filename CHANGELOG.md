@@ -24,6 +24,8 @@ were not retagged.
 
 ## [Unreleased]
 
+## [1.5.0-beta.1] - 2026-11-05
+
 ### Changed
 
 - [Visible] [UI] **The game's Close button moves out of the way.** It used to sit on top of the workshop's own Close and Guide buttons; it now sits in the bottom right corner. The Build a mod row also asks for less: a row in the game menu, not a rewrite of the menus.

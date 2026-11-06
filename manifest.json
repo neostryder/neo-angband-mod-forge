@@ -4,7 +4,7 @@
   "data": {
     "id": "forge",
     "name": "ModForge",
-    "version": "1.4.2",
+    "version": "1.5.0-beta.1",
     "api": ">=2.0.0 <3.0.0",
     "runtime": "in-process",
     "engine": {
