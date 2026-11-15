@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import * as Core from "@rpgm-tools/neo-angband-core";
+import { apiRangeVerdict, validateManifest } from "@rpgm-tools/neo-angband-mod-sdk";
+import type { Api2ModDefinition, ModApi2 } from "@rpgm-tools/neo-angband-mod-sdk";
+import { sdkDocs } from "./src/ui/sdk-docs-content.js";
 
 /**
  * `docs/README.md`'s settings table and `manifest.json` must agree.
@@ -84,5 +89,100 @@ describe("the settings table and the manifest", () => {
         toggle.default === true ? "on" : "off",
       );
     }
+  });
+});
+
+const tutorialDir = resolve("docs/tutorials");
+const tutorials = readdirSync(tutorialDir).filter((name) => /^\d\d-.*\.md$/.test(name));
+const readTutorial = (name: string): string => readFileSync(resolve(tutorialDir, name), "utf8");
+
+function example(name: string): Api2ModDefinition {
+  const source = /```js\n(export default [\s\S]*?)\n```/.exec(readTutorial(name))?.[1];
+  if (!source) throw new Error(`No plugin example in ${name}`);
+  return (new Function(source.replace("export default", "return")) as () => Api2ModDefinition)();
+}
+
+describe("the local authoring documentation", () => {
+  it("embeds all eight tutorials and local guides from their source files", () => {
+    expect(tutorials).toHaveLength(8);
+    const local = sdkDocs().filter((doc) => doc.source === "local");
+    expect(local.map((doc) => doc.path).sort()).toEqual([
+      ...tutorials.map((name) => `tutorials/${name}`),
+      "tutorials/README.md", "AUTHORING.md", "SCAFFOLDING.md", "PUBLISHING.md",
+    ].sort());
+    for (const doc of local) {
+      expect(doc.text, doc.path).toBe(readFileSync(resolve("docs", doc.path), "utf8").replace(/\r\n/g, "\n").replace(/\n{2,}$/u, "\n"));
+    }
+  });
+
+  it("resolves every moved guide's relative file link inside this repository", () => {
+    for (const doc of sdkDocs().filter((entry) => entry.source === "local")) {
+      const file = resolve("docs", doc.path);
+      for (const match of doc.text.matchAll(/\]\(([^)]+)\)/g)) {
+        const target = match[1] ?? "";
+        if (/^(?:https?:|#)/.test(target)) continue;
+        expect(existsSync(resolve(dirname(file), target.split("#")[0] ?? "")), `${doc.path}: ${target}`).toBe(true);
+      }
+    }
+  });
+
+  it.each(["01-tweak-a-value.md", "02-add-an-item.md", "05-hook-behaviour.md", "06-add-an-option.md", "08-add-a-store.md"])("validates %s with the published manifest reader", (name) => {
+    const json = /```json\n([\s\S]*?)\n```/.exec(readTutorial(name))?.[1];
+    expect(json).toBeDefined();
+    const document = JSON.parse(json ?? "{}");
+    expect(document.schemaVersion).toBe(2);
+    const manifest = validateManifest(document);
+    if (manifest.runtime !== "data") expect(apiRangeVerdict(manifest.api ?? "").ok).toBe(true);
+  });
+
+  it("composes tutorial 5's hook with Core and preserves unrelated messages", () => {
+    const contribution = example("05-hook-behaviour.md").hooks?.({ id: "my-code-mod", flags: {} });
+    const hooks = Core.composeModHooks([{ messageText: contribution?.messageText! }]);
+    expect(hooks?.messageText?.("Welcome to level 2.")).toBe("Congratulations! Welcome to level 2.");
+    expect(hooks?.messageText?.("You are poisoned.")).toBe("You are poisoned.");
+  });
+
+  it("registers tutorial 6's hook only when the option is on", () => {
+    const plugin = example("06-add-an-option.md");
+    expect(plugin.hooks?.({ id: "my-option-mod", flags: {} })).toEqual({});
+    const contribution = plugin.hooks?.({ id: "my-option-mod", flags: { "my-option-mod.congratulate": true } });
+    const hooks = Core.composeModHooks([{ messageText: contribution?.messageText! }]);
+    expect(hooks?.messageText?.("Welcome to level 2.")).toBe("Congratulations! Welcome to level 2.");
+  });
+
+  it("uses tutorial 8's known view and leaves hidden enchantments out of its buying rule", async () => {
+    const plugin = example("08-add-a-store.md");
+    const rules = new Core.StoreBehaviourRegistry();
+    rules.registerWillBuy("*", (shop) => shop.obj.tval === Core.TV.DIGGING);
+    const kind = { dd: 1, ds: 4, ac: 0, toH: Core.zeroRv(), effect: null } as Core.ObjectKind;
+    const sword = Core.objectNew(kind);
+    sword.tval = Core.TV.SWORD;
+    sword.toD = 5;
+    sword.notice = Core.OBJ_NOTICE.ASSESSED;
+    const player = { objKnown: Core.blankObjKnowledge() } as Core.Player;
+    player.objKnown.toD = 0;
+    const state = { actor: { player }, runeEnv: Core.makeRuneEnv(() => null, () => false) } as Core.GameState;
+    const mod = {
+      engine: {
+        core: Core,
+        state,
+        registries: { stores: { byName: () => ({ feat: 7 }) } },
+        registry: { stores: { willBuyFor: rules.willBuyFor.bind(rules), setWillBuy: rules.registerWillBuy.bind(rules) } },
+      },
+    } as unknown as ModApi2;
+    await plugin.start?.(mod);
+    const buy = rules.willBuyFor(7);
+    const shop = { obj: sword } as Core.StoreWillBuyContext;
+    expect(buy?.(shop)).toBe(false);
+    player.objKnown.toD = 1;
+    expect(buy?.(shop)).toBe(true);
+    sword.toD = 0;
+    expect(buy?.(shop)).toBe(false);
+    sword.tval = Core.TV.DIGGING;
+    expect(buy?.(shop)).toBe(true);
+  });
+
+  it("keeps tutorial 8's content-only shop when engine access is absent", async () => {
+    expect(await example("08-add-a-store.md").start?.({} as ModApi2)).toBeUndefined();
   });
 });

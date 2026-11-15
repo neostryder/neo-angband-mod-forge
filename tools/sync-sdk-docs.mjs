@@ -4,8 +4,8 @@
  *
  * The browser loads one built plugin.js from a mod folder. It has no package
  * resolver and it cannot fetch a markdown file that the mod did not ship, so
- * the reader needs its source text compiled into that module. The SDK's docs
- * are the source of truth; this script only selects complete documents and
+ * the reader needs its source text compiled into that module. Local authoring guides and SDK references
+ * are the sources of truth; this script selects complete documents and
  * serializes them into a TypeScript module.
  *
  * Keep the selection focused. The beginner path is complete, and the advanced
@@ -26,12 +26,14 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const sourceDir = resolve(root, "node_modules", "@rpgm-tools", "neo-angband-mod-sdk", "docs");
+const localDir = resolve(root, "docs");
 const output = resolve(root, "src", "ui", "sdk-docs-content.ts");
 
 const documents = [
   {
     id: "tutorial-01",
     path: "tutorials/01-tweak-a-value.md",
+    source: "local",
     audience: "beginner",
     title: "1. Change one thing",
     note: "Five minutes, two files, and a dagger that hits harder.",
@@ -39,6 +41,7 @@ const documents = [
   {
     id: "tutorial-02",
     path: "tutorials/02-add-an-item.md",
+    source: "local",
     audience: "beginner",
     title: "2. Add an item",
     note: "Make a record the base game has never seen.",
@@ -46,6 +49,7 @@ const documents = [
   {
     id: "tutorial-03",
     path: "tutorials/03-add-a-monster.md",
+    source: "local",
     audience: "beginner",
     title: "3. Add a monster",
     note: "Build the same idea in another record file.",
@@ -53,6 +57,7 @@ const documents = [
   {
     id: "tutorial-04",
     path: "tutorials/04-change-a-spell.md",
+    source: "local",
     audience: "beginner",
     title: "4. Change a spell",
     note: "Reach into a class and understand a positional path.",
@@ -60,6 +65,7 @@ const documents = [
   {
     id: "tutorial-05",
     path: "tutorials/05-hook-behaviour.md",
+    source: "local",
     audience: "beginner",
     title: "5. Hook behaviour",
     note: "Write a ten-line plugin that changes behaviour.",
@@ -67,6 +73,7 @@ const documents = [
   {
     id: "tutorial-06",
     path: "tutorials/06-add-an-option.md",
+    source: "local",
     audience: "beginner",
     title: "6. Add an option",
     note: "Let a player switch your change on and off.",
@@ -74,16 +81,26 @@ const documents = [
   {
     id: "tutorial-07",
     path: "tutorials/07-add-an-artifact.md",
+    source: "local",
     audience: "beginner",
     title: "7. Add an artifact",
     note: "Build on top of an item and keep it composable.",
   },
   {
+    id: "tutorial-08",
+    path: "tutorials/08-add-a-store.md",
+    source: "local",
+    audience: "beginner",
+    title: "8. Add a store",
+    note: "Replace a storefront and add a player-known buying rule.",
+  },
+  {
     id: "tutorials",
     path: "tutorials/README.md",
+    source: "local",
     audience: "beginner",
     title: "The beginner path",
-    note: "How the seven lessons fit together, and what to read next.",
+    note: "How the eight lessons fit together, and what to read next.",
   },
   {
     id: "overview",
@@ -102,9 +119,26 @@ const documents = [
   {
     id: "authoring",
     path: "AUTHORING.md",
+    source: "local",
     audience: "advanced",
-    title: "Authoring API",
-    note: "Draft records, validation, projects, resources, and sections.",
+    title: "Authoring guide",
+    note: "Draft records, validate them, and assemble a project.",
+  },
+  {
+    id: "scaffolding",
+    path: "SCAFFOLDING.md",
+    source: "local",
+    audience: "advanced",
+    title: "Start a mod",
+    note: "Folder layout, API 2 entry point, imports, and assets.",
+  },
+  {
+    id: "publishing",
+    path: "PUBLISHING.md",
+    source: "local",
+    audience: "advanced",
+    title: "Check and publish",
+    note: "Review a draft, check a repository, and share a release.",
   },
   {
     id: "plugins",
@@ -118,7 +152,7 @@ const documents = [
     path: "API2.md",
     audience: "advanced",
     title: "Mod API 2",
-    note: "The next plugin API: domains, results, events, hooks and storage.",
+    note: "The published plugin API: domains, results, events, hooks and storage.",
   },
   {
     id: "api2-migration",
@@ -137,13 +171,14 @@ const documents = [
 ];
 
 const readDocument = (document) => {
-  const file = resolve(sourceDir, document.path);
+  const local = document.source === "local";
+  const file = resolve(local ? localDir : sourceDir, document.path);
   if (!existsSync(file)) {
     throw new Error(
-      `Missing SDK documentation: ${document.path}. Install the local SDK package with its docs before building ModForge.`,
+      `Missing documentation: ${document.path}. Local guides and installed SDK references must be present before building ModForge.`,
     );
   }
-  return { ...document, text: readFileSync(file, "utf8").replace(/\r\n/g, "\n").replace(/\n{2,}$/u, "\n") };
+  return { ...document, source: local ? "local" : "sdk", text: readFileSync(file, "utf8").replace(/\r\n/g, "\n").replace(/\n{2,}$/u, "\n") };
 };
 
 const embedded = documents.map(readDocument);
@@ -154,7 +189,7 @@ if (bytes > ceiling) {
 }
 
 const encoded = embedded.map(({ text, ...document }) => ({ ...document, encoded: Buffer.from(text, "utf8").toString("base64") }));
-const generated = `/**\n * Generated by tools/sync-sdk-docs.mjs from @rpgm-tools/neo-angband-mod-sdk/docs.\n * Do not edit by hand.\n */\n\nconst SDK_DOC_SOURCES = ${JSON.stringify(encoded, null, 2)} as const;\n\nexport type SdkDocId = (typeof SDK_DOC_SOURCES)[number]["id"];\nexport interface SdkDoc {\n  readonly id: SdkDocId;\n  readonly path: string;\n  readonly audience: "beginner" | "advanced";\n  readonly title: string;\n  readonly note: string;\n  readonly text: string;\n}\n\nlet decoded: readonly SdkDoc[] | undefined;\n\nfunction decodeUtf8(base64: string): string {\n  const binary = atob(base64);\n  const bytes = new Uint8Array(binary.length);\n  for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);\n  return new TextDecoder().decode(bytes);\n}\n\nexport function sdkDocs(): readonly SdkDoc[] {\n  if (decoded === undefined) {\n    decoded = SDK_DOC_SOURCES.map(({ encoded, ...document }) => ({ ...document, text: decodeUtf8(encoded) }));\n  }\n  return decoded;\n}\n`;
+const generated = `/**\n * Generated by tools/sync-sdk-docs.mjs from docs/ and @rpgm-tools/neo-angband-mod-sdk/docs.\n * Do not edit by hand.\n */\n\nconst SDK_DOC_SOURCES = ${JSON.stringify(encoded, null, 2)} as const;\n\nexport type SdkDocId = (typeof SDK_DOC_SOURCES)[number]["id"];\nexport interface SdkDoc {\n  readonly id: SdkDocId;\n  readonly path: string;\n  readonly source: "local" | "sdk";\n  readonly audience: "beginner" | "advanced";\n  readonly title: string;\n  readonly note: string;\n  readonly text: string;\n}\n\nlet decoded: readonly SdkDoc[] | undefined;\n\nfunction decodeUtf8(base64: string): string {\n  const binary = atob(base64);\n  const bytes = new Uint8Array(binary.length);\n  for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);\n  return new TextDecoder().decode(bytes);\n}\n\nexport function sdkDocs(): readonly SdkDoc[] {\n  if (decoded === undefined) {\n    decoded = SDK_DOC_SOURCES.map(({ encoded, ...document }) => ({ ...document, text: decodeUtf8(encoded) }));\n  }\n  return decoded;\n}\n`;
 const before = existsSync(output) ? readFileSync(output, "utf8") : undefined;
 if (before !== generated) writeFileSync(output, generated, "utf8");
 

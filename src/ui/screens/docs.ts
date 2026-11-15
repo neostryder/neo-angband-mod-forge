@@ -40,7 +40,7 @@ export function docsScreen(shop: Workshop, selected: SdkDocId): View {
       h("h2", { text: "Neo Angband modding docs" }),
       h("p", {
         text:
-          "The SDK documentation, bundled with this workshop when it was built. Pick a lesson on the right, or use " +
+          "ModForge tutorials and SDK references, bundled with this workshop. Pick a lesson on the right, or use " +
           "the advanced references when you need the full contract behind a content file or plugin.js.",
       }),
     ),
@@ -54,12 +54,12 @@ export function docsScreen(shop: Workshop, selected: SdkDocId): View {
       }),
       button({ label: "Open plugin API", onClick: () => shop.acts.go({ at: "docs", doc: "plugins" }) }),
     ),
-    h("div", { class: "mb-filename", text: `SDK docs / ${document.path}` }),
+    h("div", { class: "mb-filename", text: `${document.source === "local" ? "ModForge docs" : "SDK docs"} / ${document.path}` }),
     h("div", { class: "mb-why", text: "Read-only. Ctrl+F finds text in this document." }),
     reader.el,
   );
 
-  const beginner = asideSection("Beginner path", "7 lessons");
+  const beginner = asideSection("Beginner path", "8 lessons");
   beginner.body.append(
     h("p", {
       class: "mb-why",
