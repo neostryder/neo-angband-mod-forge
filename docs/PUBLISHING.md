@@ -6,7 +6,7 @@ A distributed mod contains `manifest.json`, its declared record contributions an
 
 In ModForge, use **Review it** to read errors, warnings, and hints. Set a repository address and a license before sharing. A fork taken from installed records cannot recover the source manifest or license; obtain the original license before publishing that fork.
 
-**Try for this session** stages content for one session and reloads through the host. It refuses scripts and capabilities. Session loading changes the running game and can affect a saved character; the next launch does not retain the staged mod. **Save zip** exports the files for **Import a zip** on the Mods screen, including code mods that need consent.
+**Try it in the game** stages content for one session and reloads through the host. It refuses scripts and capabilities. Session loading changes the running game and can affect a saved character; the next launch does not retain the staged mod. **Save it as a file** exports the files for **Import a zip** on the Mods screen, including code mods that need consent.
 
 ## Check a repository
 

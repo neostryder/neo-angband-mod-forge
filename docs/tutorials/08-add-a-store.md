@@ -12,7 +12,7 @@
 
 The town has eight storefronts. Their entrance features are part of the game the port is reproducing, so a mod cannot invent a ninth one with a new terrain code. What it *can* do is turn one of those storefronts into its own shop: give it a new name, stock table, owners and buying rule. That is a new shop to the player, and it is the portable move a mod can make.
 
-We are taking over the Black Market's building. The Black Market is still in the base game underneath your mod; turn the mod off and it comes back exactly as it was. Nothing in this tutorial edits the game's source files.
+We are taking over the General Store's building. The General Store is still in the base game underneath your mod; turn the mod off and it comes back exactly as it was. Nothing in this tutorial edits the game's source files.
 
 ## Mod files
 
@@ -56,7 +56,7 @@ This mod changes records *and* runs one buying rule, so its manifest declares bo
       }
     },
     "affectsGameplay": true,
-    "description": "Turns the Black Market into the Adventurer's Exchange.",
+    "description": "Turns the General Store into the Adventurer's Exchange.",
     "capabilities": [
       "engine:access",
       "registry:store"
@@ -74,7 +74,7 @@ This mod changes records *and* runs one buying rule, so its manifest declares bo
 ```json
 {
   "fieldPatches": {
-    "core:black-market": [
+    "core:general-store": [
       { "op": "set", "path": "name", "value": "Adventurer's Exchange" },
       {
         "op": "set",
@@ -88,7 +88,7 @@ This mod changes records *and* runs one buying rule, so its manifest declares bo
 }
 ```
 
-The ref is `core:black-market` because a terrain record is named by its visible `name`. You do not have to know that rule in advance: open `packages/content/pack/terrain.json`, find the building you want, and copy its name into the ref in lower case with spaces changed to `-`.
+The ref is `core:general-store` because a terrain record is named by its visible `name`. You do not have to know that rule in advance: open `packages/content/pack/terrain.json`, find the building you want, and copy its name into the ref in lower case with spaces changed to `-`.
 
 We did not change its glyph, its color or its `SHOP` flag. Keeping the existing entrance is what makes this a supported replacement rather than a request for a new town slot.
 
@@ -99,7 +99,7 @@ We did not change its glyph, its color or its `SHOP` flag. Keeping the existing 
 ```json
 {
   "fieldPatches": {
-    "core:store-black": [
+    "core:store-general": [
       {
         "op": "set",
         "path": "owner",
@@ -139,9 +139,9 @@ We did not change its glyph, its color or its `SHOP` flag. Keeping the existing 
 }
 ```
 
-`normal` is the pool the shop rolls from. `always` is the list it keeps on the shelf: this Exchange never runs out of food or shovels. `buy` is the ordinary rule for what it will buy from the player. The names under `sval` are copied from `packages/content/pack/object.json`, without the item's `&` and `~` marks.
+`normal` is the pool the shop rolls from. The General Store uses this table; the Black Market has a separate random-stock path that ignores it. `always` is the list it keeps on the shelf: this Exchange never runs out of food or shovels. `buy` is the ordinary rule for what it will buy from the player. The names under `sval` are copied from `packages/content/pack/object.json`, without the item's `&` and `~` marks.
 
-`set` replaces the Black Market's table with yours. That is right here: this is one storefront becoming a different shop. If you are merely adding one item to a shop that stays itself, use Tutorial 2's `append` instead.
+`set` replaces the General Store's table with yours. That is right here: this is one storefront becoming a different shop. If you are merely adding one item to a shop that stays itself, use Tutorial 2's `append` instead.
 
 ## The one rule data cannot say
 
@@ -156,7 +156,7 @@ export default {
   start(mod) {
     const engine = mod.engine;
     const host = engine?.registry;
-    const exchange = engine?.registries?.stores.byName("STORE_BLACK");
+    const exchange = engine?.registries?.stores.byName("STORE_GENERAL");
     if (!host || !exchange) return;
 
     const coreWillBuy = host.stores.willBuyFor("*");
@@ -186,9 +186,9 @@ The buying exception calls the public `engine.core.objectKnownView(state, shop.o
 
 ## Check the result
 
-Turn the mod on from **Mods** and choose **Apply changes and reload**. In town, the `7` building is now the **Adventurer's Exchange**. It rotates supplies, but there is always food and a shovel. Try selling it an ordinary Dagger: it refuses. Identify a dagger with a positive attack bonus, or use wizard mode to create and identify one, and the shop will buy it. A bonus the player has not learned does not qualify.
+Turn the mod on from **Mods** and choose **Apply changes and reload**. In town, the `1` building is now the **Adventurer's Exchange**. It rotates supplies, but there is always food and a shovel. Try selling it an ordinary Dagger: it refuses. Identify a dagger with a positive attack bonus, or use wizard mode to create and identify one, and the shop will buy it. A bonus the player has not learned does not qualify.
 
-Turn the mod off and reload. The sign, stock and buying rule all disappear with it; the Black Market returns. That is the useful difference between a mod and a local edit: the base game never stopped being itself.
+Turn the mod off and reload. The sign, stock and buying rule all disappear with it; the General Store returns. That is the useful difference between a mod and a local edit: the base game never stopped being itself.
 
 ## Variations to try
 
@@ -199,7 +199,7 @@ Turn the mod off and reload. The sign, stock and buying rule all disappear with 
 
 ## Sample mod
 
-The four files above are the complete mod. Keep them together in one folder: the terrain and store patches name the same Black Market doorway, and the plugin finds that doorway through the live registry.
+The four files above are the complete mod. Keep them together in one folder: the terrain and store patches name the same General Store doorway, and the plugin finds that doorway through the live registry.
 
 ---
 

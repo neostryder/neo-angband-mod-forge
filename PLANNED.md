@@ -33,33 +33,24 @@ The fourth exit is the difference between this file and the game's own
 cannot reach something has not failed to do the work; it has run out of surface,
 and saying which surface is the whole of the useful information.
 
-Last reviewed: 2026-09-06.
+Last reviewed: 2026-11-14.
 
 ---
 
 ## The engine seams
 
-The authoring SDK and composed-record seams are LANDED in Neo Angband 1.0.0 and
-therefore have no open entry here. `docs/ENGINE_SEAMS.md` records their production
-wiring. What remains in this section is the install decision, which is declined
-rather than waiting on implementation, and the two halves of forking that a mod
-cannot reach at all.
+The workshop obtains the authoring SDK through `manage.authoring()` and composed records through `content.records(file)` on mod API 2.0. Its manifest requires Neo Angband 1.23.0-beta.1 or newer. `docs/ENGINE_SEAMS.md` records their production wiring. What remains in this section is the install decision, which is declined rather than waiting on implementation, and the two halves of forking that a mod cannot reach at all.
 
 ### Installing without leaving the workshop - DECLINED
 
-`ctx.installMod` behind a new `mod:install` capability (seam 3). Not asked for, and
-the ModForge "Forge and install" button stays inert by design rather than waiting on a door.
+Permanent installation through `mod:install` (seam 3). Not asked for, and the ModForge "Forge and install" button stays inert by design rather than waiting on a door.
 
 The workshop writes the same bytes to a file the player downloads, and the mod
 manager's existing `Import a zip` accepts exactly those bytes. Two extra actions,
 and the player ends up holding a file they can read, keep, hand-edit and push to a
 repository.
 
-`ctx.reloadGame` is a real seam, gated by `mod:install` or `mod:session` rather than
-`mod:install` alone, so the `mod:session` capability this mod already declares gets
-it too. The session seam prefers it over a bare `location.reload()`: it is the
-engine's own save-and-reload sequence - plugin teardown, autoplayer keyboard
-handback, character write, session resume - which a page reload on its own skips.
+`manage.reloadGame()` is a real seam, gated by `mod:install` or `mod:session`, so the `mod:session` capability this mod already declares gets it too. The session seam prefers it over a bare `location.reload()`: it is the engine's own save-and-reload sequence - plugin teardown, autoplayer keyboard handback, character write, session resume - which a page reload on its own skips.
 
 **The objection carried, and this seam is now DECLINED rather than open.** A
 cross-check argued it should not be requested at all: a mod that can put another
@@ -100,8 +91,7 @@ door already answers, and the copy is the one that goes stale: a fork taken
 through it would accept mods the install door refuses, and be believed, which is
 the same argument that keeps this mod from reimplementing the record validator.
 
-The seam that would reach it is `ctx.readMod`, specified in
-`docs/ENGINE_SEAMS.md` under seam 6.
+The proposed read-only file seam is specified in `docs/ENGINE_SEAMS.md` under seam 6.
 
 **What the workshop does in the meantime**, said on the fork card rather than
 implied: install the mod through the mod manager's own repository door and fork it
@@ -111,19 +101,14 @@ loses nothing.
 
 ### A forked mod's name, licence and author, when it was forked from the game - NEEDS A SEAM
 
-Forking a mod installed in this game reads its content from `ctx.composedRecords`,
-where every record names the pack that owns it. That is enough to take the
-content and not enough to take the manifest: nothing hands a mod the list of
-installed mods or their manifests, so a fork taken this way arrives with no name,
-no description, no author and - the one that matters - no licence.
+Forking a mod installed in this game reads its content from `content.records(file)`, where every record names the pack that owns it. That is enough to take the content and not enough to take the manifest: the workshop's current context carries no installed manifests, so a fork taken this way arrives with no name, no description, no author and - the one that matters - no licence.
 
 The fork says so, in as many words, and says that the licence has to be set before
 the mod is shared. That is the honest version and it is not a substitute: an
 author who does not know what licence the mod they forked was under cannot pick
 one, and the answer is on disk in a file this mod cannot read.
 
-The same `ctx.readMod` seam closes this, since a mod read by id would carry its
-manifest with it. Specified in `docs/ENGINE_SEAMS.md` under seam 6.
+The SDK's `manage.mods.browse()` can provide manifests under the separate `mod:install` permission, which ModForge does not request. A read-only file seam would provide both the manifest and the source files without granting mod management. Specified in `docs/ENGINE_SEAMS.md` under seam 6.
 
 ---
 
@@ -151,8 +136,7 @@ nothing checks the script: the game imports it and reports a failure as a mod th
 is not working, so the editor's own check says in as many words that it looks at
 quotes, comments and brackets and is not a syntax check.
 
-The written path is still real and still the place to learn:
-`docs/modding/tutorials/05-hook-behaviour.md` runs code in ten lines.
+The written path is still real and still the place to learn: [tutorial 5](docs/tutorials/05-hook-behaviour.md) runs code in ten lines.
 
 ### A tile filler of the workshop's own - DECLINED
 

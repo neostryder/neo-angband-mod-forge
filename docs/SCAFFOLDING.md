@@ -6,7 +6,7 @@ A mod is a folder with `manifest.json`, record contributions, and any scripts or
 
 Choose **Build a mod...** in the Game menu, create a draft, and set its id, name, author, repository, and license. Add or change records through the record screens. The workshop writes field patches for existing records and records for new ones. **Edit the files directly** opens the same draft as files.
 
-**Start a plugin.js** adds an API 2 entry template. The emitted manifest gains the `plugin` facet, the `in-process` runtime, and the API range read from the script. A script or a capability declaration disables **Try for this session**; save a zip and use **Import a zip** on the game's Mods screen.
+**Start a plugin.js** adds an API 2 entry template. The emitted manifest gains the `plugin` facet, the `in-process` runtime, and the API range read from the script. A script or a capability declaration disables **Try it in the game**; save a zip and use **Import a zip** on the game's Mods screen.
 
 ## From a folder
 

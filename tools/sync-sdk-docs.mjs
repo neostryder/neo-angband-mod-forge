@@ -9,8 +9,8 @@
  * serializes them into a TypeScript module.
  *
  * Keep the selection focused. The beginner path is complete, and the advanced
- * path carries the requirements, authoring, plugin, API 2 and compatibility
- * references in full. The engine's lifecycle and design records stay out of the
+ * path carries local authoring and publishing guides plus requirements, plugin, API 2,
+ * and compatibility references. The engine's lifecycle and design records stay out of the
  * plugin, and so do the reach and region-input notes. Together they would add
  * more than the workshop itself, and none of them is where an author starts.
  *

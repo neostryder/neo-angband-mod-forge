@@ -8,7 +8,9 @@ ModForge's own code runs on mod API 2. `plugin.ts` default-exports an `Api2ModDe
 
 The files ModForge writes have moved as well. A generated manifest is a schema 2 document with an `api` range. The file screen offers two `plugin.js` templates, and the API 2 one is the default because the game runs an API 2 definition from a mod folder as of 1.23.0-beta.1. The API 2 template is an `Api2ModDefinition` with `start` and `stop` that works with results instead of exceptions and has no `ctx.core`. The API 1 template stays available for a mod that has to run on an older game. When a draft's script is API 2, the review screen says so and notes that it needs a game that runs it.
 
-Every seam the workshop needs has an API 2 home, so none of them waits on a Core request: the authoring library, the composed records, the debug commands, loading a mod for one session, reloading into it, and a page to draw on. `manage` and `ui.overlay` serve all four of the Core requests this page used to carry.
+The workshop's authoring loop has API 2 calls for the authoring library, the composed records, the debug commands, loading a mod for one session, reloading into it, and a page to draw on. Forking from a repository still lacks a read-only file seam. The published SDK builder also accepts only one base pack, so review reports `project/unloadable` for dependencies on another installed mod. [ENGINE_SEAMS.md](ENGINE_SEAMS.md) records those limits.
+
+The pinned SDK 1.23.0-beta.3 publishes mod API 2.0.0. The known-view fields `objectId`, `trapKnown`, `slainUniques`, and `status.countdown` arrive with mod API 2.1; the workshop does not require them.
 
 ## From API 1 to API 2
 
@@ -41,8 +43,8 @@ Every seam the workshop needs has an API 2 home, so none of them waits on a Core
 
 ## Checking the mod with the game's tools
 
-The game's fixed checks pass with `--first-party`. From the Core repository, `node packages/mod-sdk/bin/neo-angband-mod-check.mjs <folder> --first-party` reports no block and one note: the manifest declares no `budget.msPerTurn`, so the mod gets the default.
+Run `pnpm exec neo-angband-mod-check . --first-party` from this repository with PowerShell 7 (pwsh). The checker reports the default 50 ms turn budget when `budget.msPerTurn` is absent. Without a base content source it reports "composition not checked"; this does not validate the composed game. `pnpm verify` runs the repository's typecheck, tests, and plugin artifact check.
 
 ## Release order
 
-Only a game whose release contains the API 2 loader for mod folders can read a schema 2 `manifest.json` that names API 2. A ModForge release with this change needs that game build, and its engine floor says so.
+Only a game whose release contains the API 2 loader for mod folders can run an API 2 plugin. A ModForge release with this change needs that game build, and its engine floor says so.

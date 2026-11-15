@@ -65,7 +65,7 @@ my-artifact-mod/
 }
 ```
 
-Turn it on, roll a character, and go down. Somewhere between level 12 and level 70 you will find it, once.
+Turn it on, create a character, and descend. The artifact is eligible to generate between dungeon levels 12 and 70, at most once per character; generation is not guaranteed.
 
 ## The name is not the name
 
