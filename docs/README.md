@@ -40,6 +40,10 @@ document](https://github.com/neostryder/neo-angband/blob/master/docs/modding/MOD
 - [Changelog](../CHANGELOG.md), what changed in each version
 - [Planned](../PLANNED.md), what is not built yet
 - [The engine seams this mod rides](ENGINE_SEAMS.md)
+- [Make a mod: eight tutorials](tutorials/README.md)
+- [Start a mod](SCAFFOLDING.md)
+- [Draft and assemble records](AUTHORING.md)
+- [Check and publish a mod](PUBLISHING.md)
 - [Testing a hand-written plugin.js](PLUGIN_TESTING.md)
 - [Installing a
   mod](https://github.com/neostryder/neo-angband/blob/master/docs/MODS.md), the
