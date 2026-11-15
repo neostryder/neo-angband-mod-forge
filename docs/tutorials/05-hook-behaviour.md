@@ -35,8 +35,8 @@ my-code-mod/
     "api": ">=2.0.0 <3.0.0",
     "runtime": "in-process",
     "engine": {
-      "range": ">=1.23.0-beta.3",
-      "because": "This mod targets the published 1.23.0-beta.3 SDK."
+      "range": ">=1.23.0-beta.4",
+      "because": "This mod targets the published 1.23.0-beta.4 SDK."
     },
     "author": "your name",
     "license": "GPL-2.0-only",

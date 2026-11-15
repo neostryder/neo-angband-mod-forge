@@ -94,6 +94,7 @@ describe("which API a script is written for", () => {
 describe("whether a range is API 2", () => {
   const ranges: [string, boolean][] = [
     [API2_RANGE, true],
+    [">=2.1.0 <3.0.0", true],
     [API1_RANGE, false],
     ["^2.0.0", true],
     ["2.x", true],

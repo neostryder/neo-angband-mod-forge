@@ -10,7 +10,7 @@ In ModForge, click **Review it** to read errors, warnings, and hints. Set a repo
 
 ## Check a repository
 
-Add the published `@rpgm-tools/neo-angband-mod-sdk` as a development dependency. SDK 1.23.0-beta.3 carries mod API 2.0.0. Run these commands in the mod repository with PowerShell 7 (pwsh):
+Add the published `@rpgm-tools/neo-angband-mod-sdk` as a development dependency. SDK 1.23.0-beta.4 carries mod API 2.1.0. Run these commands in the mod repository with PowerShell 7 (pwsh):
 
 ```powershell
 pnpm exec neo-angband-mod-build --root .

@@ -9,6 +9,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+import * as sdk from "@rpgm-tools/neo-angband-mod-sdk";
 import { STUB_AUTHORING } from "../host/authoring-stub.js";
 import { emitDraft, manifestFor } from "./build.js";
 import type { Draft } from "./draft.js";
@@ -345,6 +346,24 @@ describe("a mod that ships code", () => {
     expect(manifest.runtime).toBe("in-process");
     expect(manifest.modApi).toBeUndefined();
     expect(manifest.facets).toContain("plugin");
+  });
+
+  describe.each([["SDK", sdk], ["stub", api]] as const)("API ranges with the %s", (_name, authoring) => {
+    it.each([API2_RANGE, ">=2.1.0 <3.0.0"])("accepts and preserves %s through script and manifest saves", (range) => {
+      const source = `export default { api: "${range}", async start(mod) {} };\n`;
+      const saved = writeFileText(authoring, draft(), "plugin.js", source);
+      if (!saved.ok) throw new Error(saved.why);
+      expect(manifestFor(saved.draft).api).toBe(range);
+      const manifest = fileText(authoring, saved.draft, MANIFEST) ?? "{}";
+      const data = (JSON.parse(manifest) as { data: { api: string; runtime: string } }).data;
+      expect(data.api).toBe(range);
+      expect(data.runtime).toBe("in-process");
+      expect(sdk.apiRangeVerdict(data.api).ok).toBe(true);
+      const roundTrip = writeFileText(authoring, saved.draft, MANIFEST, manifest);
+      if (!roundTrip.ok) throw new Error(roundTrip.why);
+      expect(manifestFor(roundTrip.draft).api).toBe(range);
+      expect(fileText(authoring, roundTrip.draft, "plugin.js")).toBe(source);
+    });
   });
 
   it("writes the manifest as a schema 2 document whose api matches the script", () => {
