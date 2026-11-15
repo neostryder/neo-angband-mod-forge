@@ -110,7 +110,7 @@ describe("unzip", () => {
   it("refuses oversized input before reading its directory", async () => {
     const outcome = await unzip(new Uint8Array(11), { ...ZIP_LIMITS, maxArchiveBytes: 10 });
     expect(outcome.ok).toBe(false);
-    if (!outcome.ok) expect(outcome.why).toContain("limit for a zip");
+    if (!outcome.ok) expect(outcome.why).toContain("is larger than");
   });
 
   it("reads a stored archive, which is what this workshop writes", async () => {
