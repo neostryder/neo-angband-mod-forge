@@ -178,7 +178,7 @@ During `start`, the published API 2.0 engine domain provides the live store regi
 
 For the buying exception, the plugin calls the public `engine.core.objectKnownView(state, shop.obj)` helper and reads its `known` result. The published object carries no stored `known` twin, so the helper supplies the player-known copy. A hidden enchantment never qualifies, and the plugin reads no live bonus values. The plugin accepts a known enchanted sword first and passes every other item to `coreWillBuy(shop)`, which applies the base game's ordinary buying rules.
 
-`objectId` identifies an item across known-view updates in mod API 2.1. This synchronous registry rule uses no 2.1 fields and keeps `>=2.0.0 <3.0.0`.
+In mod API 2.1, `objectId` identifies an item across known-view updates. This synchronous registry rule reads no 2.1 fields, so it keeps `>=2.0.0 <3.0.0`.
 
 ## Check the result
 

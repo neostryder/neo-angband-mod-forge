@@ -20,7 +20,7 @@ my-mod/
   tiles/orc.png
 ```
 
-Only a code mod needs `plugin.js`. A mod with both records and code declares `content` and `plugin` in `data.facets` and names its primary facet in `data.shape`. Code runs with `data.runtime: "in-process"` and `data.api: ">=2.0.0 <3.0.0"`. A content-only mod uses `data.runtime: "data"` and `data.api: "*"`. The examples target SDK 1.23.0-beta.4, which carries mod API 2.1.0. The starter and examples use no 2.1 fields and keep `>=2.0.0 <3.0.0`.
+Only a code mod needs `plugin.js`. A mod with both records and code declares `content` and `plugin` in `data.facets` and names its primary facet in `data.shape`. Code runs with `data.runtime: "in-process"` and `data.api: ">=2.0.0 <3.0.0"`. A content-only mod uses `data.runtime: "data"` and `data.api: "*"`. The examples target SDK 1.23.0-beta.4, which carries mod API 2.1.0. The starter and examples read no 2.1 fields, so they keep `>=2.0.0 <3.0.0`.
 
 The entry module default-exports an API 2 definition. The host passes the API root to `start`, and hooks receive only `{ id, flags }`. A hook returns its answer synchronously. Calls on domains such as `view` return promises of results, so check `ok` before you read `value`.
 
@@ -37,7 +37,7 @@ export default {
 
 This example needs `state:player.read` in `data.capabilities`. Views contain only information the player knows. If the permission is missing or the character is unavailable, the call produces a failed result and the example returns without reading a value.
 
-A mod that reads API 2.1 fields declares `>=2.1.0 <3.0.0` in its script and manifest. `player.slainUniques` is a readonly list of `{ raceIndex: number, raceId?: string, name: string }` entries for uniques the character killed. `player.status.countdown` counts ticks that reduced a timed effect; it gives no remaining duration. A known item has an optional `objectId: number` that identifies it for the session and an optional `trapKnown: boolean` for chests. Shop wares have no `objectId`. A chest with `trapKnown: false` reports `pval: 0` without revealing its trap.
+A mod that reads API 2.1 fields declares `>=2.1.0 <3.0.0` in its script and manifest. `player.slainUniques` is a readonly list of `{ raceIndex: number, raceId?: string, name: string }` entries, one for each unique the character has killed. `player.status.countdown` counts the ticks that reduced a timed effect and does not give the remaining duration. A known item has an optional `objectId: number` that identifies it for the session, and a chest has an optional `trapKnown: boolean`. Shop wares have no `objectId`. A chest with `trapKnown: false` reports `pval: 0`, so its trap stays hidden.
 
 ## Imports and assets
 
