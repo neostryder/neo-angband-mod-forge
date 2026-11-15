@@ -16,7 +16,7 @@ my-spell-mod/
   class.json
 ```
 
-Copy tutorial 1's schema 2 manifest, with a new id, name, repository, and description. Keep its Core dependency.
+Copy tutorial 1's schema 2 manifest and give it a new id, name, repository, and description. Keep its Core dependency.
 
 `class.json`:
 
@@ -31,7 +31,7 @@ Copy tutorial 1's schema 2 manifest, with a new id, name, repository, and descri
 }
 ```
 
-This is Tutorial 1's `fieldPatches` again, pointed at a class instead of an item. Nothing new is being introduced except *where you are pointing*.
+These are the same `fieldPatches` you used in Tutorial 1, aimed at a class this time. The target is the only new part.
 
 ## Reading the path
 
@@ -41,21 +41,19 @@ This is Tutorial 1's `fieldPatches` again, pointed at a class instead of an item
 - `spell.2`: the third spell in it (counting from zero). That is Minor Healing.
 - `mana`: its cost.
 
-`fail` is the percentage chance the spell fizzles, before your character's own stats adjust it.
+`fail` is the percentage chance that the spell fizzles, before your character's stats adjust it.
 
-To find the spell you want, open `packages/content/pack/class.json`, find your class, and count. Books and spells are in the order they appear in the game's own spell menu, so you can count them on screen instead if that is easier.
+To find the spell you want, open `packages/content/pack/class.json`, find your class, and count. Books and spells appear in the same order as in the game's spell menu, so you can also count them on screen.
 
 ## Positional paths can target the wrong spell
 
-**A number in that path is a position, not a name.**
+Each number in the path is a position. `spell.2` means whatever spell sits third in the book, whether or not that is Minor Healing. If another mod inserts a spell above it, or a future release of the base game reorders that book, your patch changes a different spell and gives no warning, because the patch still applies cleanly.
 
-`spell.2` means "whatever is third", not "Minor Healing". If another mod inserts a spell above it, or if a future release of the base game reorders that book, your patch lands on a *different spell* and keeps working silently. Nothing is broken, so nothing complains; you just quietly retuned the wrong thing.
-
-There is no way around that today, and pretending otherwise would be worse than saying it: positional paths are how the data is shaped. What you can do is know it. If you publish a spell mod, say which release you built it against, and re-check it when the game updates. (Core's sample test asserts that `book.0.spell.2` is still called Minor Healing, precisely so this page cannot go quietly wrong.)
+Positional paths are how the data is shaped, and there is no way around them today. If you publish a spell mod, say which release you built it against and re-check it when the game updates. Core's sample test asserts that `book.0.spell.2` is still called Minor Healing, so a reorder fails that test before it can make this page wrong.
 
 ## Adding a spell rather than changing one
 
-Same mechanism, one extra step. `set` a whole spell object at the next free index, then raise the book's `spells` count so the game knows the book got longer:
+Adding a spell uses the same mechanism with one extra step. `set` a whole spell object at the next free index, then raise the book's `spells` count so the game reads the longer book:
 
 ```json
 {
@@ -68,26 +66,26 @@ Same mechanism, one extra step. `set` a whole spell object at the next free inde
 }
 ```
 
-That is not an invented example. It is what the real `feature-restoration` mod does to give the Priest back a spell a later version of Angband dropped, and the four numbers are the ones it ships.
+The `feature-restoration` mod does this to give the Priest back a spell that a later version of Angband dropped, and these four numbers are the ones it ships.
 
-They are worth a moment, because they are not the numbers the old game used. Angband 4.1.2 gave the Priest this spell as `Teleport Other:20:20:80:16`, in that file's `name:level:mana:fail:exp` order, and those records are in Core at `reference/lib/gamedata/old_class.txt`. Angband 4.2 then repriced spells to cost the same in every class that has them, so both classes that still have this one pay 10 mana at 30 percent failure. Quoting 20 and 80 into the current game would charge a Priest twice the mana of the identical spell in a Mage's book. Get the old data and read it, then check whether the units it is written in still mean what they meant: [Feature restoration](https://github.com/neostryder/neo-angband/blob/master/docs/modding/FEATURE_RESTORATION.md) is the rule this follows, and its worked example is this exact spell.
+The numbers differ from the old game's. Angband 4.1.2 gave the Priest this spell as `Teleport Other:20:20:80:16`, in that file's `name:level:mana:fail:exp` order, and Core keeps those records at `reference/lib/gamedata/old_class.txt`. Angband 4.2 then repriced spells so each one costs the same in every class that has it, and both classes that still have Teleport Other pay 10 mana at 30 percent failure. Copying 20 and 80 into the current game would charge a Priest twice the mana a Mage pays for the same spell. When you restore something, read the old data, then check whether its units still mean what they meant. [Feature restoration](https://github.com/neostryder/neo-angband/blob/master/docs/modding/FEATURE_RESTORATION.md) sets out this rule, and its worked example is this spell.
 
-The `effect` block is the game's own effect vocabulary: `BOLT_STATUS`, `PLAYER_LEVEL`, dice expressions. You are not limited to the effects the base game ships, but inventing a new one is a code job rather than a data job; that is [Tutorial 5](05-hook-behaviour.md) and the pages beyond it.
+The `effect` block uses the game's own effect vocabulary: `BOLT_STATUS`, `PLAYER_LEVEL`, and dice expressions. You can go beyond the effects the base game ships, but a new effect needs code, which [Tutorial 5](05-hook-behaviour.md) and the pages after it cover.
 
 ## Check the result
 
-Roll a Priest, learn Minor Healing, and open the spell menu. Its mana cost reads 1 and its failure rate is far lower than an unmodded Priest's at the same level.
+Roll a Priest, learn Minor Healing, and open the spell menu. The mana cost reads 1, and the failure rate is far lower than an unmodded Priest's at the same level.
 
 ## Variations to try
 
-- Retune a **different class**: `core:mage`, `core:ranger`, `core:paladin`.
-- Move a spell **earlier**: set its `level` to 1 and get it at character creation.
-- Make a class **worse** at something, which is often what makes a variant interesting rather than a cheat.
+- Retune a different class: `core:mage`, `core:ranger`, `core:paladin`.
+- Move a spell earlier: set its `level` to 1 to get it at character creation.
+- Make a class worse at something. A weakness is often what makes a variant interesting to play.
 
 ## Sample mod
 
-[Core's historical tutorial-04-change-a-spell sample](https://github.com/neostryder/neo-angband/tree/master/samples/tutorials/tutorial-04-change-a-spell) contains the content contribution. It uses an older manifest format and sample identity. Use the schema 2 manifest from these tutorials for a new mod.
+[Core's historical tutorial-04-change-a-spell sample](https://github.com/neostryder/neo-angband/tree/master/samples/tutorials/tutorial-04-change-a-spell) holds the content contribution for this tutorial. It uses an older manifest format and sample identity, so start a new mod from the schema 2 manifest in these tutorials.
 
 ---
 
-**Next:** [Tutorial 5: Hook behavior](05-hook-behaviour.md), the first tutorial where your mod runs code instead of shipping data.
+**Next:** [Tutorial 5: Hook behavior](05-hook-behaviour.md), the first tutorial where your mod runs code. The earlier tutorials ship data only.

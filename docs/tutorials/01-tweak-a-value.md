@@ -1,16 +1,12 @@
 # Tutorial 1: Change one thing
 
-**What you will make:** daggers that hit harder and cost ten times as much.
-
-**What you need:** a text editor. That is the whole list. No compiler, no toolchain, no account, and no copy of the game's source code.
-
-**Time:** about five minutes, most of it finding the Mods menu.
+In this tutorial you make daggers hit harder and cost ten times as much. You need a text editor and nothing else: no compiler, no toolchain, no account, and no copy of the game's source code. It takes about five minutes, and most of that goes to finding the Mods menu.
 
 ---
 
 ## Mod files
 
-A mod is a folder. Make one anywhere you like, call it `my-first-mod`, and put two files in it:
+A mod is a folder. Make one anywhere you like, name it `my-first-mod`, and put two files in it:
 
 ```
 my-first-mod/
@@ -18,7 +14,7 @@ my-first-mod/
   object.json
 ```
 
-`manifest.json` says who the mod is. Copy this exactly:
+`manifest.json` identifies the mod. Copy this into it:
 
 ```json
 {
@@ -54,9 +50,9 @@ my-first-mod/
 }
 ```
 
-`repository` is required even for a mod you never publish. It is the mod's identity across every way of getting it: the game pins an installed mod to the repository it came from and refuses a replacement from anywhere else, so a mod that names nowhere can be overwritten by anything claiming its id. Point it wherever you intend to publish, or wherever you would if you did.
+Every mod needs `repository`, including one you never publish. The game uses it as the mod's identity however the mod was installed: it pins an installed mod to the repository it came from and accepts replacements only from that repository. A mod with no repository can be overwritten by any mod that claims the same id. Set it to the place you plan to publish, or the place you would publish if you did.
 
-`object.json` is the change:
+`object.json` holds the change:
 
 ```json
 {
@@ -69,44 +65,44 @@ my-first-mod/
 }
 ```
 
-That is a complete, working mod. The folder contains two files.
+Those two files make a complete, working mod.
 
 ## What those six lines are saying
 
-**`object.json`** is the name of one of the game's data files. The base game ships an `object.json` full of every item in Angband, and your file contributes to *that* file. If you wanted to change a monster you would write `monster.json` instead; the file name is how the game knows what you are talking about.
+`object.json` is the name of one of the game's data files. The base game ships an `object.json` that lists every item in Angband, and your file adds to that file. To change a monster you would write `monster.json` instead. The game reads the file name to know which data you are changing.
 
-**`core:sword--dagger`** names the record you are changing. The `core:` half says whose record it is: the base game's, as opposed to yours or another mod's. The rest is the dagger's identity within its file - for an object, its `type` and its `name` joined by `--`. You do not have to memorize these: type your best guess, and if it is wrong the game tells you *which rule builds the ref*, so you can work it out from the record you were aiming at. It does not hand you a list of candidates, and there is no "did you mean" for refs.
+`core:sword--dagger` names the record you are changing. The `core:` part says the record belongs to the base game, as opposed to your mod or another mod. The rest is the dagger's identity within its file, which for an object is its `type` and its `name` joined by `--`. You can start with your best guess. If the ref is wrong, the error tells you which rule builds the ref, and you can work out the correct one from the record you meant. The error gives no list of candidates and no "did you mean" suggestion for refs.
 
-A ref that resolves to nothing costs you that one contribution, not the whole mod: the game skips it, reports it on your mod's row in the mod manager, and loads everything else you wrote.
+When a ref matches nothing, the game skips that one contribution, reports it on your mod's row in the mod manager, and loads everything else in your mod.
 
-**`fieldPatches`** is a list of small edits, each naming a path into the record and a new value. `attack.hd` is the damage dice; `cost` is the base price in gold. Everything you do not mention is left exactly as the base game has it. This is a change to two numbers, not a replacement of the dagger.
+`fieldPatches` is a list of small edits. Each one names a path into the record and a new value. `attack.hd` is the damage dice, and `cost` is the base price in gold. Every field you leave out keeps the base game's value, so the dagger stays the same item with two numbers changed.
 
-**`"dependencies": { "required": { "core": { "range": "*" } } }`** is you saying "I am modifying the base game's stuff." Without it the game refuses the patch. That is deliberate: a mod may only change records belonging to something it has declared, so a mod can never quietly reach into another mod it never mentioned.
+`"dependencies": { "required": { "core": { "range": "*" } } }` declares that your mod modifies the base game's records. The game rejects the patch without it. A mod can change only records that belong to something it has declared, so no mod can change another mod's records without naming that mod.
 
-The schema 2 envelope holds the manifest under `data`. Content-only mods use `runtime: "data"` and `api: "*"`; tutorials that run code declare an API 2 range and `runtime: "in-process"`. These examples target SDK 1.23.0-beta.3, which publishes mod API 2.0.0.
+The schema 2 envelope holds the manifest under `data`. Content-only mods use `runtime: "data"` and `api: "*"`. Tutorials that run code declare an API 2 range and `runtime: "in-process"`. These examples target SDK 1.23.0-beta.3, which publishes mod API 2.0.0.
 
 ## Running it
 
-**On the desktop build:** put your `my-first-mod` folder into the `mods/` folder that sits beside the game, and start the game. Press `Escape`, choose **Mods**, find *My First Mod*, turn it on, and choose **Apply changes and reload**.
+On the desktop build, put your `my-first-mod` folder into the `mods/` folder next to the game and start the game. Press `Escape`, choose **Mods**, find *My First Mod*, turn it on, and choose **Apply changes and reload**.
 
-**In a browser:** press `Escape`, choose **Mods**, choose **Choose a mods folder...**, and point it at the folder *containing* `my-first-mod`. Then turn it on and reload as above. The game remembers the folder, so editing a file and reloading the page is your whole edit-and-test loop.
+In a browser, press `Escape`, choose **Mods**, choose **Choose a mods folder...**, and select the folder that contains `my-first-mod`. Turn the mod on and reload the same way. The game remembers the folder, so to test a change you edit the file and reload the page.
 
 ## Check the result
 
-Buy a dagger in the **Weapon Smiths** (the `3` on the town map) - that is the shop that stocks daggers, not the General Store. It now costs around 300 gold rather than around 30. Inspect it with `I` and its damage reads `1d6`. Hit something with it and it hurts more.
+Go to the **Weapon Smiths** (the `3` on the town map), which stocks daggers. The General Store does not sell them. A dagger now costs around 300 gold, up from around 30. Inspect it with `I` and its damage shows `1d6`. It also hits harder in a fight.
 
-Turn the mod off and choose **Apply changes and reload**, and daggers are ordinary again. That is the part worth pausing on: your change is a layer over the base game, not an edit to it. Nothing on your machine was modified, and the game underneath is still the vanilla one.
+Turn the mod off and choose **Apply changes and reload**, and daggers go back to normal. Your mod sits as a layer over the base game and changes no files on your machine, so with the mod off you are playing the vanilla game.
 
 ## Variations to try
 
-- Make the dagger **lighter**: add `{ "op": "set", "path": "weight", "value": 4 }`.
-- Change a **monster** instead. Add a `monster.json` with `{ "fieldPatches": { "core:soldier-ant": [ { "op": "set", "path": "hit-points", "value": 60 } ] } }` and meet a very unreasonable ant on level 1.
-- Break it on purpose. Change `core:sword--dagger` to `core:sword--daggerr` and reload. Read the error: that message is your main debugging tool, and it is worth seeing once while you already know what is wrong.
+- Make the dagger lighter: add `{ "op": "set", "path": "weight", "value": 4 }`.
+- Change a monster instead. Add a `monster.json` with `{ "fieldPatches": { "core:soldier-ant": [ { "op": "set", "path": "hit-points", "value": 60 } ] } }` and meet a very unreasonable ant on level 1.
+- Introduce a mistake. Change `core:sword--dagger` to `core:sword--daggerr` and reload, then read the error while you already know the cause. That message is your main debugging tool.
 
 ## Sample mod
 
-[Core's historical tutorial-01-tweak-a-value sample](https://github.com/neostryder/neo-angband/tree/master/samples/tutorials/tutorial-01-tweak-a-value) contains the content contribution. It uses an older manifest format and sample identity. Use the schema 2 manifest from these tutorials for a new mod.
+[Core's historical tutorial-01-tweak-a-value sample](https://github.com/neostryder/neo-angband/tree/master/samples/tutorials/tutorial-01-tweak-a-value) contains the content contribution. It uses an older manifest format and sample identity. For a new mod, use the schema 2 manifest from these tutorials.
 
 ---
 
-**Next:** [Tutorial 2: Add an item](02-add-an-item.md), the same idea, but creating something the game has never seen instead of adjusting something it has.
+**Next:** [Tutorial 2: Add an item](02-add-an-item.md) uses the same approach to create an item the game has never had.

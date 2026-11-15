@@ -1,14 +1,12 @@
 # Tutorial 2: Add an item
 
-**What you will make:** one new piece of armor the base game has never heard of, findable in the dungeon and buyable in town.
-
-**Before this:** [Tutorial 1](01-tweak-a-value.md), which explains what a mod folder is and how to load one.
-
-**Time:** ten minutes.
+In this tutorial you add one new piece of armor that the base game has never heard of. Players can find it in the dungeon and buy it in town. It takes ten minutes and builds on [Tutorial 1](01-tweak-a-value.md), which explains what a mod folder is and how to load one.
 
 ---
 
 ## Mod files
+
+The mod is a folder with two files:
 
 ```
 my-item-mod/
@@ -16,7 +14,7 @@ my-item-mod/
   object.json
 ```
 
-`manifest.json`, same shape as last time, different id:
+`manifest.json` has the same shape as in Tutorial 1, with a new id:
 
 ```json
 {
@@ -75,65 +73,60 @@ my-item-mod/
 
 ## What changed from Tutorial 1
 
-One word: `records` instead of `fieldPatches`.
-
-`fieldPatches` edits something that already exists. `records` **adds** something, and your mod owns what it adds. Everything else you learned still applies: same folder, same manifest, same way of loading it.
+The data file uses `records` where Tutorial 1 used `fieldPatches`. A `fieldPatches` entry edits something that already exists, and a `records` entry adds something new that your mod owns. The folder, the manifest, and the way you load the mod all work the same as before.
 
 ## Reading the record
 
-Most of it is Angband's own vocabulary rather than anything this project invented, which means the base game's own data is your reference manual. If you want to know what a field does, find an item that already does it and copy how it says so.
+Most of these fields are Angband's own vocabulary, so the base game's data works as your reference manual. To learn how to express something, find an item that already does it and copy how it says so.
 
-- `name`: the trailing `~` is where the plural goes. "Padded Jerkin~" displays as *a Padded Jerkin* and *2 Padded Jerkins*. An item whose name starts with `&` (`"& Dagger~"`) takes an article. These marks are the original game's convention, and they are why you should copy an existing name's punctuation rather than invent it.
-- `type`: which kind of item this is. `soft armor` puts it in the body armor slot and in the armory's stock. Use one the game already has; [Core's new item class reference](https://github.com/neostryder/neo-angband/blob/master/docs/modding/AUTHORING.md#a-new-item-class) covers declaring another class.
+- `name`: the trailing `~` marks where the plural goes. "Padded Jerkin~" displays as *a Padded Jerkin* and *2 Padded Jerkins*. An item whose name starts with `&` (`"& Dagger~"`) takes an article. These marks come from the original game, so copy the punctuation of an existing name when you write a new one.
+- `type`: the kind of item. `soft armor` puts it in the body armor slot and in the armory's stock. Pick a type the game already has. [Core's new item class reference](https://github.com/neostryder/neo-angband/blob/master/docs/modding/AUTHORING.md#a-new-item-class) covers declaring another class.
 - `level`: the depth at which it starts appearing.
-- `alloc`: how often, and between which depths. `common: 20` is roughly the frequency of ordinary early gear; `"1 to 40"` is the depth window.
-- `armor.ac`: the armor it gives. Soft Leather Armor has 8 and costs 20, so 5 for 12 gold is a deliberately worse, cheaper option.
-- `desc`: an array of lines, shown when the player inspects it.
+- `alloc`: how often it appears, and between which depths. `common: 20` is roughly the frequency of ordinary early gear, and `"1 to 40"` is the depth window.
+- `armor.ac`: the armor it gives. Soft Leather Armor has 8 and costs 20, so 5 for 12 gold makes the jerkin a worse, cheaper option.
+- `desc`: an array of lines, shown when the player inspects the item.
 
-**Where to get the numbers.** Open `packages/content/pack/object.json` in Core and find an item like the one you want. That file is the base game's own data, in exactly the format your mod writes, so the nearest existing item is always a working template. There is also a helper that does this for you: `draftRecord` fills in a new record from the game's comparable records, including a sensible price. See [AUTHORING.md](../AUTHORING.md).
+To pick the numbers, open `packages/content/pack/object.json` in Core and find an item like the one you want. That file holds the base game's data in the same format your mod writes, so the nearest existing item is always a working template. The `draftRecord` helper does this for you: it fills in a new record from the game's comparable records, including a sensible price. See [AUTHORING.md](../AUTHORING.md).
 
 ## Check the result
 
-Your item exists in the game as soon as the mod is on: it generates in the dungeon inside its own depth window, monsters can be carrying one, and wearing it raises your armor class by 5. Confirm it the quick way with wizard mode, or dive until one drops.
+Your item exists in the game as soon as the mod is on. It generates in the dungeon within its depth window, monsters can carry one, and wearing it raises your armor class by 5. Wizard mode is the quick way to confirm it, or you can dive until one drops.
 
-**No shop stocks it yet**, and that is not a bug in your mod - a shop's stock comes from that shop's own table, and nothing has put your item in one. The section below does that.
+No shop stocks it yet. A shop's stock comes from that shop's own table, and your item is on none of them until the shop section below adds it.
 
-Your item is `my-item-mod:soft-armor--padded-jerkin` as far as the game is concerned. An `object` record's identity is its `type` and its `name` joined by `--`, which is why the ref is not simply the name - and it is the same rule that made tutorial 1's dagger `core:sword--dagger`. The `my-item-mod:` half is your own namespace, so your item can never collide with the base game's or with another mod's, even if you both add a Padded Jerkin.
+The game knows your item as `my-item-mod:soft-armor--padded-jerkin`. An `object` record's identity is its `type` and its `name` joined by `--`, so the ref includes the type along with the name. The same rule made Tutorial 1's dagger `core:sword--dagger`. The `my-item-mod:` part is your own namespace, so your item never collides with one from the base game or another mod, even if both of you add a Padded Jerkin.
 
 ## Variations to try
 
 - Make it cursed-cheap and heavy: `weight` 200, `cost` 2.
 - Make it rare and deep: `level` 30, `alloc` `{ "common": 3, "minmax": "30 to 100" }`.
-- Add a second item in the same `records` array. A mod can add as many as it likes; the array is a list.
+- Add a second item in the same `records` array. The array takes any number of items.
 - Give it an ego possibility, or a flag. Find an item in the base game's `object.json` that has the property you want and copy the field across.
 
 ## What your item joins automatically
 
-This is the part worth knowing, because it is the part you do not have to build. Your Padded Jerkin is a soft armor, and the game treats it as one everywhere:
+Your Padded Jerkin is a soft armor, and the game treats it as one everywhere with no extra work from you:
 
-- Egos, runes and brands apply to it. An ego declares the *kinds* of item it can land on, not a list of named ones: "of Resist Acid" says `soft armor`, so it says your jerkin too. A **Padded Jerkin of Resist Fire** is a thing a player can find, and nobody had to add it to a list.
-- Quality enchantment applies. It can turn up as `[5,+6]`, and its price is recomputed from what it ended up being rather than from the `cost` you wrote.
-- It is generated in the dungeon at the depths your `alloc` names, and it is in the drop tables from the moment the mod is on.
-- Shops will buy it, because a shop's buy list is by item kind too.
+- Egos, runes, and brands apply to it. An ego declares the kinds of item it can land on, and "of Resist Acid" names `soft armor`, so it covers your jerkin. A player can find a Padded Jerkin of Resist Fire without anyone adding it to a list.
+- Quality enchantment applies. It can turn up as `[5,+6]`, and its price is recomputed from what it ended up being, so the `cost` you wrote does not set the final price.
+- It generates in the dungeon at the depths your `alloc` names, and it is in the drop tables from the moment the mod is on.
+- Shops will buy it, because a shop's buy list also goes by item kind.
 
 ## One thing that does NOT happen: a picture
 
-In ASCII your jerkin draws with its class's own symbol and needs nothing from you. **In tile mode it has no picture and the game will not invent one.** A tile set maps *named* items to pictures and has never heard of yours, so a player in tile mode sees a letter among pictures. The game used to guess - it drew an added item with the tile of another item sharing its `tval` - and that guess was removed in
-0.23.0: Angband 4.2.6 has no concept of an item a mod added, so it has no opinion about what one should look like, and making that call on behalf of somebody's art is the tile set's job rather than the port's.
+In ASCII your jerkin draws with its class's symbol and needs nothing from you. In tile mode it has no picture, and the game does not invent one. A tile set maps named items to pictures and has never heard of yours, so a player in tile mode sees a letter among pictures. Before 0.23.0 the game guessed, drawing an added item with the tile of another item sharing its `tval`. Version 0.23.0 removed that guess. Angband 4.2.6 has no concept of an item a mod added, so it has no opinion about how one should look, and choosing art for one is the tile set's job.
 
-So if you ship content, ship tiles for it, and if you do not, say so in your mod's description and point players at a tile mod that fills blanks:
+If you ship content, ship tiles for it. If you do not, say so in your mod's description and point players at a tile mod that fills blanks:
 
-> No tiles of its own: in tile mode the Padded Jerkin draws as a letter. Install
-> [linoleum](https://github.com/neostryder/neo-angband-mod-linoleum) and it is
-> drawn from another item of its type instead.
+> No tiles of its own: in tile mode the Padded Jerkin draws as a letter. Install [linoleum](https://github.com/neostryder/neo-angband-mod-linoleum) and it is drawn from another item of its type instead.
 
-Linoleum draws an added item from a kind sharing its `tval`, with the color turned, under its own tile packs. Under Angband's own tile sheets an added item keeps its letter, because those sheets are a fixed grid with no spare cell for a variant. **Do not make it a dependency:** your mod is complete in ASCII with no tile set at all, and a player using a different set should not have to install one they will not look at.
+Under its own tile packs, Linoleum draws an added item from a kind sharing its `tval`, with the color turned. Under Angband's own tile sheets an added item keeps its letter, because those sheets are a fixed grid with no spare cell for a variant. Leave Linoleum out of your dependencies. Your mod is complete in ASCII with no tile set at all, and a player using a different set should not have to install one they will not look at.
 
 ## Putting it in a shop
 
-One thing does not happen on its own: a shop will not **stock** your item. That is true of the original game too: a store's stock list names specific items, so a new one has to be put on the list.
+Shops do not stock a new item on their own. The original game works the same way: a store's stock list names specific items, so a new item has to be added to the list.
 
-Adding a line to a list is one op. Make a `store.json` beside your `object.json`:
+Adding a line to a list takes one op. Make a `store.json` beside your `object.json`:
 
 ```json
 {
@@ -149,22 +142,22 @@ Adding a line to a list is one op. Make a `store.json` beside your `object.json`
 }
 ```
 
-Restart, walk into the Armory, and your jerkin is in the rotation with everything else, sometimes in stock, sometimes not, at whatever enchantment the store rolled, priced from what it turned out to be. The stock roll picks from the store's own table and does not consult your item's `alloc` window, so a shop can offer it at any depth; `alloc` governs where it generates in the dungeon.
+Restart and walk into the Armory. Your jerkin is in the rotation with everything else: sometimes in stock and sometimes out, at whatever enchantment the store rolled, and priced from what it turned out to be. The stock roll picks from the store's own table and ignores your item's `alloc` window, so a shop can offer it at any depth. `alloc` controls where the item generates in the dungeon.
 
-Three things worth knowing about that patch:
+About that patch:
 
-- `core:store-armor` is the store's record id: its code, `STORE_ARMOR`, lowercased with `_` turned into `-`. That rule is the STORE file's, not a universal one - each data file declares what identifies its records, and the table of them is `packages/mod-sdk/src/record-key.ts`. Most files use `name`; `object` uses `type` plus `name`; `brand`, `slay` and `projection` use `code`; `constants` and `visuals` have one record each and are named by the file.
-- `normal` is the "may stock" table; `always` is the staples. Appending to `always` means a shop keeps one on the shelf at all times, which for most items is not what you want - and note the Armory ships no `always` list at all, so appending to one there has nothing to append to and is reported rather than working quietly.
-- `sval` is the item's name without the `~`. If it does not match an item that exists, the game drops that one line from the shop's table and reports it against your mod in the mod manager, so a typo costs you a line and tells you which one, rather than being silent or taking the game down with it.
+- `core:store-armor` is the store's record id: its code, `STORE_ARMOR`, lowercased with `_` turned into `-`. That rule belongs to the STORE file. Each data file declares what identifies its records, and `packages/mod-sdk/src/record-key.ts` holds the table of them. Most files use `name`. `object` uses `type` plus `name`. `brand`, `slay`, and `projection` use `code`. `constants` and `visuals` have one record each and are named by the file.
+- `normal` is the "may stock" table, and `always` holds the staples. Appending to `always` makes a shop keep one on the shelf at all times, which suits few items. The Armory ships no `always` list, so an append to one there has nothing to append to, and the game reports it.
+- `sval` is the item's name without the `~`. If it matches no existing item, the game drops that one line from the shop's table and reports it against your mod in the mod manager. A typo costs you one line, and the report tells you which one.
 
-**`append` is why two shop mods can coexist.** It adds to the list rather than restating it, so the store's existing entries stay, and a second mod appending to the same store keeps its entry too. Nobody has to copy a list out of the base game's data and watch it go stale. Its counterpart is `removeValue`, which drops an entry, and that one *can* take out something another mod added, so the game reports it as a conflict and the mod that loads last wins.
+`append` lets two shop mods coexist. It adds to the list without restating it, so the store's existing entries stay, and a second mod appending to the same store keeps its entry too. No mod has to copy a list out of the base game's data and watch it go stale. Its counterpart, `removeValue`, drops an entry and can take out something another mod added, so the game reports it as a conflict and the mod that loads last wins.
 
-There is one wrinkle: your `store.json` names your item, so it only makes sense while your `object.json` is also loaded. Keep both in the same mod, which is what this tutorial does. If you do split them (a shop mod that stocks another mod's item is a perfectly reasonable thing to write), then the day the other mod is turned off, your appended line names nothing. The shop loses that line, the mod manager says so on your mod's row, and everything else in the Armory is exactly as it was. Declare the other mod in your `dependencies` so the player is told before they get there.
+Your `store.json` names your item, so it only works while your `object.json` is also loaded. This tutorial keeps both in the same mod. You can split them, and a shop mod that stocks another mod's item is a reasonable thing to write. In that case, when the other mod is turned off, your appended line names nothing. The shop loses that line, the mod manager says so on your mod's row, and the rest of the Armory stays as it was. Declare the other mod in your `dependencies` so the player is told before that happens.
 
 ## Sample mod
 
-[Core's historical tutorial-02-add-an-item sample](https://github.com/neostryder/neo-angband/tree/master/samples/tutorials/tutorial-02-add-an-item) contains the content contribution. It uses an older manifest format and sample identity. Use the schema 2 manifest from these tutorials for a new mod.
+[Core's historical tutorial-02-add-an-item sample](https://github.com/neostryder/neo-angband/tree/master/samples/tutorials/tutorial-02-add-an-item) contains the content contribution. It uses an older manifest format and sample identity. For a new mod, use the schema 2 manifest from these tutorials.
 
 ---
 
-**Next:** [Tutorial 3: Add a monster](03-add-a-monster.md), the same move in a different file, and the base reference that the checker reports by name.
+**Next:** [Tutorial 3: Add a monster](03-add-a-monster.md) makes the same move in a different file and covers the base reference that the checker reports by name.

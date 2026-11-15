@@ -294,7 +294,7 @@ describe("the launch screen and the exit screen", () => {
     expect(screenText()).toContain("Tutorial 1: Change one thing");
     const reader = shadow().querySelector<HTMLTextAreaElement>("textarea.mb-ed-area");
     expect(reader?.readOnly).toBe(true);
-    expect(reader?.value).toContain("What you will make");
+    expect(reader?.value).toContain("make daggers hit harder");
   });
 
   it("opens the eighth tutorial and the local publishing guide in the reader", () => {

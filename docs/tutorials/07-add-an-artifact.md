@@ -1,8 +1,8 @@
 # Tutorial 7: Add an artifact
 
-**What you will make:** the Leather Shield of the Watchful Eye, a one-of-a-kind shield that turns up somewhere around dungeon level 12 and never turns up twice.
+**What you will make:** the Leather Shield of the Watchful Eye, a unique shield that can appear around dungeon level 12 and never appears twice.
 
-**Before this:** [Tutorial 2](02-add-an-item.md). Tutorials 3 to 6 are not required for this one, but 2 is: an artifact stands on top of an ordinary item, so it helps to have added one first.
+**Before this:** [Tutorial 2](02-add-an-item.md). You can skip tutorials 3 to 6, but do tutorial 2 first. An artifact sits on top of an ordinary item, and it helps to have added one already.
 
 **Time:** ten minutes.
 
@@ -10,14 +10,11 @@
 
 ## What an artifact actually is
 
-Get this straight before you type anything, because the rest of the tutorial follows from it.
+An artifact is a set of changes applied to an item the game already has. The Leather Shield of the Watchful Eye is the leather shield from the leather shield entry in `object.json`, with a new name, better numbers, and a few extra flags. The record names that item in its `base-object` field, and almost every other field is a number describing how the artifact differs from it.
 
-An artifact is a set of adjustments to an item the game already has, not a new kind of item. "The Leather Shield of the Watchful Eye" is a real leather shield, from the real leather shield entry in `object.json`, with a different name, better numbers and some flags bolted on. That is why the record has a field called `base-object`, and why almost every other field is a number: you are describing the difference, not the thing.
+The game generates each artifact at most once per character. An ordinary shield competes through `alloc` with a hundred other shields. For an artifact there is one, or there is not one yet.
 
-Two consequences follow from that, and they are what makes artifacts feel different from tutorial 2:
-
-- It is unique. The game generates each artifact at most once per character. There is no `alloc` fight with a hundred other shields; there is one of these, or there is not one yet.
-- It inherits some things and not others. The base object supplies the kind's flags, and its activation when your artifact declares none. It does NOT supply the numbers: `weight`, `ac`, `to-a`, `to-h`, `to-d` and the damage dice all come from the artifact record, and one you leave out binds to zero rather than to the base object's value. Say them. A leather shield's weight class, its material, how it reacts to acid: all of that arrives for free because you named the base.
+The base object supplies the kind's flags, plus its activation if your artifact declares none. The numbers come from the artifact record: `weight`, `ac`, `to-a`, `to-h`, `to-d`, and the damage dice. Any of these you leave out binds to zero, so write every one of them. The properties of the kind itself, such as a leather shield's weight class, its material, and how it reacts to acid, come with the base you name.
 
 ## Mod files
 
@@ -27,7 +24,7 @@ my-artifact-mod/
   artifact.json
 ```
 
-`manifest.json` uses tutorial 1's schema 2 shape, with its own `id`, `name`, repository, and description. Keep the published SDK engine floor. The new file is `artifact.json`:
+`manifest.json` follows tutorial 1's schema 2 shape with its own `id`, `name`, repository, and description, and keeps the published SDK engine floor. The new file is `artifact.json`:
 
 ```json
 {
@@ -65,7 +62,7 @@ my-artifact-mod/
 }
 ```
 
-Turn it on, create a character, and descend. The artifact is eligible to generate between dungeon levels 12 and 70, at most once per character; generation is not guaranteed.
+Turn the mod on, create a character, and go down. The artifact can generate between dungeon levels 12 and 70, at most once per character, and each character has a chance of finding it with no guarantee.
 
 ## The name is not the name
 
@@ -75,28 +72,28 @@ Look at `name` again:
 "name": "of the Watchful Eye"
 ```
 
-An artifact's name is only the part that goes **after** the base object's name, because the game assembles the full name from both halves: `Leather Shield` plus `of the Watchful Eye` gives you *the Leather Shield of the Watchful Eye* in the item list.
+`name` holds only the part that follows the base object's name. The game joins the two halves, so `Leather Shield` plus `of the Watchful Eye` shows as *the Leather Shield of the Watchful Eye* in the item list.
 
-This is why artifact names in the base game read the way they do. Look in `packages/content/pack/artifact.json` and you will find `of Galadriel`, which becomes the Phial of Galadriel, alongside `'Angrist'`, in quotes, which is a proper name that replaces the base name rather than following it. Pick whichever reads correctly for what you are making, and remember that you are writing half a name.
+Artifact names in the base game follow the same pattern. In `packages/content/pack/artifact.json`, `of Galadriel` becomes the Phial of Galadriel. `'Angrist'`, written in quotes, is a proper name and replaces the base name. Choose the form that reads correctly for your artifact, and keep in mind that you are writing half a name.
 
-Also note what is **absent**: no `&`, no `~`. Tutorial 2's item was `"Padded Jerkin~"`, with a `~` marking where the plural goes. An artifact is unique, so it is never plural, and it never needs an article chosen for it. If you carry tutorial 2's habits over you will end up with an item called *the Leather Shield of the Watchful Eye~*.
+The name also has no `&` and no `~`. Tutorial 2's item was `"Padded Jerkin~"`, where `~` marks the place for the plural ending. An artifact is unique, so it is never plural and never needs an article chosen for it. A `~` carried over from tutorial 2 ends up in the item list as *the Leather Shield of the Watchful Eye~*.
 
 ## The one thing that will bite you
 
-The field to watch is `base-object`. Both halves of it have to name something real:
+Both halves of `base-object` have to match an existing entry:
 
-- `tval` is the item type, and it comes from `object_base.json`: `shield`, `sword`, `hard armor`, `light`, `ring`. These are the base game's own strings, not names you choose, and the armor ones use the American spelling, which catches people out.
-- `sval` is the base object's name within that type, from `object.json`, with the `&` and `~` decoration stripped off. The entry reads `"& Leather Shield~"`; you write `"Leather Shield"`.
+- `tval` is the item type, taken from `object_base.json`: `shield`, `sword`, `hard armor`, `light`, `ring`. These strings belong to the base game, and the armor types use the American spelling, which trips people up.
+- `sval` is the base object's name within that type, taken from `object.json` with the `&` and `~` removed. The entry reads `"& Leather Shield~"`, and you write `"Leather Shield"`.
 
-If the `tval` is wrong, your artifact is dropped, and the mod manager shows a line naming the record and the reason, so you know what to fix.
+A wrong `tval` drops the artifact, and the mod manager shows a line naming the record and the reason.
 
-If the `sval` is wrong, the game does not refuse it. It creates an invisible placeholder base object and builds your artifact on that instead, because that is how the base game's own Phial, Star and Arkenstone work: those three have no ordinary version anywhere in `object.json`. The game needs that behavior, but it can still tell a misspelling apart: `base-object.sval` is a declared reference, so a typo is reported by name on your mod's row - *base-object.sval names the base object the artifact is built on "lether shield", and no loaded pack defines it in object*. If you miss that report, you get an artifact that generates and equips but whose base is blank: no weight class, none of the base's own behavior, an item that is somehow not really a shield.
+A wrong `sval` still loads. The game creates an invisible placeholder base object and builds the artifact on it, which is how the base game's Phial, Star, and Arkenstone work: none of the three has an ordinary version in `object.json`. Because `base-object.sval` is a declared reference, a typo still gets reported by name on your mod's row - *base-object.sval names the base object the artifact is built on "lether shield", and no loaded pack defines it in object*. If you miss that report, the artifact generates and equips on a blank base, with no weight class and none of the base's own behavior, and the item stops behaving like a shield.
 
-So copy the `sval` out of `object.json` instead of typing it from memory. It is the one field in this file where a typo still gives you a working game, with the wrong item in it.
+Copy the `sval` from `object.json`. It is the one field in this file where a typo leaves the game running with the wrong item in it.
 
 ## Patching an artifact the game already has
 
-The same file can change an existing artifact, the same way tutorial 3 changed an existing monster. Add this beside your `records`:
+The same file can change an existing artifact, the way tutorial 3 changed an existing monster. Add this next to your `records`:
 
 ```json
   "fieldPatches": {
@@ -106,33 +103,33 @@ The same file can change an existing artifact, the same way tutorial 3 changed a
   }
 ```
 
-`add` is relative: three more points of armor than Angrist already had, whatever that is. Use `add` rather than `set` for anything you are adjusting rather than deciding, and your mod will survive the base game retuning the number underneath you.
+`add` is relative: Angrist gets three more points of armor than it already had, whatever that number is. Use `add` when you are adjusting a number and `set` when you are deciding it, and your mod keeps working when the base game retunes the value underneath.
 
-The ref is `core:` plus the artifact's name in lower case with the punctuation dropped, so `'Angrist'` is `core:angrist`. If a ref does not resolve, the loader tells you so by name; that is the friendly failure, and it is what `pnpm exec neo-angband-mod-check` is for.
+The ref is `core:` followed by the artifact's name in lower case with punctuation removed, so `'Angrist'` becomes `core:angrist`. When a ref does not resolve, the loader reports it by name, and `pnpm exec neo-angband-mod-check` finds those for you.
 
 ## Artifact fields
 
-Everything below `base-object` is the fun part.
+The fields after `base-object` set what the artifact does.
 
-- `level` is how deep the game considers the artifact to be, which feeds into how it is priced and how good it is allowed to be.
-- `alloc` is `common`, the weighting against everything else eligible, and `minmax`, the depth band it can appear in. `"12 to 70"` means it will not be generated shallower than 12 or deeper than 70.
-- `armor.ac` replaces the base object's armor class, and `armor.to-a` is the bonus on top. On a weapon you would be reaching for `attack.hd`, `to-h` and `to-d` instead.
-- `flags` are the yes-or-no properties: `SEE_INVIS`, `PROT_FEAR`, `FREE_ACT`, `REGEN`, and a long list more.
-- `values` are the ones that carry a number, written with the number in square brackets: `INFRA[2]`, `RES_DARK[1]`, `STR[2]`, `SPEED[5]`.
+- `level` is how deep the game considers the artifact to be. It feeds into the artifact's price and how strong it is allowed to be.
+- `alloc` holds `common`, the weight against everything else eligible, and `minmax`, the depth band it can appear in. `"12 to 70"` keeps it from generating shallower than 12 or deeper than 70.
+- `armor.ac` replaces the base object's armor class, and `armor.to-a` is the bonus on top. A weapon uses `attack.hd`, `to-h`, and `to-d` instead.
+- `flags` are yes-or-no properties: `SEE_INVIS`, `PROT_FEAR`, `FREE_ACT`, `REGEN`, and many more.
+- `values` are properties that carry a number, written in square brackets: `INFRA[2]`, `RES_DARK[1]`, `STR[2]`, `SPEED[5]`.
 
-Both lists are in `packages/content/pack/object_property.json`. One catch when you go looking: a resistance's `code` there is the bare element (`resistance:DARK`), and the token you write in `values` is `RES_` plus that element, assembled when the record binds. Grepping the file for `RES_DARK` finds nothing. Flags and modifiers are spelled out under `code`, which is the file to have open while you write this rather than the one to guess at. A flag or a value the game does not recognize is refused when your mod loads, which is the good outcome; you get told, before you play.
+Both lists live in `packages/content/pack/object_property.json`. Flags and modifiers appear there spelled out in full under `code`, so keep that file open while you write. Resistances are listed differently: a resistance's `code` is the bare element (`resistance:DARK`), and the token you write in `values` is `RES_` plus that element, assembled when the record binds. A search of the file for `RES_DARK` finds nothing. The game refuses an unrecognized flag or value when your mod loads, so you hear about it before you play.
 
-If you want an artifact that does something when you activate it, that is `act` plus `time`, and the names come from `activation.json`. Copy a base-game artifact that already activates and change the numbers before writing one from scratch.
+For an artifact that does something when activated, set `act` and `time`, with names from `activation.json`. Start by copying a base-game artifact that already activates and changing its numbers.
 
 ## Artifact rules to remember
 
-- An artifact is a **layer over an existing item**, not a new item, which is why `base-object` exists and why the rest is mostly numbers.
-- Its `name` is only **half a name**, and it takes none of the `&` and `~` decoration an ordinary item's name needs.
-- A wrong `tval` gets reported. A wrong `sval` **silently invents a base object**, because the base game needs that behavior for the Phial. Copy the sval.
-- `add` beats `set` when you are adjusting a number the base game owns.
+- An artifact is a set of changes over an existing item, so the record names a `base-object` and the rest is mostly numbers.
+- Its `name` is half a name, without the `&` and `~` an ordinary item's name uses.
+- A wrong `tval` gets reported. A wrong `sval` builds the artifact on an invented placeholder base, because the base game needs that behavior for the Phial. Copy the sval.
+- Use `add` over `set` when you adjust a number the base game owns.
 
 ## Sample mod
 
-[Core's historical tutorial-07-add-an-artifact sample](https://github.com/neostryder/neo-angband/tree/master/samples/tutorials/tutorial-07-add-an-artifact) contains the content contribution. It uses an older manifest format and sample identity. Use the schema 2 manifest from these tutorials for a new mod.
+[Core's historical tutorial-07-add-an-artifact sample](https://github.com/neostryder/neo-angband/tree/master/samples/tutorials/tutorial-07-add-an-artifact) contains the content for this tutorial. It uses an older manifest format and sample identity, so start a new mod from the schema 2 manifest in these tutorials.
 
-**Next:** [Tutorial 8: Add a store](08-add-a-store.md) replaces a storefront and adds a buying rule. What is worth reading after these is listed at the end of the [tutorial index](README.md), and [REQUIREMENTS.md](https://github.com/neostryder/neo-angband/blob/master/docs/modding/REQUIREMENTS.md) is the one to read first if you are about to share a mod with somebody.
+**Next:** [Tutorial 8: Add a store](08-add-a-store.md) replaces a storefront and adds a buying rule. The end of the [tutorial index](README.md) lists what to read after these. If you are about to share a mod with somebody, read [REQUIREMENTS.md](https://github.com/neostryder/neo-angband/blob/master/docs/modding/REQUIREMENTS.md) first.
