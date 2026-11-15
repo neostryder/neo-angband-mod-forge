@@ -38,8 +38,8 @@ This mod changes records and also runs one buying rule, so its manifest declares
     "api": ">=2.0.0 <3.0.0",
     "runtime": "in-process",
     "engine": {
-      "range": ">=1.23.0-beta.3",
-      "because": "This mod targets the published 1.23.0-beta.3 SDK."
+      "range": ">=1.23.0-beta.4",
+      "because": "This mod targets the published 1.23.0-beta.4 SDK."
     },
     "author": "your name",
     "license": "GPL-2.0-only",
@@ -178,7 +178,7 @@ During `start`, the published API 2.0 engine domain provides the live store regi
 
 For the buying exception, the plugin calls the public `engine.core.objectKnownView(state, shop.obj)` helper and reads its `known` result. The published object carries no stored `known` twin, so the helper supplies the player-known copy. A hidden enchantment never qualifies, and the plugin reads no live bonus values. The plugin accepts a known enchanted sword first and passes every other item to `coreWillBuy(shop)`, which applies the base game's ordinary buying rules.
 
-`objectId` arrives with mod API 2.1 and will identify an item across known-view updates. This synchronous registry rule has no use for it.
+`objectId` identifies an item across known-view updates in mod API 2.1. This synchronous registry rule uses no 2.1 fields and keeps `>=2.0.0 <3.0.0`.
 
 ## Check the result
 

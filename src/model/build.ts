@@ -43,7 +43,7 @@ import { zipStored } from "./zip.js";
  * range from the same condition, in the same place. The range comes from the
  * script's own `api` (see `scriptApi`), so an API 1 plugin gets
  * `>=1.0.0 <2.0.0` and the schema 1 `modApi` number, and an API 2 definition gets
- * `>=2.0.0 <3.0.0`.
+ * its declared range, including `>=2.1.0 <3.0.0` when it reads API 2.1 fields.
  *
  * `facets` carries `content` as well, because the validator requires the facet list
  * to contain whatever `shape` says, and the shape of everything the workshop writes

@@ -31,8 +31,8 @@ my-item-mod/
     "api": "*",
     "runtime": "data",
     "engine": {
-      "range": ">=1.23.0-beta.3",
-      "because": "This mod targets the published 1.23.0-beta.3 SDK."
+      "range": ">=1.23.0-beta.4",
+      "because": "This mod targets the published 1.23.0-beta.4 SDK."
     },
     "author": "your name",
     "license": "GPL-2.0-only",

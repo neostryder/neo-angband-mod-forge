@@ -37,7 +37,7 @@ const build = modProject({
   author: "you",
   license: "GPL-2.0-only",
   repository: "https://github.com/you/sludge",
-  engine: ">=1.23.0-beta.3",
+  engine: ">=1.23.0-beta.4",
   dependencies: { core: "*" },
 })
   .declareField({ name: "sludge", files: ["object"], type: "object" })
