@@ -16,7 +16,7 @@ my-monster-mod/
   monster.json
 ```
 
-`manifest.json` is the same as before with a new `id` and `description`. The new file is `monster.json`:
+`manifest.json` uses tutorial 1's schema 2 envelope with a new id, name, repository, and description. The new file is `monster.json`:
 
 ```json
 {

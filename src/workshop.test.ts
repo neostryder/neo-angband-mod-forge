@@ -297,6 +297,16 @@ describe("the launch screen and the exit screen", () => {
     expect(reader?.value).toContain("What you will make");
   });
 
+  it("opens the eighth tutorial and the local publishing guide in the reader", () => {
+    open = openWorkshop(ctx(), document);
+    control("Read the SDK docs").click();
+    control("8. Add a store").click();
+    expect(shadow().querySelector<HTMLTextAreaElement>("textarea.mb-ed-area")?.value).toContain('stores.byName("STORE_GENERAL")');
+    expect(screenText()).toContain("ModForge docs / tutorials/08-add-a-store.md");
+    control("Check and publish").click();
+    expect(shadow().querySelector<HTMLTextAreaElement>("textarea.mb-ed-area")?.value).toContain("# Check and publish a mod");
+  });
+
   it("stays reachable afterwards, as About in the titlebar", () => {
     open = openWorkshop(ctx(), document);
     control("Enter the workshop").click();

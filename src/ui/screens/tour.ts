@@ -2,8 +2,8 @@
  * The way in for somebody who has never modded anything.
  *
  * IT TEACHES THE SAME STEPS THE WRITTEN TUTORIALS TEACH, in the same order, and
- * that is deliberate rather than convenient. The game ships seven hand-written
- * content tutorials, they are good, and they are the from-scratch path. Anybody
+ * that is deliberate rather than convenient. ModForge carries eight written
+ * tutorials for authors starting from a folder. Anybody
  * who finishes the workshop's tour and then opens tutorial 3 has to find the same
  * ideas under the same names, or the two are teaching different games.
  *
@@ -123,8 +123,7 @@ export function tourScreen(shop: Workshop): View {
           kind: "ghost",
           onClick: () => shop.acts.go({ at: "docs", doc: lesson.doc }),
           tip:
-            `Open the SDK document ${lesson.tutorial}. It builds the same mod with a text editor and pins ` +
-            "the finished version with a test.",
+            `Open the ModForge tutorial ${lesson.tutorial} to build a mod with a text editor.`,
         }),
       ),
     );
@@ -149,9 +148,9 @@ export function tourScreen(shop: Workshop): View {
     h(
       "ul",
       null,
-      h("li", null, button({ label: "Read the seven tutorials", onClick: () => shop.acts.go({ at: "docs", doc: "tutorials" }) })),
+      h("li", null, button({ label: "Read the eight tutorials", onClick: () => shop.acts.go({ at: "docs", doc: "tutorials" }) })),
       h("li", null, button({ label: "Read the plugin API", onClick: () => shop.acts.go({ at: "docs", doc: "plugins" }) })),
-      h("li", null, button({ label: "Read the authoring API", onClick: () => shop.acts.go({ at: "docs", doc: "authoring" }) })),
+      h("li", null, button({ label: "Read the authoring guide", onClick: () => shop.acts.go({ at: "docs", doc: "authoring" }) })),
       h("li", null, button({ label: "Read compatibility guidance", onClick: () => shop.acts.go({ at: "docs", doc: "compatibility" }) })),
     ),
     h("p", {

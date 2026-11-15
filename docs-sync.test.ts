@@ -135,10 +135,16 @@ describe("the local authoring documentation", () => {
     if (manifest.runtime !== "data") expect(apiRangeVerdict(manifest.api ?? "").ok).toBe(true);
   });
 
-  it("composes tutorial 5's hook with Core and preserves unrelated messages", () => {
+  it("transforms Core's real level-up message with tutorial 5's hook and preserves unrelated messages", () => {
     const contribution = example("05-hook-behaviour.md").hooks?.({ id: "my-code-mod", flags: {} });
     const hooks = Core.composeModHooks([{ messageText: contribution?.messageText! }]);
-    expect(hooks?.messageText?.("Welcome to level 2.")).toBe("Congratulations! Welcome to level 2.");
+    const player = Core.blankPlayer({} as Core.PlayerRace, {} as Core.PlayerClass, { name: "test", count: 0, slots: [] });
+    player.expFactor = 100;
+    player.hitdie = 1;
+    const messages: string[] = [];
+    Core.playerExpGain(player, 10, { rng: new Core.Rng(7), msg: (text) => { messages.push(hooks?.messageText?.(text) ?? text); } });
+    expect(player.lev).toBe(2);
+    expect(messages).toEqual(["Congratulations! Welcome to level 2."]);
     expect(hooks?.messageText?.("You are poisoned.")).toBe("You are poisoned.");
   });
 
@@ -166,12 +172,12 @@ describe("the local authoring documentation", () => {
       engine: {
         core: Core,
         state,
-        registries: { stores: { byName: () => ({ feat: 7 }) } },
+        registries: { stores: { byName: (name: string) => name === "STORE_GENERAL" ? { feat: Core.FEAT.STORE_GENERAL } : null } },
         registry: { stores: { willBuyFor: rules.willBuyFor.bind(rules), setWillBuy: rules.registerWillBuy.bind(rules) } },
       },
     } as unknown as ModApi2;
     await plugin.start?.(mod);
-    const buy = rules.willBuyFor(7);
+    const buy = rules.willBuyFor(Core.FEAT.STORE_GENERAL);
     const shop = { obj: sword } as Core.StoreWillBuyContext;
     expect(buy?.(shop)).toBe(false);
     player.objKnown.toD = 1;

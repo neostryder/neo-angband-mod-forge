@@ -89,48 +89,26 @@ Import the built artifact directly:
 const plugin = (await import("../plugin.js")).default;
 ```
 
-Construct the smallest complete host context that the plugin's manifest says it
-requires, using `Core` from `@rpgm-tools/neo-angband-core`. Then invoke the same
-plugin entry point the host invokes and pass its contribution to the public core
-seam. For a hook contribution, the shape is:
+An API 2 hook factory receives `{ id, flags }`. The message hook has the same string-to-string signature as Core's message transform. Other API 2 hooks, such as `historyAdd`, have different return types, so a whole `Api2Hooks` object cannot be passed directly to `composeModHooks`. This example extracts only `messageText` and drives a real level-up:
 
 ```ts
 import * as Core from "@rpgm-tools/neo-angband-core";
 
-const contribution = plugin.hooks(flags); // use your plugin's declared entry point
-const hooks = Core.composeModHooks([contribution]);
+const contribution = plugin.hooks({ id: "my-code-mod", flags: {} });
+const messageText = contribution.messageText;
+if (!messageText) throw new Error("The plugin supplies no message hook.");
+const hooks = Core.composeModHooks([{ messageText }]);
 
 const game = Core.startGame(realGamePack, { seed: 7, depth: 0 });
-game.state.modHooks = hooks;
-
-// Call the public operation that owns the transition, with the real state.
-const changed = Core.playerSetTimed(
-  game.state.player,
-  realTimedEffect,
-  10,
-  true,
-  true,
-  hooks,
-);
-expect(changed).toBe(true);
-expect(observedByThePlugin).toEqual(["begin"]);
+const messages: string[] = [];
+const msg = (text: string) => messages.push(hooks?.messageText?.(text) ?? text);
+Core.playerExpGain(game.state.actor.player, 100, { rng: game.state.rng, msg });
+expect(messages).toContain("Congratulations! Welcome to level 2.");
 ```
 
-The entry point and the transition depend on the mod API and on the hook under
-test. `composeModHooks` is the engine's composition rule and models the
-load-order fold the host performs. Drive the transition through a public core
-operation, such as `playerSetTimed`, `playerIncTimed`, `playerDecTimed`,
-`startGame` and `runGameLoop`, or the command or effect function involved.
-Calling a private implementation or writing to `GameState` by hand tests only the
-fixture.
+`realGamePack` is the test's `GamePack` fixture from the pinned content source. `startGame` returns a state whose player is `state.actor.player`; `playerExpGain` invokes `adjustLevel` and sends the level-up message through the supplied sink. This example targets tutorial 5. Use the public operation and expected result that match the hook under test.
 
-For a message hook, feed a real core message-producing operation and assert the
-text received by the test sink. For a veto hook, assert both sides: the hook is
-called and the operation is accepted or rejected as its return value requires.
-For a controller-style plugin, use the real `GameState`/agent view and action
-facade, then assert the command produced after a state change. In every case,
-make the state transition visible in the assertion; “the hook was registered”
-is not a behaviour test.
+For a message hook, feed a real core message-producing operation and assert the text received by the test sink. For a veto hook, assert both sides: the hook is called and the operation is accepted or rejected as its return value requires. For a controller-style plugin, use the real `GameState`/agent view and action facade, then assert the command produced after a state change. In every case, make the state transition visible in the assertion; "the hook was registered" is not a behaviour test.
 
 ## Running the suite
 

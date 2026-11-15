@@ -80,7 +80,7 @@ export function docsScreen(shop: Workshop, selected: SdkDocId): View {
   advanced.body.append(
     h("p", {
       class: "mb-why",
-      text: "Requirements first, then the complete authoring and plugin contracts.",
+      text: "Guides for authoring and publishing, plus SDK contracts.",
     }),
     ...docs.filter((candidate) => candidate.audience === "advanced").map((candidate) =>
       listRow({
