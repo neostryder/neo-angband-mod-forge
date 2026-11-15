@@ -16,7 +16,7 @@
  * every step of it runs here with no engine present at all.
  */
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import * as REAL_AUTHORING from "@rpgm-tools/neo-angband-mod-sdk";
 import { openWorkshop } from "./workshop.js";
 import type { WorkshopHandle } from "./workshop.js";
@@ -1512,6 +1512,22 @@ describe("forking a mod that already exists", () => {
     atTheModList();
     control("Fork it").click();
     expect(screenText()).toContain("A mod needs an id");
+  });
+
+  it("refuses an oversized zip before reading the picked file", async () => {
+    atTheModList();
+    type(forkIdBox(), "my-own-qol");
+    const input = [...shadow().querySelectorAll<HTMLInputElement>('input[type="file"]')].find(
+      (file) => !file.hasAttribute("webkitdirectory"),
+    );
+    if (!input) throw new Error("no zip picker on the mod list");
+    const arrayBuffer = vi.fn(async () => new ArrayBuffer(0));
+    Object.defineProperty(input, "files", { value: [{ size: 64 * 1024 * 1024 + 1, arrayBuffer }] });
+    input.dispatchEvent(new Event("change"));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(arrayBuffer).not.toHaveBeenCalled();
+    expect(screenText()).toContain("64 MiB limit for a zip");
   });
 
   it("refuses an id a mod in the game already uses", () => {
