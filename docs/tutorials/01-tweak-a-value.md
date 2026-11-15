@@ -79,7 +79,7 @@ When a ref matches nothing, the game skips that one contribution, reports it on 
 
 `"dependencies": { "required": { "core": { "range": "*" } } }` declares that your mod modifies the base game's records. The game rejects the patch without it. A mod can change only records that belong to something it has declared, so no mod can change another mod's records without naming that mod.
 
-The schema 2 envelope holds the manifest under `data`. Content-only mods use `runtime: "data"` and `api: "*"`. Tutorials that run code declare an API 2 range and `runtime: "in-process"`. These examples target SDK 1.23.0-beta.4, which publishes mod API 2.1.0. The code examples use API 2.0 fields and keep `>=2.0.0 <3.0.0`.
+The schema 2 envelope holds the manifest under `data`. Content-only mods use `runtime: "data"` and `api: "*"`. Tutorials that run code declare an API 2 range and `runtime: "in-process"`. These examples target SDK 1.23.0-beta.4, which publishes mod API 2.1.0. The code examples read only API 2.0 fields, so they keep `>=2.0.0 <3.0.0`.
 
 ## Running it
 

@@ -10,7 +10,7 @@ The files ModForge writes have moved as well. A generated manifest is a schema 2
 
 The workshop's authoring loop has API 2 calls for the authoring library, the composed records, the debug commands, loading a mod for one session, reloading into it, and a page to draw on. Forking from a repository still lacks a read-only file seam. The published SDK builder also accepts only one base pack, so review reports `project/unloadable` for dependencies on another installed mod. [ENGINE_SEAMS.md](ENGINE_SEAMS.md) records those limits.
 
-The pinned SDK 1.23.0-beta.4 publishes mod API 2.1.0. The known-view fields `objectId`, `trapKnown`, `slainUniques`, and `status.countdown` require `>=2.1.0 <3.0.0` in mods that read them. The workshop and its starter read no 2.1 fields and keep `>=2.0.0 <3.0.0`.
+The pinned SDK 1.23.0-beta.4 publishes mod API 2.1.0. A mod that reads the known-view fields `objectId`, `trapKnown`, `slainUniques`, or `status.countdown` declares `>=2.1.0 <3.0.0`. The workshop and its starter read no 2.1 fields and keep `>=2.0.0 <3.0.0`.
 
 ## From API 1 to API 2
 
