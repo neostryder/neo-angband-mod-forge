@@ -63,7 +63,7 @@ describe("unzip", () => {
 
     const outcome = await unzip(packed, { ...ZIP_LIMITS, maxTotalBytes: budget });
     expect(outcome.ok).toBe(false);
-    if (!outcome.ok) expect(outcome.why).toContain("unpacks to more than");
+    if (!outcome.ok) expect(outcome.why).toContain("would unpack to more than");
     expect(cancel).toHaveBeenCalledOnce();
     expect(allocated).toBeGreaterThan(budget);
     expect(allocated).toBeLessThan(budget + largestChunk);
@@ -76,7 +76,7 @@ describe("unzip", () => {
     const inflate = vi.spyOn(globalThis, "DecompressionStream");
     const outcome = await unzip(packed, { ...ZIP_LIMITS, maxTotalBytes: 10 });
     expect(outcome.ok).toBe(false);
-    if (!outcome.ok) expect(outcome.why).toContain("unpacks to more than");
+    if (!outcome.ok) expect(outcome.why).toContain("would unpack to more than");
     expect(inflate).not.toHaveBeenCalled();
   });
 
@@ -86,7 +86,7 @@ describe("unzip", () => {
     declareSizes(packed, 1);
     const outcome = await unzip(packed, { ...ZIP_LIMITS, maxTotalBytes: 10_000 });
     expect(outcome.ok).toBe(false);
-    if (!outcome.ok) expect(outcome.why).toContain("unpacks to more than");
+    if (!outcome.ok) expect(outcome.why).toContain("would unpack to more than");
   });
 
   it("allows output that exactly fills the budget", async () => {
@@ -103,7 +103,7 @@ describe("unzip", () => {
     const inflate = vi.spyOn(globalThis, "DecompressionStream");
     const outcome = await unzip(zipSync({ first: encoder.encode("a"), second: encoder.encode("b") }), { ...ZIP_LIMITS, maxEntries: 1 });
     expect(outcome.ok).toBe(false);
-    if (!outcome.ok) expect(outcome.why).toContain("more than 1 entries");
+    if (!outcome.ok) expect(outcome.why).toContain("holds more than 1 entries");
     expect(inflate).not.toHaveBeenCalled();
   });
 

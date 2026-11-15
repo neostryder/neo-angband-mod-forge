@@ -40,12 +40,12 @@ export const ZIP_LIMITS = {
 
 export function zipSizeCheck(size: number, limit = ZIP_LIMITS.maxArchiveBytes): { readonly ok: true } | { readonly ok: false; readonly why: string } {
   return size > limit
-    ? { ok: false, why: `That file exceeds the ${limit / (1024 * 1024)} MiB limit for a zip.` }
+    ? { ok: false, why: `Could not import: the ZIP file is larger than ${limit / (1024 * 1024)} MiB.` }
     : { ok: true };
 }
 
 function unpackedLimit(limit: number): string {
-  return `That zip unpacks to more than ${limit / (1024 * 1024)} MiB.`;
+  return `Could not import: the ZIP would unpack to more than ${limit / (1024 * 1024)} MiB.`;
 }
 
 const LOCAL_HEADER = 0x04034b50;
@@ -75,7 +75,7 @@ export async function unzip(bytes: Uint8Array, limits = ZIP_LIMITS): Promise<Unz
 
   const count = view.getUint16(end + 10, true);
   if (count > limits.maxEntries) {
-    return { ok: false, why: `That zip has more than ${limits.maxEntries} entries.` };
+    return { ok: false, why: `Could not import: the ZIP holds more than ${limits.maxEntries.toLocaleString("en-US")} entries.` };
   }
   const directoryAt = view.getUint32(end + 16, true);
   if (directoryAt >= bytes.length) {
