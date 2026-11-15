@@ -285,7 +285,7 @@ export interface RecordProvenance {
    * It carries the fields the DEFINER wrote, so a field a patch invented is not in
    * it and survives the restore. `fork.ts` says so where that matters.
    */
-  readonly was?: Readonly<Record<string, JsonValue>>;
+  readonly was?: Readonly<Record<string, unknown>>;
 }
 
 /** How one record file derives a record's identity. */

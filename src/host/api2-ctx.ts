@@ -16,8 +16,8 @@
  */
 
 import type { Api2Call, JsonValue, ModApi2 } from "@rpgm-tools/neo-angband-mod-sdk";
-import type { AuthoringApi, JsonRecord } from "./authoring.js";
-import type { BuilderCtx, PrefsLike, SessionModResult, WizardApi } from "./context.js";
+import type { JsonRecord } from "./authoring.js";
+import type { BuilderCtx, PrefsLike, SessionModResult } from "./context.js";
 
 /** The answer of a call, or undefined when the host refused it or the call threw. */
 async function answer<T>(call: () => Api2Call<T>): Promise<T | undefined> {
@@ -72,7 +72,7 @@ export async function buildBuilderCtx(mod: ModApi2): Promise<BuilderCtx> {
   const { granted } = mod.meta;
 
   const authoring = manage && granted("mod:authoring") ? await answer(() => manage.authoring()) : undefined;
-  const records = authoring ? await composedRecords(mod, (authoring as unknown as AuthoringApi).BLUEPRINT_FILES) : undefined;
+  const records = authoring ? await composedRecords(mod, authoring.BLUEPRINT_FILES) : undefined;
   const wizard = manage && granted("debug:wizard") ? await answer(() => manage.wizard()) : undefined;
   const stored = await answer(() => mod.store.prefs.get());
 
@@ -104,9 +104,9 @@ export async function buildBuilderCtx(mod: ModApi2): Promise<BuilderCtx> {
      * the host says whether one is. `state` only ever has to be present or absent
      * (seams.ts), so a marker object is the whole of it. */
     ...(wizard && wizard.where() !== null ? { state: {} } : {}),
-    ...(authoring ? { authoring: authoring as unknown as AuthoringApi } : {}),
+    ...(authoring ? { authoring } : {}),
     ...(records ? { composedRecords: records } : {}),
-    ...(wizard ? { wizard: wizard as unknown as WizardApi } : {}),
+    ...(wizard ? { wizard } : {}),
     ...(loadForSession ? { loadModForSession: loadForSession } : {}),
     ...(reloadGame ? { reloadGame } : {}),
   };

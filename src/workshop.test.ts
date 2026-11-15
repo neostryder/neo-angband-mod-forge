@@ -411,7 +411,7 @@ describe("the player's journey", () => {
   it("gives a genuinely empty retune an explicit route to another kind", () => {
     open = openWorkshop(
       ctx({
-        authoring: REAL_AUTHORING as unknown as NonNullable<BuilderCtx["authoring"]>,
+        authoring: REAL_AUTHORING,
         composedRecords: { brand: [{ code: "TEST", name: "test brand" }] },
       }),
       document,
@@ -1299,7 +1299,7 @@ describe("editing the mod as files", () => {
 
   it("emits an API 2 mod through the game's own library", () => {
     open = openWorkshop(
-      ctx({ authoring: REAL_AUTHORING as unknown as NonNullable<BuilderCtx["authoring"]> }),
+      ctx({ authoring: REAL_AUTHORING }),
       document,
     );
     control("Take me to my mods").click();
