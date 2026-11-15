@@ -399,7 +399,8 @@ export function folderFromInstalled(
       const provenance = api.provenanceOf(record);
       if (!provenance) continue;
       if (provenance.owner === owner) {
-        const own = { ...record, ...(provenance.was ?? {}) };
+        // The composed record map and its defining values contain JSON.
+        const own = { ...record, ...(provenance.was ?? {}) } as JsonRecord;
         if (provenance.was !== undefined) restored++;
         of(file).records.push(withoutProvenance(api, own));
         continue;

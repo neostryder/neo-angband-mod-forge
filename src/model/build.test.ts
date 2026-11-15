@@ -4,6 +4,8 @@
 
 import { describe, expect, it } from "vitest";
 import { unzipSync } from "fflate";
+import * as sdk from "@rpgm-tools/neo-angband-mod-sdk";
+import type { AuthoringApi } from "../host/authoring.js";
 import { STUB_AUTHORING } from "../host/authoring-stub.js";
 import { STUB_RECORDS } from "../host/stub-content.js";
 import { basePacks, buildDraft, emitDraft, manifestFor, zipDraft } from "./build.js";
@@ -11,6 +13,7 @@ import { newDraft } from "./draft.js";
 import type { Draft } from "./draft.js";
 
 const api = STUB_AUTHORING;
+const publishedApi: AuthoringApi = sdk;
 
 /** Every file the stub composer emits is JSON text; this narrows the type for it. */
 function asText(contents: string | Uint8Array | undefined): string {
@@ -181,5 +184,33 @@ describe("buildDraft", () => {
      * the game's must not read like a promise. */
     const build = buildDraft(api, draftWith([]), STUB_RECORDS);
     expect(build.findings.some((f) => f.rule === "stub/not-the-real-checker")).toBe(true);
+  });
+});
+
+describe("the published authoring library", () => {
+  it("builds and emits a draft with the same API the host supplies", () => {
+    const draft = draftWith([{ kind: "patch", file: "monster", ref: "core:grey-wolf", ops: [{ op: "add", path: "hit-points", value: 5 }] }]);
+    const build = buildDraft(publishedApi, draft, STUB_RECORDS);
+    expect(build.problems).toEqual([]);
+    expect(build.composed?.["monster"]).toContainEqual(expect.objectContaining({ name: "grey wolf", "hit-points": 35 }));
+    const files = emitDraft(publishedApi, draft);
+    const manifest = JSON.parse(asText(files.find((file) => file.path === "manifest.json")?.contents));
+    expect(manifest.schemaVersion).toBe(2);
+    expect(sdk.validateManifest(manifest).id).toBe(draft.id);
+    expect(Object.keys(unzipSync(zipDraft(files))).sort()).toEqual(["manifest.json", "monster.json"]);
+  });
+
+  it("reports a new record's invalid base through the published checker", () => {
+    const draft = draftWith([{ kind: "add", file: "monster", record: { name: "aunt lizzie", base: "aunt", depth: 2 } }]);
+    const build = buildDraft(publishedApi, draft, STUB_RECORDS);
+    expect(build.findings.some((finding) => finding.rule === "reference/dangling" && finding.message.includes("aunt"))).toBe(true);
+  });
+
+  it("reports the published builder's single-base limit for a dependency on another mod", () => {
+    const records = { monster: [{ name: "mod wolf", "hit-points": 30, $from: { owner: "wolves" } }] };
+    const draft = draftWith([{ kind: "patch", file: "monster", ref: "wolves:mod-wolf", ops: [{ op: "add", path: "hit-points", value: 5 }] }]);
+    const build = buildDraft(publishedApi, draft, records);
+    expect(build.ok).toBe(false);
+    expect(build.findings).toContainEqual(expect.objectContaining({ rule: "project/unloadable", message: expect.stringContaining("wolves") }));
   });
 });

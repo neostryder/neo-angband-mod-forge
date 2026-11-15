@@ -124,7 +124,7 @@ describe("the SDK's vocabulary hint", () => {
   it("arrives through the same checker and is placed on the misspelled value", () => {
     const text = monsterFile({ name: "spooky rat", base: "rodent", color: "zzz", depth: 3 });
     const found = lintFile(
-      REAL_AUTHORING as unknown as AuthoringApi,
+      REAL_AUTHORING,
       { ...draft(), author: "tester" },
       STUB_RECORDS,
       "monster.json",

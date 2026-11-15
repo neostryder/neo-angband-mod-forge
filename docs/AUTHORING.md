@@ -54,6 +54,8 @@ const build = modProject({
 
 `emit()` returns files without writing them. `build(corePack)` composes the result and checks it. The caller writes those files or makes a zip, which lets the same project run in an offline tool or in the workshop.
 
+The published `ModProject.build` accepts one base pack. ModForge merges its loaded record map into a Core base for this call, so a draft that declares another installed mod as a dependency receives `project/unloadable`. The dependency is preserved in the exported manifest, but the workshop cannot validate that draft through this builder. The SDK needs a build method that accepts all loaded base packs; ModForge keeps the SDK's validation rules in the SDK.
+
 ## Compose with other mods
 
 Declare a record owner's id in `dependencies` before patching its records. Declare an extension field before writing it, and declare the extension owner's id before writing another mod's namespaced field. Use `add` for a relative numeric change, `addFlag` for a flag, and `append` for a list contribution. A `set` replaces the current field value.
