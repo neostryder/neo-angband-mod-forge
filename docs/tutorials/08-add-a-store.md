@@ -1,18 +1,14 @@
 # Tutorial 8: Add a store
 
-**What you will make:** The Adventurer's Exchange, a new shop in town that stocks expedition supplies and buys enchanted swords the ordinary shops turn away.
-
-**Before this:** [Tutorial 2](02-add-an-item.md), for content files, and [Tutorial 5](05-hook-behaviour.md), for the one small `plugin.js` this shop needs.
-
-**Time:** fifteen minutes.
+In this tutorial you build the Adventurer's Exchange, a new shop in town that stocks expedition supplies and buys the enchanted swords the ordinary shops turn away. It takes fifteen minutes. Work through [Tutorial 2](02-add-an-item.md) first for content files, and [Tutorial 5](05-hook-behaviour.md) for the one small `plugin.js` this shop needs.
 
 ---
 
 ## One limit worth knowing first
 
-The town has eight storefronts. Their entrance features are part of the game the port is reproducing, so a mod cannot invent a ninth one with a new terrain code. What it *can* do is turn one of those storefronts into its own shop: give it a new name, stock table, owners and buying rule. That is a new shop to the player, and it is the portable move a mod can make.
+The town has eight storefronts. Their entrance features come from the game the port reproduces, so a mod cannot add a ninth one with a new terrain code. A mod can turn one of the eight into its own shop with a new name, stock table, owners, and buying rule. The player sees a new shop, and this is the portable way for a mod to add one.
 
-We are taking over the General Store's building. The General Store is still in the base game underneath your mod; turn the mod off and it comes back exactly as it was. Nothing in this tutorial edits the game's source files.
+This tutorial takes over the General Store's building. The General Store stays in the base game under your mod, and turning the mod off brings it back unchanged. Nothing in this tutorial edits the game's source files.
 
 ## Mod files
 
@@ -24,7 +20,7 @@ my-store-mod/
   plugin.js
 ```
 
-This mod changes records *and* runs one buying rule, so its manifest declares both facets. Copy this as `manifest.json`:
+This mod changes records and also runs one buying rule, so its manifest declares both facets. Copy this as `manifest.json`:
 
 ```json
 {
@@ -65,7 +61,7 @@ This mod changes records *and* runs one buying rule, so its manifest declares bo
 }
 ```
 
-`registry:store` is a promise to the player, shown before they enable your plugin: this mod changes a shop rule. It also opens `mod.engine.registry.stores` for the rule below. A content-only shop needs no capability; this one has a small bit of behavior as well.
+`registry:store` tells the player, before they enable your plugin, that this mod changes a shop rule. It also opens `mod.engine.registry.stores` for the rule below. A shop made only of content needs no capability, and this one asks for it because it also carries a small piece of behavior.
 
 ## Give the building a new name
 
@@ -88,13 +84,13 @@ This mod changes records *and* runs one buying rule, so its manifest declares bo
 }
 ```
 
-The ref is `core:general-store` because a terrain record is named by its visible `name`. You do not have to know that rule in advance: open `packages/content/pack/terrain.json`, find the building you want, and copy its name into the ref in lower case with spaces changed to `-`.
+The ref is `core:general-store` because a terrain record is named by its visible `name`. To find the ref for any building, open `packages/content/pack/terrain.json`, find the building you want, and copy its name into the ref in lower case with spaces changed to `-`.
 
-We did not change its glyph, its color or its `SHOP` flag. Keeping the existing entrance is what makes this a supported replacement rather than a request for a new town slot.
+The patch leaves the glyph, the color, and the `SHOP` flag as they were. Because the entrance stays the same, the Exchange counts as a supported replacement of an existing storefront and needs no new town slot.
 
 ## Stock the shop
 
-`store.json` is the shop behind that entrance. It uses the entrance's stable code, not the name you just put on the sign:
+`store.json` is the shop behind that entrance. It refers to the entrance by its stable store code, which stays the same when the sign changes:
 
 ```json
 {
@@ -139,13 +135,13 @@ We did not change its glyph, its color or its `SHOP` flag. Keeping the existing 
 }
 ```
 
-`normal` is the pool the shop rolls from. The General Store uses this table; the Black Market has a separate random-stock path that ignores it. `always` is the list it keeps on the shelf: this Exchange never runs out of food or shovels. `buy` is the ordinary rule for what it will buy from the player. The names under `sval` are copied from `packages/content/pack/object.json`, without the item's `&` and `~` marks.
+`normal` is the pool the shop rolls its stock from. The General Store uses this table, and the Black Market ignores it in favor of its own random-stock path. `always` lists what stays on the shelf, so this Exchange always has food and shovels. `buy` is the ordinary rule for which items the shop buys from the player. The names under `sval` come from `packages/content/pack/object.json`, with the item's `&` and `~` marks removed.
 
-`set` replaces the General Store's table with yours. That is right here: this is one storefront becoming a different shop. If you are merely adding one item to a shop that stays itself, use Tutorial 2's `append` instead.
+`set` replaces the General Store's table with yours, which fits here because one storefront is becoming a different shop. To add one item to a shop that keeps its identity, use Tutorial 2's `append` instead.
 
 ## The one rule data cannot say
 
-The Exchange should also buy an **enchanted sword**. It does not buy ordinary swords, and that distinction is a question about the item in the player's hand, not a line a `buy` table can express. That is what the store registry is for.
+The Exchange also buys enchanted swords while turning away ordinary ones. That decision depends on the particular item in the player's hand, and a `buy` table has no line for it. The store registry handles rules like this.
 
 Make `plugin.js`:
 
@@ -178,29 +174,29 @@ export default {
 };
 ```
 
-The published API 2.0 engine domain provides the live store registry during `start`. This in-process example requests `engine:access` and `registry:store`; it cannot run in a Worker. The player must grant engine access. If the domain or shop is absent, the plugin leaves the data-only storefront in place.
+During `start`, the published API 2.0 engine domain provides the live store registry. This example runs in-process and requests `engine:access` and `registry:store`. It cannot run in a Worker, and the player must grant engine access. If the engine domain or the shop is missing, the plugin returns and the data-only storefront stays in place.
 
-The buying exception calls the public `engine.core.objectKnownView(state, shop.obj)` helper and reads its `known` result. The published object has no stored `known` twin; the helper supplies the player-known copy. A hidden enchantment never qualifies. The plugin reads no live bonus values. Calling `coreWillBuy(shop)` preserves the base game's ordinary buying rules for every other item; the known enchanted-sword exception deliberately accepts that sword first.
+For the buying exception, the plugin calls the public `engine.core.objectKnownView(state, shop.obj)` helper and reads its `known` result. The published object carries no stored `known` twin, so the helper supplies the player-known copy. A hidden enchantment never qualifies, and the plugin reads no live bonus values. The plugin accepts a known enchanted sword first and passes every other item to `coreWillBuy(shop)`, which applies the base game's ordinary buying rules.
 
-`objectId` arrives with mod API 2.1. It will identify an item across known-view updates; this synchronous registry rule does not need it.
+`objectId` arrives with mod API 2.1 and will identify an item across known-view updates. This synchronous registry rule has no use for it.
 
 ## Check the result
 
-Turn the mod on from **Mods** and choose **Apply changes and reload**. In town, the `1` building is now the **Adventurer's Exchange**. It rotates supplies, but there is always food and a shovel. Try selling it an ordinary Dagger: it refuses. Identify a dagger with a positive attack bonus, or use wizard mode to create and identify one, and the shop will buy it. A bonus the player has not learned does not qualify.
+Turn the mod on from **Mods** and choose **Apply changes and reload**. In town, the `1` building is now the Adventurer's Exchange. Its supplies rotate, and it always has food and a shovel. Offer it an ordinary Dagger and it refuses. Identify a dagger with a positive attack bonus, or create and identify one in wizard mode, and the shop buys it. A bonus the player has not learned does not count.
 
-Turn the mod off and reload. The sign, stock and buying rule all disappear with it; the General Store returns. That is the useful difference between a mod and a local edit: the base game never stopped being itself.
+Turn the mod off and reload. The sign, the stock, and the buying rule all go away with it, and the General Store returns as the base game had it.
 
 ## Variations to try
 
-- Take over a different storefront. Copy its terrain name and its `STORE_*` code from `terrain.json` and `store.json`; they are different names for the same door, and each file uses the one it owns.
-- Make the shop a real specialist. Add an item from Tutorial 2 to its `normal` list, and keep both files in this mod so the item and its stock line arrive together.
-- Change the exception. `engine.core.TV.SWORD` is the sword item class; use a different existing `TV` value and a player-known item field you can explain to the player.
-- Remove `plugin.js`, both capabilities, and the `plugin` facet, and set `runtime` to `data` and `api` to `*`. The shop still has its sign and stock, but it no longer has the enchanted-sword exception. That is the clean boundary between content and behavior.
+- Take over a different storefront. Copy its terrain name and its `STORE_*` code from `terrain.json` and `store.json`. Both name the same door, and each file uses the name it owns.
+- Make the shop a specialist. Add an item from Tutorial 2 to its `normal` list, and keep both files in this mod so the item and its stock line arrive together.
+- Change the exception. `engine.core.TV.SWORD` is the sword item class. Swap in a different existing `TV` value and a player-known item field you can explain to the player.
+- Remove `plugin.js`, both capabilities, and the `plugin` facet, then set `runtime` to `data` and `api` to `*`. The shop keeps its sign and stock and loses the enchanted-sword exception, which is the only part that needed the plugin.
 
 ## Sample mod
 
-The four files above are the complete mod. Keep them together in one folder: the terrain and store patches name the same General Store doorway, and the plugin finds that doorway through the live registry.
+The four files above are the complete mod. Keep them together in one folder. The terrain and store patches name the same General Store doorway, and the plugin finds that doorway through the live registry.
 
 ---
 
-**Next:** the [authoring guide](../AUTHORING.md) is the reference for the rest of the record files, once you are comfortable making a small mod from scratch.
+**Next:** once you can make a small mod from scratch, the [authoring guide](../AUTHORING.md) is the reference for the rest of the record files.

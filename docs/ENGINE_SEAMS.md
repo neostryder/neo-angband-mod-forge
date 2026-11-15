@@ -18,11 +18,11 @@ flowchart TD
   MAN["manifest.json<br/>ui:menu.row<br/>ui:panel.mount<br/>mod:authoring<br/>mod:session<br/>debug:wizard"] --> C
 ```
 
-*Source of truth: `src/host/api2-ctx.ts`, `src/host/seams.ts`, and `manifest.json`.*
+*Sources: `src/host/api2-ctx.ts`, `src/host/seams.ts`, and `manifest.json`.*
 
-The workshop obtains its live services through mod API 2.0. `buildBuilderCtx` adapts the result-returning calls to internal values named `authoring`, `composedRecords`, `wizard`, `loadModForSession`, and `reloadGame`. Code shapes below name those internal aliases unless they are labeled as a proposed contract. Permanent installation remains declined, and reading another mod's complete files remains a request. The preview and tests can omit services and use named fallbacks.
+The workshop gets its live services from mod API 2.0, and `buildBuilderCtx` turns the result-returning calls into internal values named `authoring`, `composedRecords`, `wizard`, `loadModForSession`, and `reloadGame`. The code shapes on this page use those internal aliases unless a shape is labeled as a proposed contract. Permanent installation stays declined, and reading another mod's complete files is still a request. The preview and the tests can leave services out and use named fallbacks.
 
-The declared engine range starts at 1.23.0-beta.1, the first build that runs a mod API 2 definition from a mod folder. The management seams are calls on the mod's `manage` domain, and the manifest declares the capability each call needs: `mod:authoring` for seam 1, `debug:wizard` for seam 4, `mod:session` for seam 5 and the reload, plus `ui:menu.row` for the way in and `ui:panel.mount` for the page the workshop draws on. Seam 2 is `content.records`, which needs none.
+The declared engine range starts at 1.23.0-beta.1, the first build that runs a mod API 2 definition from a mod folder. Each management seam is a call on the mod's `manage` domain, and the manifest declares the capability that call needs. Seam 1 needs `mod:authoring`, seam 4 needs `debug:wizard`, and seam 5 and the reload need `mod:session`. The workshop also declares `ui:menu.row` for its menu entry and `ui:panel.mount` for the page it draws on. Seam 2 is `content.records` and needs no capability.
 
 The production route for this mod is concrete. Choosing the Build a mod row in the
 Game menu runs `open` in `plugin.ts`, which calls `buildBuilderCtx`
@@ -48,22 +48,22 @@ character write, session resume - rather than a bare page navigation that skips
 the write and can drop the player at title/character-select instead of back into
 play. `location.reload()` remains the fallback for a host with neither seam.
 
-Two rules apply to the workshop services:
+The workshop services follow these rules:
 
 - Each seam is read through one accessor in
   `src/host/seams.ts`, which returns either the real thing or a named fallback.
   No screen tests for a seam directly, so a seam landing changes one file.
-- The manifest declares `ui:menu.row`, `ui:panel.mount`, `mod:authoring`, `mod:session`, and `debug:wizard`. `buildBuilderCtx` checks the grants before calling management services. A refused call leaves its internal member absent, and the workshop uses the fallback described below.
+- The manifest declares `ui:menu.row`, `ui:panel.mount`, `mod:authoring`, `mod:session`, and `debug:wizard`. `buildBuilderCtx` checks the grants before it calls any management service. When a call is refused, its internal member stays absent and the workshop uses the fallback described below.
 
 ---
 
 ## Seam 1. `ctx.authoring` - the mod SDK, handed in - LANDED
 
-The SDK functions are pure over caller-owned data. The published API 2.0 host still gates `manage.authoring()` with `mod:authoring` in the first-party management domain. The adapter stores a successful result as `BuilderCtx.authoring`; a refused result leaves it absent.
+The SDK functions are pure over caller-owned data. In the published API 2.0 host, `manage.authoring()` sits in the first-party management domain behind `mod:authoring`. The adapter stores a successful result as `BuilderCtx.authoring` and leaves that member absent when the call is refused.
 
 ```ts
 /**
- * The SDK result retained in the internal workshop context.
+ * The SDK result kept in the internal workshop context.
  *
  * Absent when the authoring call is unavailable or refused.
  */
@@ -72,7 +72,7 @@ readonly authoring?: ModAuthoringApi;
 export type ModAuthoringApi = typeof import("@rpgm-tools/neo-angband-mod-sdk");
 ```
 
-The host returns the SDK barrel. `src/host/authoring.ts` defines the subset the workshop consumes, and TypeScript checks the installed SDK against it without an `unknown` cast. The workshop calls these members:
+The host returns the SDK barrel. `src/host/authoring.ts` defines the subset the workshop uses, and TypeScript checks the installed SDK against that subset without an `unknown` cast. The workshop calls these members:
 
 | Function | What the workshop does with it |
 | --- | --- |
@@ -82,16 +82,16 @@ The host returns the SDK barrel. `src/host/authoring.ts` defines the subset the 
 | `templateRecord`, `draftRecord` | filling a new record with typical values rather than empty ones |
 | `peersFor` | the evidence table: comparable records, and the sentence saying why they are comparable |
 | `suggestFields` | a value plus the sentence explaining it |
-| `checkRecords` | live validation, at the same three levels the running game uses |
-| `modProject` | assembling, validating and emitting the mod |
+| `checkRecords` | validates records live at the same three levels the running game uses |
+| `modProject` | assembles, validates, and emits the mod |
 | `recordKey`, `recordRefKeys`, `keySpecFor`, `keyDescription` | the ref a record will be addressed by, shown at the moment the player names it |
-| `validateManifest`, `PACK_GROUPS`, `slugify` | live checks on the mod's own id, name and version |
+| `validateManifest`, `PACK_GROUPS`, `slugify` | live checks on the mod's own id, name, and version |
 | `applyFieldPatch`, `composeFieldPatches`, `touchedFields` | previewing a patch, and reporting a same-field collision |
-| `satisfies` | the engine range the emitted mod declares |
+| `satisfies` | the engine range declared by the emitted mod |
 
-The adapter calls `manage.authoring()` when the workshop opens. The published library supplies record drafting, validation, composition, and schema 2 emission; the workshop does not bundle that library into `plugin.js`.
+When the workshop opens, the adapter calls `manage.authoring()`. The published library supplies record drafting, validation, composition, and schema 2 emission, and the workshop keeps that library out of its `plugin.js` bundle.
 
-Without this field, a standalone or compatibility context can still omit it from ModForge's narrower `BuilderCtx`. `src/host/authoring-stub.ts` then implements the same interface over a hand-written record set of a few dozen records and a hand-written blueprint for four content kinds. Every screen renders and every gesture works; the numbers are a demonstration and the workshop says so in a banner it does not let the player dismiss. The fallback can also appear in a supported game when the management domain or grant is unavailable.
+A standalone or compatibility context can leave this field out of ModForge's narrower `BuilderCtx`. In that case `src/host/authoring-stub.ts` implements the same interface over a hand-written set of a few dozen records and a hand-written blueprint for four content kinds. Every screen renders and every gesture works, but the numbers are a demonstration, and a banner the player cannot dismiss says so. The same fallback appears in a supported game when the management domain or grant is unavailable.
 
 The advisory extension also landed. `RecordBlueprint` measures a closed set
 of values for a field where core's data has one. `checkRecords` now reports an
@@ -166,7 +166,7 @@ can choose the menu row.
 
 The install contract below records the evaluated shape. ModForge does not ask for `mod:install`, so the game never hands it `ctx.installMod`, and the workshop's install button stays off. The session-loading door already supplies the authoring loop without granting a mod permission to make another mod permanent. `ctx.reloadGame`, also recorded in this section, did land for callers holding `mod:session` or `mod:install`.
 
-The published capability vocabulary includes `mod:install`. ModForge does not declare it. The code below records the old installation proposal and the internal reload alias, rather than a callable installation method in this workshop.
+The published capability vocabulary includes `mod:install`, and ModForge leaves it undeclared. The code below records the old installation proposal and the internal reload alias. This workshop has no callable installation method.
 
 ```ts
 /**
@@ -287,7 +287,7 @@ The workshop uses it in these ways:
   list that would be wrong the first time the game added a monster. It is **not**
   limited to the mod's own content: the filter turns off, and the record an author is
   modelling theirs on is the thing they most often want to test against.
-- It reads the catalogue before the test session is detached, which works before `sandbox()`. The debug capability must already be granted. Deciding what to test is how somebody decides whether to spend their
+- It reads the catalogue before the test session is detached, so it works before `sandbox()` as long as the debug capability is already granted. Choosing what to test is how someone decides whether to spend their
   session; a browser that filled in afterwards would ask them to agree to something
   they cannot see.
 - It still spawns only records already in the composed game. It never spawns from an
@@ -365,7 +365,7 @@ Without it, the Try button is there but greyed out, with a note under it. If the
 
 ## Seam 6. `ctx.readMod` - a mod, read rather than installed
 
-Forking needs another mod's complete source files without installing it. The workshop currently recovers installed content from `content.records(file)` and provenance, and it cannot fetch a repository through its host context. The published `manage.mods.browse()` can return catalog manifests under `mod:install`, which this mod does not request; it does not return complete file bytes. The following is a proposed read-only contract, not a member of mod API 2.0:
+Forking needs another mod's complete source files without installing that mod. The workshop currently recovers installed content from `content.records(file)` and provenance, and its host context gives it no way to fetch a repository. The published `manage.mods.browse()` can return catalog manifests under `mod:install`, a capability this mod does not request, and even then it returns no complete file bytes. The following is a proposed read-only contract and sits outside mod API 2.0:
 
 ```ts
 /**
@@ -416,7 +416,7 @@ The shape has these properties.
 Without it, the workshop does two different partial things, and neither is a
 substitute for the seam.
 
-For a mod ALREADY INSTALLED, it reads the content out of `ctx.composedRecords`. Every composed record names the pack that owns it and the packs that have touched it, so mods with visible content contributions and the records they contributed can be recovered from provenance, and a record another mod has since patched can be restored to its owner's own version from the same stamp. The current adapter does not supply installed manifests, so a fork taken this way arrives with no name, no description, no author, and no LICENCE - which is the one that matters, since forking somebody's content does not come with permission to relicense it. The workshop says so in as many words and asks for a licence before the mod is shared.
+For a mod that is already installed, the workshop reads its content from `ctx.composedRecords`. Each composed record names the pack that owns it and the packs that have touched it, so provenance recovers the mods with visible content contributions and the records they contributed. The same stamp restores a record that another mod has since patched to its owner's version. The current adapter does not supply installed manifests, so a fork taken this way arrives with no name, description, author, or LICENCE. The licence matters most, because forking someone's content gives no permission to relicense it. The workshop tells the author this directly and asks for a licence before the mod is shared.
 
 For a mod at a REPOSITORY ADDRESS, it refuses, and says to install the mod first
 or to download its folder and pick it. Resolving a repository is a real piece of
@@ -430,9 +430,9 @@ mod the install door would refuse. That is the same reasoning that keeps this mo
 from shipping its own copy of the record validator under seam 1: a reimplementation
 that disagrees with the game's own is worse than none, because it is believed.
 
-## The published project builder limit
+## Limits of the published project builder
 
-The installed SDK's `ModProject.build` takes one base pack. The workshop currently merges loaded records into a base named Core, so a draft that depends on another installed mod receives `project/unloadable` before composition. The exported manifest retains the dependency. The SDK exposes lower-level `composeContentPacks`, but matching `ModProject.build` through it would also require duplicating the builder's validation policy. A builder overload accepting all base packs would preserve that policy and each record's owner.
+The installed SDK's `ModProject.build` takes one base pack. The workshop currently merges loaded records into a base named Core, so a draft that depends on another installed mod gets `project/unloadable` before composition, while the exported manifest keeps the dependency. The SDK also exposes the lower-level `composeContentPacks`, but matching `ModProject.build` through it would mean duplicating the builder's validation policy. A builder overload that accepts all base packs would keep that policy and each record's owner.
 
 ## What is deliberately not asked for
 
@@ -443,7 +443,7 @@ the host's own close button in the corner the page names (`closeAt`, the bottom 
 `ui:panel.mount`. A host that will not make one (a test, a refusal) leaves the
 workshop to draw its own element on the document, as it did before.
 
-The workshop still handles held-key and pointer-button state in `src/ui/overlay.ts`, so that closing the workshop with a key held does not move the character. The mod's own capture-phase listeners get most of the way there and cannot get that far, since the browser's own hardware auto-repeat for a still-held key is not something any amount of listener bookkeeping in this mod's script can reach. What the listeners CAN do, and now do, is set right the one thing that is honestly theirs to fix: `src/ui/overlay.ts` tracks a key or pointer button it has seen go down without a matching release while it owns input, and sends the game an honest keyup or mouseup for one on acquire and on release, so the game is never left believing something is held that it can no longer hear the release of. That narrows the edge case; it does not close it. Implemented in `src/ui/overlay.ts`, with the remaining browser-level edge case described above.
+The workshop tracks held keys and pointer buttons in `src/ui/overlay.ts` so that closing the workshop with a key held does not move the character. While the workshop owns input, `src/ui/overlay.ts` records each key or pointer button it sees go down without a matching release, and when it acquires or releases input it sends the game a keyup or mouseup for each one. The game is then never left treating something as held after it can no longer receive the release. One edge case remains: the browser's hardware auto-repeat for a key still held down is out of reach of the mod's capture-phase listeners.
 
 A menu-row dispatch seam is not needed. The way in is a row in the Game menu,
 registered with `ui.gameMenu.register` under `ui:menu.row`.

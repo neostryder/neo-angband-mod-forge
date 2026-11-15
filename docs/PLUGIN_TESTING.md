@@ -89,7 +89,7 @@ Import the built artifact directly:
 const plugin = (await import("../plugin.js")).default;
 ```
 
-An API 2 hook factory receives `{ id, flags }`. The message hook has the same string-to-string signature as Core's message transform. Other API 2 hooks, such as `historyAdd`, have different return types, so a whole `Api2Hooks` object cannot be passed directly to `composeModHooks`. This example extracts only `messageText` and drives a real level-up:
+An API 2 hook factory receives `{ id, flags }`, and its message hook has the same string-to-string signature as Core's message transform. Other API 2 hooks, such as `historyAdd`, return different types, so a whole `Api2Hooks` object cannot go straight into `composeModHooks`. The example below pulls out only `messageText` and runs a level-up through Core:
 
 ```ts
 import * as Core from "@rpgm-tools/neo-angband-core";
@@ -106,9 +106,9 @@ Core.playerExpGain(game.state.actor.player, 100, { rng: game.state.rng, msg });
 expect(messages).toContain("Congratulations! Welcome to level 2.");
 ```
 
-`realGamePack` is the test's `GamePack` fixture from the pinned content source. `startGame` returns a state whose player is `state.actor.player`; `playerExpGain` invokes `adjustLevel` and sends the level-up message through the supplied sink. This example targets tutorial 5. Use the public operation and expected result that match the hook under test.
+`realGamePack` is the test's `GamePack` fixture from the pinned content source. `startGame` returns a state with the player at `state.actor.player`, and `playerExpGain` calls `adjustLevel` and sends the level-up message to the sink you pass in. This example targets tutorial 5. For another hook, pick the public operation and expected result that match it.
 
-For a message hook, feed a real core message-producing operation and assert the text received by the test sink. For a veto hook, assert both sides: the hook is called and the operation is accepted or rejected as its return value requires. For a controller-style plugin, use the real `GameState`/agent view and action facade, then assert the command produced after a state change. In every case, make the state transition visible in the assertion; "the hook was registered" is not a behaviour test.
+A message hook test runs a core operation that produces a message and asserts the text that reaches the test sink. For a veto hook, assert that the hook is called and that the operation is accepted or rejected as its return value requires. A controller-style plugin needs the live `GameState`/agent view and action facade: change the state, then assert the command the plugin produces. Each test should assert on the state transition itself, because checking that the hook was registered says nothing about what the hook does.
 
 ## Running the suite
 

@@ -6,7 +6,7 @@
 
 **Time:** ten minutes.
 
-**New idea:** your mod runs code. Still no compiler, no build step, no dependencies, just one `.js` file beside the manifest.
+**New idea:** your mod runs code. It is still one `.js` file beside the manifest, with no compiler, build step, or dependencies.
 
 ---
 
@@ -54,7 +54,7 @@ my-code-mod/
 }
 ```
 
-`shape` and `facets` declare the plugin, `runtime` selects in-process execution, and `api` names the compatible mod API versions. The hook runs synchronously in the game process.
+`shape` and `facets` declare the plugin. `runtime` selects in-process execution, and `api` names the mod API versions the plugin works with. The hook runs synchronously in the game process.
 
 `plugin.js`:
 
@@ -71,25 +71,25 @@ export default {
 };
 ```
 
-Ten lines, and that is the entire mod.
+Those ten lines are all the code the mod needs.
 
 ## What is happening
 
-A mod that runs code **default-exports one object**. The game looks at that object and asks it questions.
+A mod that runs code default-exports one object, and the game calls methods on that object.
 
-`hooks()` returns a plain object whose keys are **behavior points**, places where the game will consult a mod before doing something. The published API 2 hook contract lists the available hooks. You supply the ones you care about and omit the rest; a key you do not write is a place the game never asks you about, and it costs nothing.
+`hooks()` returns a plain object whose keys are **behavior points**, the places where the game consults a mod before doing something. The published API 2 hook contract lists the available hooks. Write keys for the hooks you want and leave the rest out. The game never consults your mod at a point you leave out, and an omitted key costs nothing.
 
-`messageText` is the simplest one. Every player-visible message passes through it on its way to the message line, and whatever you return is what is shown.
+`messageText` is the simplest hook. Every message the player sees passes through it on the way to the message line, and the game shows whatever string you return.
 
-**Note what is *not* here.** There are no imports. `plugin.js` is a plain ES module that the game loads from your folder; it does not import the engine, because the engine is passed *in* to the functions that need it. That is what keeps a mod from having to be built, bundled, or kept in step with the game's internal module layout. If you want more than one file, you can `import "./lib/whatever.js"` from your own folder; relative paths work on both the desktop and browser builds.
+`plugin.js` has no imports. The game loads it from your folder as a plain ES module and passes the engine in to the functions that need it. Because of that, a mod needs no build or bundle step and does not have to track the game's internal module layout. To split your code across files, `import "./lib/whatever.js"` from your own folder. Relative paths work on both the desktop and browser builds.
 
 ## One rule about this hook
 
-A message hook may **restate** a message. It must never change what a message means.
+A message hook may restate a message. It must never change what the message means.
 
-"Congratulations!" in front of a level-up is a restatement: same fact, more enthusiasm. Turning *"You are poisoned."* into *"You feel fine."* is not, and a mod that does it has made the game lie to the player about their own character.
+Putting "Congratulations!" in front of a level-up message restates it: the fact stays the same, with more enthusiasm. Turning *"You are poisoned."* into *"You feel fine."* changes the meaning, and a mod that does that makes the game lie to the player about their own character.
 
-This is not the engine stopping you; the engine will happily return whatever you write. It is the line between a mod that changes the game and a mod that breaks it, and this hook is the easiest place in the whole system to cross it by accident.
+The engine returns whatever your hook returns, so the rule is yours to keep. This hook is the easiest place in the mod system to break it by accident.
 
 ## The mistake to avoid
 
@@ -98,29 +98,29 @@ messageText: (raw) => (raw.startsWith("Welcome to level ") ? `Congratulations! $
 //                                                                                     ^^^^
 ```
 
-That trailing `: raw` matters enormously. Your function sees **every** message the game prints, so one that forgets to return the original text for cases it does not care about deletes the rest of the game's output. Whatever your hook does, the default branch returns what it was given.
+The trailing `: raw` returns the original text for every message the hook leaves alone. Your function sees every message the game prints, so a hook that drops that branch deletes the rest of the game's output. Whatever else your hook does, make the default branch return what it was given.
 
 ## Running it
 
-Exactly as before: the `mods/` folder on the desktop build, or **Choose a mods folder...** in a browser. A code mod is loaded from a folder the same way a data mod is.
+Load it the same way as in the earlier tutorials: put it in the `mods/` folder on the desktop build, or use **Choose a mods folder...** in a browser. The game loads a code mod from a folder the same way it loads a data mod.
 
 ## Check the result
 
 Gain a level. The message reads *"Congratulations! Welcome to level 2."*
 
-Turn the mod off, reload, and it reads *"Welcome to level 2."* again.
+Turn the mod off and reload. The message reads *"Welcome to level 2."* again.
 
 ## Variations to try
 
 - Congratulate loudly: `` `*** ${raw.toUpperCase()} ***` ``.
-- React to a **different** message. Find one you like in the game and match on it.
-- Add a second hook. `saveNoiseScent` and `objectListTiebreak` are two of the other hooks; see [MOD_SEAMS.md](https://github.com/neostryder/neo-angband/blob/master/docs/modding/MOD_SEAMS.md) for what each one is asked to do and when.
-- Print something to the console from inside the hook and watch how often it is called. It is a good way to get a feel for the game's message volume.
+- React to a different message. Find one you like in the game and match on it.
+- Add a second hook. `saveNoiseScent` and `objectListTiebreak` are two of the other hooks. [MOD_SEAMS.md](https://github.com/neostryder/neo-angband/blob/master/docs/modding/MOD_SEAMS.md) describes what the game asks each one to do and when.
+- Print something to the console from inside the hook and count how often it runs. The count shows how many messages the game prints during play.
 
 ## Sample mod
 
-Core's historical sample uses API 1. The API 2 example on this page is tested in ModForge's documentation suite.
+Core's historical sample uses API 1. ModForge's documentation suite tests the API 2 example on this page.
 
 ---
 
-**Next:** [Tutorial 6: Add an option](06-add-an-option.md), the same mod, with a switch the player controls.
+**Next:** [Tutorial 6: Add an option](06-add-an-option.md), which gives the same mod a switch the player controls.
