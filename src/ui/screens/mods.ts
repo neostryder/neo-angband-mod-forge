@@ -17,6 +17,7 @@ import type { View, Workshop } from "../view.js";
 import { button, card, empty, fillList, listRow } from "../widgets.js";
 import { draftSize } from "../../model/draft.js";
 import type { ForkOutcome, RawFile } from "../../model/fork.js";
+import { zipSizeCheck } from "../../model/unzip.js";
 import type { AppState } from "../store.js";
 
 export function modsScreen(shop: Workshop): View {
@@ -248,7 +249,11 @@ function forkCard(shop: Workshop): { readonly el: HTMLElement } {
     const picked = zipInput.files?.[0];
     if (!picked) return;
     zipInput.value = "";
-    take(async (id) => shop.acts.forkZip(new Uint8Array(await picked.arrayBuffer()), id));
+    take(async (id) => {
+      const size = zipSizeCheck(picked.size);
+      if (!size.ok) return size;
+      return shop.acts.forkZip(new Uint8Array(await picked.arrayBuffer()), id);
+    });
   });
 
   const forkCardEl = card({

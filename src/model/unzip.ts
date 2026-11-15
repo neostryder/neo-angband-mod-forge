@@ -32,6 +32,22 @@ export type UnzipOutcome =
   | { readonly ok: true; readonly entries: readonly ZipEntry[] }
   | { readonly ok: false; readonly why: string };
 
+export const ZIP_LIMITS = {
+  maxArchiveBytes: 64 * 1024 * 1024,
+  maxTotalBytes: 128 * 1024 * 1024,
+  maxEntries: 4096,
+};
+
+export function zipSizeCheck(size: number, limit = ZIP_LIMITS.maxArchiveBytes): { readonly ok: true } | { readonly ok: false; readonly why: string } {
+  return size > limit
+    ? { ok: false, why: `That file exceeds the ${limit / (1024 * 1024)} MiB limit for a zip.` }
+    : { ok: true };
+}
+
+function unpackedLimit(limit: number): string {
+  return `That zip unpacks to more than ${limit / (1024 * 1024)} MiB.`;
+}
+
 const LOCAL_HEADER = 0x04034b50;
 const CENTRAL_HEADER = 0x02014b50;
 const END_OF_DIRECTORY = 0x06054b50;
@@ -48,7 +64,9 @@ const ZIP64_MARKER = 0xffffffff;
  * draft, which no writer here would ever emit and no reader on the other side
  * would know what to do with.
  */
-export async function unzip(bytes: Uint8Array): Promise<UnzipOutcome> {
+export async function unzip(bytes: Uint8Array, limits = ZIP_LIMITS): Promise<UnzipOutcome> {
+  const size = zipSizeCheck(bytes.length, limits.maxArchiveBytes);
+  if (!size.ok) return size;
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const end = findEndOfDirectory(view);
   if (end < 0) {
@@ -56,12 +74,16 @@ export async function unzip(bytes: Uint8Array): Promise<UnzipOutcome> {
   }
 
   const count = view.getUint16(end + 10, true);
+  if (count > limits.maxEntries) {
+    return { ok: false, why: `That zip has more than ${limits.maxEntries} entries.` };
+  }
   const directoryAt = view.getUint32(end + 16, true);
   if (directoryAt >= bytes.length) {
     return { ok: false, why: "That zip's directory points past the end of the file, so it is truncated or damaged." };
   }
 
-  const entries: ZipEntry[] = [];
+  const files: { name: string; method: number; raw: Uint8Array }[] = [];
+  let declared = 0;
   let at = directoryAt;
   for (let i = 0; i < count; i++) {
     if (at + 46 > bytes.length || view.getUint32(at, true) !== CENTRAL_HEADER) {
@@ -77,13 +99,15 @@ export async function unzip(bytes: Uint8Array): Promise<UnzipOutcome> {
     const name = new TextDecoder().decode(bytes.subarray(at + 46, at + 46 + nameLength));
     at += 46 + nameLength + extraLength + commentLength;
 
-    if (name.endsWith("/")) continue;
     if (compressed === ZIP64_MARKER || uncompressed === ZIP64_MARKER || localAt === ZIP64_MARKER) {
       return {
         ok: false,
         why: `${name} uses the zip64 extension, which the workshop cannot open. A mod folder is too small to need it, so this is probably not a mod.`,
       };
     }
+    declared += uncompressed;
+    if (declared > limits.maxTotalBytes) return { ok: false, why: unpackedLimit(limits.maxTotalBytes) };
+    if (name.endsWith("/")) continue;
     if (method !== 0 && method !== 8) {
       return {
         ok: false,
@@ -98,11 +122,20 @@ export async function unzip(bytes: Uint8Array): Promise<UnzipOutcome> {
       return { ok: false, why: `${name} runs past the end of that zip, so it is truncated.` };
     }
     const raw = bytes.subarray(dataAt, dataAt + compressed);
+    files.push({ name, method, raw });
+  }
+
+  /* The directory is untrusted, so no inflater runs until every declared size fits. */
+  const entries: ZipEntry[] = [];
+  const budget = { used: 0, limit: limits.maxTotalBytes };
+  for (const { name, method, raw } of files) {
     if (method === 0) {
+      budget.used += raw.length;
+      if (budget.used > budget.limit) return { ok: false, why: unpackedLimit(budget.limit) };
       entries.push({ path: name, contents: raw.slice() });
       continue;
     }
-    const inflated = await inflate(raw);
+    const inflated = await inflate(raw, budget);
     if (!inflated.ok) return { ok: false, why: `${name} could not be unpacked: ${inflated.why}` };
     entries.push({ path: name, contents: inflated.bytes });
   }
@@ -134,7 +167,7 @@ type Inflated = { readonly ok: true; readonly bytes: Uint8Array } | { readonly o
  * one to the wrong format fails on the first byte, which is a confusing way to
  * find out about a two-byte header.
  */
-async function inflate(raw: Uint8Array): Promise<Inflated> {
+async function inflate(raw: Uint8Array, budget: { used: number; readonly limit: number }): Promise<Inflated> {
   const Decompressor = (globalThis as { DecompressionStream?: typeof DecompressionStream }).DecompressionStream;
   if (Decompressor === undefined) {
     return {
@@ -144,7 +177,31 @@ async function inflate(raw: Uint8Array): Promise<Inflated> {
   }
   try {
     const stream = new Blob([raw as unknown as BlobPart]).stream().pipeThrough(new Decompressor("deflate-raw"));
-    return { ok: true, bytes: new Uint8Array(await new Response(stream).arrayBuffer()) };
+    const reader = stream.getReader();
+    const chunks: Uint8Array[] = [];
+    let length = 0;
+    try {
+      for (;;) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        budget.used += chunk.value.length;
+        if (budget.used > budget.limit) {
+          await reader.cancel().catch(() => undefined);
+          return { ok: false, why: unpackedLimit(budget.limit) };
+        }
+        chunks.push(chunk.value);
+        length += chunk.value.length;
+      }
+    } finally {
+      reader.releaseLock();
+    }
+    const bytes = new Uint8Array(length);
+    let at = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, at);
+      at += chunk.length;
+    }
+    return { ok: true, bytes };
   } catch (e) {
     return { ok: false, why: e instanceof Error ? e.message : String(e) };
   }

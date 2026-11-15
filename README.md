@@ -62,6 +62,8 @@ Nudging a number writes "three more than whatever this is" instead of a fixed va
 
 You can fork a mod into one of your own from a mod installed in this game, a mod folder picked from disk, or a mod saved as a zip. The fork owns its content outright instead of patching the original, so the original does not have to be installed for yours to work. You have to give the fork its own id before you can take it. It keeps the original's license when the source folder or zip includes one, and the unfinished draft records where it came from. The schema 2 manifest writer drops the custom `forkedFrom` key on export. Anything the fork could not carry over is listed on the screen where you made it, so you can read through those differences. Forking from a repository address is not possible, because fetching a repository is the game's job and the game does not pass that job to mods. Install the mod first and fork it from the list, or download its folder and pick that.
 
+A zip can be at most 64 MiB, contain at most 4,096 entries, and unpack to at most 128 MiB total. The workshop checks declared sizes before unpacking and stops if the actual output exceeds the limit.
+
 ## When you outgrow the screens: editing the files
 
 ```mermaid
