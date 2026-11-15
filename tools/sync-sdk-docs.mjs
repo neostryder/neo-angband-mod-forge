@@ -183,7 +183,9 @@ const readDocument = (document) => {
 
 const embedded = documents.map(readDocument);
 const bytes = new TextEncoder().encode(embedded.map((document) => document.text).join("")).length;
-const ceiling = 384 * 1024;
+// The beta.4 selection needs 409,266 bytes; 404 KiB retains the API 2 reference
+// with 4,430 bytes for local authoring notes while bounding plugin.js growth.
+const ceiling = 404 * 1024;
 if (bytes > ceiling) {
   throw new Error(`Selected SDK docs are ${String(bytes)} bytes, above the ${String(ceiling)} byte embedding ceiling.`);
 }

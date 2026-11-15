@@ -115,6 +115,13 @@ describe("the local authoring documentation", () => {
     }
   });
 
+  it("embeds the installed SDK references without stale text", () => {
+    for (const doc of sdkDocs().filter((entry) => entry.source === "sdk")) {
+      const source = readFileSync(resolve("node_modules/@rpgm-tools/neo-angband-mod-sdk/docs", doc.path), "utf8");
+      expect(doc.text === source.replace(/\r\n/g, "\n").replace(/\n{2,}$/u, "\n"), doc.path).toBe(true);
+    }
+  });
+
   it("resolves every moved guide's relative file link inside this repository", () => {
     for (const doc of sdkDocs().filter((entry) => entry.source === "local")) {
       const file = resolve("docs", doc.path);
