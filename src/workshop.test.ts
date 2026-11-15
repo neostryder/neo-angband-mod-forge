@@ -1527,7 +1527,7 @@ describe("forking a mod that already exists", () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(arrayBuffer).not.toHaveBeenCalled();
-    expect(screenText()).toContain("64 MiB limit for a zip");
+    expect(screenText()).toContain("larger than 64 MiB");
   });
 
   it("refuses an id a mod in the game already uses", () => {
