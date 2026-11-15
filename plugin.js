@@ -2935,10 +2935,10 @@ var ZIP_LIMITS = {
   maxEntries: 4096
 };
 function zipSizeCheck(size, limit = ZIP_LIMITS.maxArchiveBytes) {
-  return size > limit ? { ok: false, why: `That file exceeds the ${limit / (1024 * 1024)} MiB limit for a zip.` } : { ok: true };
+  return size > limit ? { ok: false, why: `Could not import: the ZIP file is larger than ${limit / (1024 * 1024)} MiB.` } : { ok: true };
 }
 function unpackedLimit(limit) {
-  return `That zip unpacks to more than ${limit / (1024 * 1024)} MiB.`;
+  return `Could not import: the ZIP would unpack to more than ${limit / (1024 * 1024)} MiB.`;
 }
 var LOCAL_HEADER = 67324752;
 var CENTRAL_HEADER = 33639248;
@@ -2954,7 +2954,7 @@ async function unzip(bytes, limits = ZIP_LIMITS) {
   }
   const count = view.getUint16(end + 10, true);
   if (count > limits.maxEntries) {
-    return { ok: false, why: `That zip has more than ${limits.maxEntries} entries.` };
+    return { ok: false, why: `Could not import: the ZIP holds more than ${limits.maxEntries.toLocaleString("en-US")} entries.` };
   }
   const directoryAt = view.getUint32(end + 16, true);
   if (directoryAt >= bytes.length) {
