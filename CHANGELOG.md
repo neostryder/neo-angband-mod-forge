@@ -24,6 +24,14 @@ were not retagged.
 
 ## [Unreleased]
 
+### Added
+
+- [Visible] [UI] **The workshop now includes the mod-making tutorials and publishing guides.** Eight tutorials walk you from changing a single value to adding a store, and the publishing guides are rewritten in plainer language. Every code example is tested against the released modding kit, and the reference in the workshop covers the new fields in mod API 2.1.
+
+### Fixed
+
+- [Visible] [UI] **ModForge now refuses oversized ZIP files when you fork a mod.** A malicious ZIP could make a fork use unlimited memory. ModForge checks the ZIP before unpacking it and refuses one larger than 64 MiB, one that unpacks to more than 128 MiB, or one with more than 4096 files and folders, and the message tells you which limit it hit (neostryder/neo-angband-mod-forge#36).
+
 ## [1.5.0-beta.1] - 2026-11-05
 
 ### Changed
